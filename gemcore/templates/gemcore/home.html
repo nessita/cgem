@@ -1,1 +1,26 @@
 {% extends 'base.html' %}
+
+{% block content %}
+<h1>Your latest expenses</h1>
+{% for expense in expenses %}
+    <p>{{ expense }}</p>
+{% empty %}
+    <p>No expenses in the system yet.</p>
+{% endfor %}
+
+<h1>Your books</h1>
+{% for book in books %}
+    <p>{{ book }}</p>
+{% empty %}
+    <p>No books in the system yet.</p>
+{% endfor %}
+
+
+<div class="btn-group">
+  <button type="button" class="btn btn-default">
+    <a href="{% url 'add-book' %}">Add Book</a></button>
+  <button type="button" class="btn btn-default">
+    <a href="{% url 'add-expense' %}">Add Expense</a></button>
+</div>
+
+{% endblock content %}

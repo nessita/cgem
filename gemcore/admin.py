@@ -1,7 +1,8 @@
 from django.contrib import admin
 
-from gemcore.models import Category, Expense
+from gemcore.models import Book, Currency, Expense
 
 
-admin.site.register(Category)
+admin.site.register(Book)
+admin.site.register(Currency)
 admin.site.register(Expense)

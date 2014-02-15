@@ -37,10 +37,11 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'gemcore',
+    'taggit',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'gemcore',
 )
 
 MIDDLEWARE_CLASSES = (
