@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.admin import widgets
 
 from gemcore.models import Book, Currency, Expense
 
@@ -15,8 +16,11 @@ class CurrencyForm(forms.ModelForm):
         model = Currency
 
 
-
 class ExpenseForm(forms.ModelForm):
 
     class Meta:
         model = Expense
+        exclude = ('book',)
+        widgets = dict(
+            when=widgets.AdminDateWidget,
+        )

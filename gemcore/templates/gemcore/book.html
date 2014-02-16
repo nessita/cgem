@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if book %}
+<h1>Edit {{ book }}</h1>
+{% else %}
+<h1>Add a book</h1>
+{% endif %}
+
+<form action="." method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="btn-group">
+        {% if book %}
+        <input type="submit" class="btn btn-primary" name="save" value="Save">
+        <input type="submit" class="btn btn-default" name="save-and-add-expense" value="Save and add expense">
+        {% else %}
+        <input type="submit" class="btn btn-primary" name="add" value="Add">
+        {% endif %}
+    </div>
+</form>
+
+{% endblock content %}

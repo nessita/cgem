@@ -1,1 +1,4 @@
+gem/__pycache__/
+gem/local_settings.py
+gemcore/__pycache__/
 db.sqlite3

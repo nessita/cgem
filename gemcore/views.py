@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
 from gemcore.forms import BookForm, ExpenseForm
-from gemcore.models import Expense
+from gemcore.models import Book, Expense
 
 
 @require_GET
@@ -19,26 +19,52 @@ def home(request):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def add_book(request):
+def book(request, book_id=None):
+    book = None
+    if book_id:
+        book = get_object_or_404(Book, id=book_id)
+
     if request.method == 'POST':
-        form = BookForm(request.POST)
+        form = BookForm(instance=book, data=request.POST)
         if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse(home))
+            book = form.save()
+            if 'save-and-add-expense' in request.POST:
+                redirect = reverse('add-expense', kwargs=dict(book_id=book.id))
+            elif 'save' in request.POST:
+                redirect = '.'
+            else:
+                redirect = reverse(home)
+
+            return HttpResponseRedirect(redirect)
     else:
-        form = BookForm()
-    return render(request, 'gemcore/book.html', dict(form=form))
+        form = BookForm(instance=book)
+    return render(request, 'gemcore/book.html', dict(form=form, book=book))
 
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def add_expense(request, book_id):
+def book_remove(request, book_id):
+    book = get_object_or_404(Book, id=book_id)
+
+    if request.method == 'POST':
+        if 'yes' in request.POST:
+            book.delete()
+        return HttpResponseRedirect(reverse(home))
+
+    return render(request, 'gemcore/book_remove.html', dict(book=book))
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def expense(request, book_id):
     book = get_object_or_404(Book, id=book_id)
     if request.method == 'POST':
-        form = ExpenseForm(book=book, data=request.POST)
+        form = ExpenseForm(data=request.POST)
         if form.is_valid():
-            form.save()
+            expense = form.save(commit=False)
+            expense.book = book
+            expense.save()
             return HttpResponseRedirect(reverse(home))
     else:
-        form = ExpenseForm(book=book)
+        form = ExpenseForm(initial=dict(book=book, who=request.user))
     return render(request, 'gemcore/expense.html', dict(form=form))
