@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Expenses for {{ book.name }}
+    {% if tag %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% url 'expenses' book.slug %}">{{ tag }} &times;</a>
+    </div>
+    {% else %}
+    {% include 'gemcore/_book_tags.html' %}
+    {% endif %}
+</h1>
+
+{% if expenses %}
+<table class="table table-condensed">
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>Who</th>
+            <th>What</th>
+            <th>$</th>
+            <th>Tags</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for expense in expenses %}
+        <tr class="{% cycle 'info' 'default' %}">
+            <td>{{ expense.when }}</td>
+            <td>{{ expense.who }}</td>
+            <td>{{ expense.what }}</td>
+            <td>{{ expense.amount }} {{ expense.currency }}</td>
+            <td>{{ expense.tags.names }}</td>
+            <td>
+                <a href="{% url 'edit-expense' book.slug expense.id %}">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No expenses in the system yet{% if tag %} for {{ tag }}{% endif %}.</p>
+{% endif %}
+
+<div class="pull-right btn-group">
+    <a href="{% url 'add-expense' book.slug %}" class="btn btn-primary">Add expense</a>
+</div>
+
+{% endblock content %}

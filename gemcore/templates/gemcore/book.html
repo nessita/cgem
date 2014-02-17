@@ -8,17 +8,22 @@
 <h1>Add a book</h1>
 {% endif %}
 
-<form action="." method="POST">
+<form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
-    {{ form.as_p }}
+    <div class="form-horizontal">
+    {% for field in form %}
+        {{ field.label_tag }} {{ field }}
+    {% endfor %}
+    </div>
     <div class="btn-group">
         {% if book %}
-        <input type="submit" class="btn btn-primary" name="save" value="Save">
-        <input type="submit" class="btn btn-default" name="save-and-add-expense" value="Save and add expense">
+        <button type="submit" class="btn btn-primary" name="save">Save</button>
+        <a href="{% url 'remove-book' book.slug %}" class="btn btn-default">Remove</a>
         {% else %}
         <input type="submit" class="btn btn-primary" name="add" value="Add">
         {% endif %}
     </div>
+    <a href="{% url 'add-expense' book.slug %}" class="btn btn-success">Add Expense</a>
 </form>
 
 {% endblock content %}

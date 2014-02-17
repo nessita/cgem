@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Books that you are part of</h1>
+{% for book in books %}
+    <h2><a href="{% url 'expenses' book.slug %}">{{ book }}</a></h2>
+    {% include 'gemcore/_book_tags.html' %}
+    <div>
+        Recent expenses:
+        <ul>
+            {% for expense in book.latest_expenses %}
+            <li><a href="{% url 'edit-expense' book.slug expense.id %}">{{ expense }}</a></li>
+            {% empty %}
+            <li>No expenses for this book yet.</li>
+            {% endfor %}
+        </ul>
+        <div class="btn-group">
+            <a href="{% url 'add-expense' book.slug %}" class="btn btn-xs btn-primary">
+                Add expense</a>
+            <a href="{% url 'edit-book' book.slug %}" class="btn btn-xs btn-default">
+                Edit book</a>
+            <a href="{% url 'remove-book' book.slug %}" class="btn btn-xs btn-default">
+                Remove book</a>
+        </div>
+    </div>
+{% empty %}
+    <p>No books in the system yet.</p>
+{% endfor %}
+
+<div class="pull-right btn-group">
+    <a href="{% url 'add-book' %}" class="btn btn-primary">Add Book</a>
+</div>
+
+{% endblock content %}

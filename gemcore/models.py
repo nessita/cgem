@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
@@ -25,8 +26,19 @@ class Book(models.Model):
     users = models.ManyToManyField(User)
 
     def __str__(self):
-        return '%s (%s)' % (
-            self.name, ', '.join(str(u) for u in self.users.all()))
+        return self.name
+
+    def latest_expenses(self):
+        return self.expense_set.all().order_by('-when')[:5]
+
+    def tags(self):
+        result = defaultdict(int)
+        for e in self.expense_set.filter(tags__isnull=False).distinct():
+            for t in e.tags.all():
+                result[t] += 1
+
+        # templates can not handle defaultdicts
+        return dict(result)
 
 
 class Currency(models.Model):
