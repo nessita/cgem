@@ -25,7 +25,16 @@ TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['gem.herokuapp.com']
 
-DATABASES = {}
+DATABASES = {
+    'default': {
+        'ENGINE':'django.db.backends.postgresql_psycopg2',
+        'NAME': 'gem',
+        'USER': '',
+        'PASSWORD': '',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
+    }
+}
 
 # Application definition
 
