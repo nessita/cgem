@@ -25,6 +25,7 @@ TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['gem.herokuapp.com']
 
+DATABASES = {}
 
 # Application definition
 
@@ -55,13 +56,6 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'gem.urls'
 
 WSGI_APPLICATION = 'gem.wsgi.application'
-
-# Parse database configuration from $DATABASE_URL
-import dj_database_url
-DATABASES['default'] =  dj_database_url.config()
-
-# Honor the 'X-Forwarded-Proto' header for request.is_secure()
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/
@@ -111,6 +105,13 @@ AUTHENTICATION_BACKENDS = (
 
 SITE_ID = 1
 LOGIN_REDIRECT_URL = '/'
+
+# Parse database configuration from $DATABASE_URL
+import dj_database_url
+DATABASES['default'] = dj_database_url.config()
+
+# Honor the 'X-Forwarded-Proto' header for request.is_secure()
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 try:
     from gem.local_settings import *
