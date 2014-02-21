@@ -23,7 +23,7 @@ DEBUG = False
 
 TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['gem.herokuapp.com']
+ALLOWED_HOSTS = ['cuantogastamosestemes.herokuapp.com']
 
 DATABASES = {
     'default': {
