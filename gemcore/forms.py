@@ -30,5 +30,8 @@ class ExpenseForm(forms.ModelForm):
         exclude = ('book',)
         widgets = dict(
             when=widgets.AdminDateWidget,
-            what=forms.TextInput,
+            what=forms.TextInput(attrs={'size': 60}),
+            amount=forms.TextInput(
+                attrs={'size': 10,
+                       'placeholder': 'how much'}),
         )

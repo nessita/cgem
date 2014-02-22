@@ -6,11 +6,15 @@
 <h1>{% if expense %}Edit{% else %}Add a{% endif %} expense on {{ book }}</h1>
 <form action="." method="POST"  class="form-horizontal" role="form">
     {% csrf_token %}
-    {% for field in form %}
     <div class="form-group">
-        {{ field.label_tag }} {{ field }}
+        {{ form.who.label_tag }} {{ form.who }} {{ form.when }}
     </div>
-    {% endfor %}
+    <div class="form-group">
+        {{ form.what.label_tag }} {{ form.what }} {{ form.amount }} {{ form.currency }}
+    </div>
+    <div class="form-group">
+        {{ form.tags.label_tag }} {{ form.tags }}
+    </div>
     <div class="btn-group">
         {% if expense %}
         <button type="submit" class="btn btn-primary">Save</button>

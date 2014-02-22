@@ -41,7 +41,7 @@ def book(request, book_slug=None):
         form = BookForm(instance=book, data=request.POST)
         if form.is_valid():
             form.save()
-            return HttpResponseRedirect('.')
+            return HttpResponseRedirect(reverse(home))
     else:
         form = BookForm(instance=book)
     return render(request, 'gemcore/book.html', dict(form=form, book=book))
