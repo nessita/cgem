@@ -31,7 +31,7 @@
             <td>{{ expense.who }}</td>
             <td>{{ expense.what }}</td>
             <td>{{ expense.amount }} {{ expense.currency }}</td>
-            <td>{{ expense.tags.names }}</td>
+            <td>{% for n in expense.tags.names %}{{ n }}<br/>{% endfor %}</td>
             <td>
                 <a href="{% url 'edit-expense' book.slug expense.id %}">Edit</a>
             </td>

@@ -4,24 +4,30 @@
 {% block content %}
 
 <h1>{% if expense %}Edit{% else %}Add a{% endif %} expense on {{ book }}</h1>
-<form action="." method="POST"  class="form-horizontal" role="form">
+<form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
-    <div class="form-group">
-        {{ form.who.label_tag }} {{ form.who }} {{ form.when }}
+    {{ form.errors }}
+    {% for field in form %}
+    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
+        <label for="{{ field.auto_id }}" class="sr-only">
+        {{ field.label }}
+        {% if field.field.required %}<span class="asteriskField">*</span>{% endif %}
+        </label>
+        {% if field.errors %}
+        <span class="glyphicon glyphicon-remove form-control-feedback"></span>
+        {% endif %}
+        {{ field }}
     </div>
-    <div class="form-group">
-        {{ form.what.label_tag }} {{ form.what }} {{ form.amount }} {{ form.currency }}
-    </div>
-    <div class="form-group">
-        {{ form.tags.label_tag }} {{ form.tags }}
-    </div>
+    {% endfor %}
+
     <div class="btn-group">
         {% if expense %}
         <button type="submit" class="btn btn-primary">Save</button>
-        <a href="{% url 'remove-expense' book.slug expense.id %}" class="btn btn-default">Remove</a>
+        <a href="{% url 'remove-expense' book.slug expense.id %}" class="btn btn-danger">Remove</a>
         {% else %}
         <button type="submit" class="btn btn-primary">Add</button>
         {% endif %}
+        <a href="{% url 'expenses' book.slug %}" class="btn btn-warning">Go back</a>
     </div>
 </form>
 

@@ -81,7 +81,8 @@ def expense(request, book_slug, expense_id=None):
         form = ExpenseForm(instance=expense, data=request.POST)
         if form.is_valid():
             expense = form.save(book=book)
-            return HttpResponseRedirect(reverse(home))
+            return HttpResponseRedirect(
+                reverse(expenses, kwargs=dict(book_slug=book_slug)))
     else:
         form = ExpenseForm(instance=expense, initial=dict(who=request.user))
     return render(
