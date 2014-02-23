@@ -1,6 +1,21 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script>
+        $(document).ready(function() {
+            $('input.datepicker').datepicker({
+                format: "yyyy-mm-dd",
+                autoclose: true,
+                todayHighlight: true
+            });
+        });
+    </script>
+{% endblock head-extra %}
+
+
 {% block content %}
 
 <h1>{% if expense %}Edit{% else %}Add a{% endif %} expense on {{ book }}</h1>
