@@ -1,5 +1,4 @@
 from django import forms
-from django.contrib.admin import widgets
 
 from gemcore.models import Book, Currency, Expense
 
@@ -29,7 +28,7 @@ class ExpenseForm(forms.ModelForm):
         model = Expense
         exclude = ('book',)
         widgets = dict(
-            when=widgets.AdminDateWidget,
+            when=forms.DateInput(attrs={'class': 'datepicker'}),
             who=forms.Select(
                 attrs={'class': 'form-control', 'placeholder': 'who'}),
             what=forms.TextInput(
