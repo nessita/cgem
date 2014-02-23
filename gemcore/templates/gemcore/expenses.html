@@ -1,5 +1,49 @@
 {% extends 'base.html' %}
 {% load qurl %}
+{% load static %}
+
+{% block head-extra %}
+    <script src="{% static 'js/jquery.tablesorter.min.js' %}"></script>
+    <script src="{% static 'js/jquery.tablesorter.widgets.min.js' %}"></script>
+    <script>
+        $(document).ready(function() {
+
+            $.extend($.tablesorter.themes.bootstrap, {
+                // these classes are added to the table. To see other table classes available,
+                // look here: http://twitter.github.com/bootstrap/base-css.html#tables
+                table      : 'table table-bordered',
+                caption    : 'caption',
+                header     : 'bootstrap-header', // give the header a gradient background
+                footerRow  : '',
+                footerCells: '',
+                icons      : '',
+                sortNone   : 'bootstrap-icon-unsorted',
+                sortAsc    : 'icon-chevron-up glyphicon glyphicon-chevron-up',
+                sortDesc   : 'icon-chevron-down glyphicon glyphicon-chevron-down',
+                active     : '', // applied when column is sorted
+                hover      : '', // use custom css here - bootstrap class may not override it
+                filterRow  : '', // filter row class
+                even       : '', // odd row zebra striping
+                odd        : ''  // even row zebra striping
+            });
+
+            $("#expenses-table").tablesorter({
+                theme : "bootstrap",
+                headerTemplate : '{content}  {icon}',
+                headers: {
+                    5: {
+                        filter: false,
+                        sorter: false
+                    }
+                },
+                widgets : ["uitheme", "filter", "zebra"],
+                widgetOptions : {
+                    zebra : ["default", "info"],
+                }
+            });
+        });
+    </script>
+{% endblock head-extra %}
 
 {% block content %}
 
@@ -27,7 +71,7 @@
 </h1>
 
 {% if expenses %}
-<table class="table table-condensed">
+<table id="expenses-table" class="table table-condensed">
     <thead>
         <tr>
             <th>When</th>
@@ -41,7 +85,7 @@
     <tbody>
         {% for expense in expenses %}
         <tr class="{% cycle 'info' 'default' %}">
-            <td>{{ expense.when }}</td>
+            <td>{{ expense.when|date:"d/m/Y" }}</td>
             <td>{{ expense.who }}</td>
             <td>{{ expense.what }}</td>
             <td>{{ expense.amount }} {{ expense.currency }}</td>
