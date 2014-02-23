@@ -1,4 +1,5 @@
 from django import forms
+from taggit.forms import TagField, TagWidget
 
 from gemcore.models import Book, Currency, Expense
 
@@ -20,6 +21,9 @@ class CurrencyForm(forms.ModelForm):
 
 class ExpenseForm(forms.ModelForm):
 
+    tags = TagField(widget=TagWidget(
+        attrs={'class': 'form-control', 'placeholder': 'tags'}))
+
     def save(self, *args, book, **kwargs):
         self.instance.book = book
         return super(ExpenseForm, self).save(*args, **kwargs)
@@ -37,6 +41,4 @@ class ExpenseForm(forms.ModelForm):
                 attrs={'size': 10, 'class': 'form-control',
                        'placeholder': 'how much'}),
             currency=forms.Select(attrs={'class': 'form-control'}),
-            tags=forms.TextInput(
-                attrs={'class': 'form-control', 'placeholder': 'tags'}),
         )

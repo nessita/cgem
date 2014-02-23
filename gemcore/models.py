@@ -5,7 +5,6 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.template.defaultfilters import slugify
 from autoslug.fields import AutoSlugField
 from taggit.managers import TaggableManager
 
@@ -31,14 +30,41 @@ class Book(models.Model):
     def latest_expenses(self):
         return self.expense_set.all().order_by('-when')[:5]
 
-    def tags(self):
+    def tags(self, expenses=None):
+        if expenses is None:
+            expenses = self.expense_set.all()
         result = defaultdict(int)
-        for e in self.expense_set.filter(tags__isnull=False).distinct():
+        for e in expenses.filter(tags__isnull=False).distinct():
             for t in e.tags.all():
                 result[t] += 1
 
         # templates can not handle defaultdicts
         return dict(result)
+
+    def years(self, expenses=None):
+        if expenses is None:
+            expenses = self.expense_set.all()
+
+        result = {}
+        if expenses.count() == 0:
+            return result
+
+        oldest = expenses.order_by('when')[0].when.year
+        newest = expenses.order_by('-when')[0].when.year
+        for year in range(oldest, newest + 1):
+            year_count = expenses.filter(when__year=year).count()
+            if year_count:
+                result[year] = year_count
+        return result
+
+    def who(self, expenses=None):
+        if expenses is None:
+            expenses = self.expense_set.all()
+        result = {}
+        for d in expenses.values('who__username').annotate(
+                models.Count('who')):
+            result[d['who__username']] = d['who__count']
+        return result
 
 
 class Currency(models.Model):
@@ -55,7 +81,7 @@ class Currency(models.Model):
 class Expense(models.Model):
 
     book = models.ForeignKey(Book)
-    who = models.ForeignKey(User)  #, limit_choices_to={'who__in': 'book__users'})
+    who = models.ForeignKey(User)
     when = models.DateField(default=datetime.today)
     what = models.TextField()
     amount = models.DecimalField(
