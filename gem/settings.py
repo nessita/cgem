@@ -46,7 +46,6 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'south',
     'gemcore',
     'taggit',
     'allauth',
