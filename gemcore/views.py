@@ -117,7 +117,7 @@ def expense(request, book_slug, expense_id=None):
         if expense is None:
             try:
                 last_expense = Expense.objects.filter(
-                    who=request.user).latest('when')
+                    who=request.user, book=book).latest('when')
                 currency = last_expense.currency
             except Expense.DoesNotExist:
                 pass

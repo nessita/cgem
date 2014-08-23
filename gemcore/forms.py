@@ -37,7 +37,7 @@ class ExpenseForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'placeholder': 'who'}),
             what=forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'what',
-                       'autofocus': ''}),
+                       'autofocus': 'true'}),
             amount=forms.TextInput(
                 attrs={'size': 10, 'class': 'form-control',
                        'placeholder': 'how much'}),
