@@ -112,7 +112,19 @@ def expense(request, book_slug, expense_id=None):
             return HttpResponseRedirect(
                 reverse(expenses, kwargs=dict(book_slug=book_slug)))
     else:
-        form = ExpenseForm(instance=expense, initial=dict(who=request.user))
+        currency = None
+        who = request.user
+        if expense is None:
+            try:
+                last_expense = Expense.objects.filter(
+                    who=request.user, book=book).latest('when')
+                currency = last_expense.currency
+            except Expense.DoesNotExist:
+                pass
+        else:
+            who = expense.who
+        form = ExpenseForm(instance=expense,
+                           initial=dict(who=who, currency=currency))
     return render(
         request, 'gemcore/expense.html',
         dict(form=form, book=book, expense=expense))
