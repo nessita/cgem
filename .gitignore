@@ -1,4 +1,6 @@
-gem/__pycache__/
 gem/local_settings.py
+gem/__pycache__/
 gemcore/__pycache__/
+gemcore/migrations/__pycache__/
+gemcore/tests/__pycache__/
 db.sqlite3

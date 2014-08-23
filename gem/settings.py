@@ -27,7 +27,7 @@ ALLOWED_HOSTS = ['cuantogastamosestemes.herokuapp.com']
 
 DATABASES = {
     'default': {
-        'ENGINE':'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'gem',
         'USER': '',
         'PASSWORD': '',
@@ -52,6 +52,7 @@ INSTALLED_APPS = (
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'qurltemplatetag',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -113,6 +114,8 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
+PYFLAKES_IGNORE_FILE = os.path.join(
+    BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 SITE_ID = 1
 LOGIN_REDIRECT_URL = '/'
 

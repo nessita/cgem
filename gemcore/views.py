@@ -56,17 +56,45 @@ def book_remove(request, book_slug):
 
 @require_GET
 @login_required
-def expenses(request, book_slug, tag_slug=None):
+def expenses(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    if tag_slug:
-        expenses = book.expense_set.filter(tags__slug=tag_slug)
-    else:
-        expenses = book.expense_set.all()
+    expenses = book.expense_set.all()
 
+    used_tags = set()
+    for tag in request.GET.getlist('tag', []):
+        expenses = expenses.filter(tags__slug=tag)
+        used_tags.add(tag)
+
+    try:
+        year = int(request.GET.get('year'))
+        expenses = expenses.filter(when__year=year)
+    except (ValueError, TypeError):
+        year = None
+
+    try:
+        month = int(request.GET.get('month'))
+        expenses = expenses.filter(when__month=month)
+    except (ValueError, TypeError):
+        month = None
+
+    try:
+        who = request.GET.get('who', None)
+    except (ValueError, TypeError):
+        who = None
+    if who:
+        expenses = expenses.filter(who__username=who)
+
+    all_years = book.years(expenses)
+    all_users = book.who(expenses)
+    all_tags = book.tags(expenses)
+    available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
     expenses = expenses.order_by('-when', 'who')
-    return render(
-        request, 'gemcore/expenses.html',
-        dict(expenses=expenses, book=book, tag=tag_slug))
+    context = dict(
+        expenses=expenses, book=book, all_years=all_years, all_users=all_users,
+        all_tags=all_tags, available_tags=available_tags, used_tags=used_tags,
+        year=year, month=month, who=who)
+
+    return render(request, 'gemcore/expenses.html', context)
 
 
 @require_http_methods(['GET', 'POST'])

@@ -1,7 +1,0 @@
-{% for tag, i in book.tags.items %}
-    <a class="btn btn-xs btn-info"
-       href="{% url 'expenses-by-tag' book.slug tag.slug %}">
-        {{ tag }} <span class="badge">{{ i }}</span>
-
-    </a>
-{% endfor %}

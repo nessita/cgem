@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load qurl %}
 {% load static %}
 
 {% block head-extra %}
@@ -44,16 +45,28 @@
     </script>
 {% endblock head-extra %}
 
-
 {% block content %}
 
 <h1>Expenses for {{ book.name }}
-    {% if tag %}
+    {% for tag in used_tags %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% url 'expenses' book.slug %}">{{ tag }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path tag-=tag %}">{{ tag }} &times;</a>
     </div>
-    {% else %}
-    {% include 'gemcore/_book_tags.html' %}
+    {% endfor %}
+    {% if year %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path year-=year %}">{{ year }} &times;</a>
+    </div>
+    {% endif %}
+    {% if month %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path month-=month %}">{{ month }} &times;</a>
+    </div>
+    {% endif %}
+    {% if who %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path who-=who %}">{{ who }} &times;</a>
+    </div>
     {% endif %}
 </h1>
 
@@ -85,8 +98,36 @@
     </tbody>
 </table>
 {% else %}
-<p>No expenses in the system yet{% if tag %} for {{ tag }}{% endif %}.</p>
+<p>No expenses in the system.</p>
 {% endif %}
+
+<div class="pull-left">
+<p>
+{% for tag, i in all_tags.items %}
+    <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
+        {{ tag }} <span class="badge">{{ i }}</span>
+    </a>
+{% endfor %}
+</p>
+<p>
+{% for k, i in all_years.items %}
+    {% ifnotequal k year %}
+    <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year+=k %}">
+        {{ k }} <span class="badge">{{ i }}</span>
+    </a>
+    {% endifnotequal %}
+{% endfor %}
+</p>
+<p>
+{% for k, i in all_users.items %}
+    {% ifnotequal k who %}
+    <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who+=k %}">
+        {{ k }} <span class="badge">{{ i }}</span>
+    </a>
+    {% endifnotequal %}
+{% endfor %}
+</p>
+</div>
 
 <div class="pull-right btn-group">
     <a href="{% url 'add-expense' book.slug %}" class="btn btn-primary">Add expense</a>

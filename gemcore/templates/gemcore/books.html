@@ -4,7 +4,6 @@
 <h1>Books that you are part of</h1>
 {% for book in books %}
     <h2><a href="{% url 'expenses' book.slug %}">{{ book }}</a></h2>
-    {% include 'gemcore/_book_tags.html' %}
     <div>
         Recent expenses:
         <ul>
