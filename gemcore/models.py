@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
@@ -87,7 +89,7 @@ class Expense(models.Model):
     amount = models.DecimalField(
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
-    currency = models.ForeignKey(Currency, default='ARS')
+    currency = models.ForeignKey(Currency)
 
     tags = TaggableManager()
 
