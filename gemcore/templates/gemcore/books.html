@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Books that you are part of</h1>
 {% for book in books %}
-    <h2><a href="{% url 'expenses' book.slug %}">{{ book }}</a></h2>
+    <h2>
+        <a href="{% url 'expenses' book.slug %}">{{ book }}</a>
+        ({% for u in book.users.all %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %})
+    </h2>
     <div>
         Recent expenses:
         <ul>

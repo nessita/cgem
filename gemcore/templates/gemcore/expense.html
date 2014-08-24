@@ -18,7 +18,10 @@
 
 {% block content %}
 
-<h1>{% if expense %}Edit{% else %}Add a{% endif %} expense on {{ book }}</h1>
+<h1>
+    {% if expense %}Edit expense on {{ book }}
+    {% else %}New expense for {{ book }}{% endif %}
+</h1>
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
     {{ form.errors }}
