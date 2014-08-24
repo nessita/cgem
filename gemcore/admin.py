@@ -5,12 +5,12 @@ from gemcore.models import Account, Book, Currency, Expense
 
 class AccountAdmin(admin.ModelAdmin):
 
-     prepopulated_fields = {'slug': ('name', 'currency')}
+    prepopulated_fields = {'slug': ('name', 'currency')}
 
 
 class BookAdmin(admin.ModelAdmin):
 
-     prepopulated_fields = {'slug': ('name',)}
+    prepopulated_fields = {'slug': ('name',)}
 
 
 admin.site.register(Account, AccountAdmin)
