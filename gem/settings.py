@@ -19,7 +19,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'ugpu*6%qi!$)(@dxjd0b%r9ase-wfe32fv+h@)3=r^a=b!jl7@'
 
-DEBUG = True
+DEBUG = False
 
 TEMPLATE_DEBUG = False
 
@@ -86,10 +86,6 @@ USE_TZ = True
 
 STATIC_ROOT = 'staticfiles'
 STATIC_URL = '/static/'
-
-#STATICFILES_DIRS = (
-#    os.path.join(BASE_DIR, 'gemcore', 'static'),
-#)
 
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.contrib.auth.context_processors.auth',
