@@ -93,9 +93,12 @@ class Account(models.Model):
     currency = models.ForeignKey(Currency)
 
     def __str__(self):
-        return '%s (%s - %s)' % (
-            self.name, self.currency,
-            ', '.join(self.users.values_list('username', flat=True)))
+        if self.users.count() == 1:
+            result = '%s %s %s' % (
+                self.name, self.currency, self.users.get().username)
+        else:
+            result = '%s %s shared' % (self.name, self.currency)
+        return result
 
     def clean(self):
         if not self.slug:
@@ -117,4 +120,9 @@ class Expense(models.Model):
     tags = TaggableManager()
 
     def __str__(self):
-        return '%s (by %s on %s)' % (self.what, self.who, self.when)
+        return '%s (%s %s, by %s on %s)' % (
+            self.what, self.currency, self.amount, self.who, self.when)
+
+    @property
+    def currency(self):
+        return self.account.currency

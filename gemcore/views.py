@@ -90,9 +90,9 @@ def expenses(request, book_slug):
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
     expenses = expenses.order_by('-when', 'who')
     context = dict(
-        expenses=expenses, book=book, all_years=all_years, all_users=all_users,
-        all_tags=all_tags, available_tags=available_tags, used_tags=used_tags,
-        year=year, month=month, who=who)
+        expenses=expenses, book=book, year=year, month=month, who=who,
+        all_years=all_years, all_users=all_users, all_tags=all_tags,
+        available_tags=available_tags, used_tags=used_tags)
 
     return render(request, 'gemcore/expenses.html', context)
 
@@ -125,9 +125,14 @@ def expense(request, book_slug, expense_id=None):
             who = expense.who
         form = ExpenseForm(instance=expense,
                            initial=dict(who=who, currency=currency))
-    return render(
-        request, 'gemcore/expense.html',
-        dict(form=form, book=book, expense=expense))
+
+    all_years = book.years()
+    all_users = book.who()
+    all_tags = book.tags()
+    context = dict(
+        form=form, book=book, expense=expense,
+        all_years=all_years, all_users=all_users, all_tags=all_tags)
+    return render(request, 'gemcore/expense.html', context)
 
 
 @require_http_methods(['GET', 'POST'])

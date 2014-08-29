@@ -10,7 +10,7 @@
         Recent expenses:
         <ul>
             {% for expense in book.latest_expenses %}
-            <li><a href="{% url 'edit-expense' book.slug expense.id %}">{{ expense }}</a></li>
+            <li><a href="{% url 'expense' book.slug expense.id %}">{{ expense }}</a></li>
             {% empty %}
             <li>No expenses for this book yet.</li>
             {% endfor %}
@@ -18,7 +18,7 @@
         <div class="btn-group">
             <a href="{% url 'add-expense' book.slug %}" class="btn btn-xs btn-primary">
                 Add expense</a>
-            <a href="{% url 'edit-book' book.slug %}" class="btn btn-xs btn-default">
+            <a href="{% url 'book' book.slug %}" class="btn btn-xs btn-default">
                 Edit book</a>
             <a href="{% url 'remove-book' book.slug %}" class="btn btn-xs btn-default">
                 Remove book</a>

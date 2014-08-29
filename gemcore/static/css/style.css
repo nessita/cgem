@@ -1,0 +1,7 @@
+.add-expense {
+    padding-bottom: 10px;
+}
+
+.add-expense .datepicker {
+    width: 7em;
+}

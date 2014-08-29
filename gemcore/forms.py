@@ -33,7 +33,8 @@ class ExpenseForm(forms.ModelForm):
         model = Expense
         exclude = ('book',)
         widgets = dict(
-            when=forms.DateInput(attrs={'class': 'form-control datepicker'}),
+            when=forms.DateInput(
+                attrs={'class': 'form-control datepicker'}),
             who=forms.Select(
                 attrs={'class': 'form-control', 'placeholder': 'who'}),
             what=forms.TextInput(

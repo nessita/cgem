@@ -1,0 +1,27 @@
+{% load qurl %}
+
+<p>
+{% for tag, i in all_tags.items %}
+    <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
+        {{ tag }} <span class="badge">{{ i }}</span>
+    </a>
+{% endfor %}
+</p>
+<p>
+{% for k, i in all_years.items %}
+    {% ifnotequal k year %}
+    <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year+=k %}">
+        {{ k }} <span class="badge">{{ i }}</span>
+    </a>
+    {% endifnotequal %}
+{% endfor %}
+</p>
+<p>
+{% for k, i in all_users.items %}
+    {% ifnotequal k who %}
+    <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who+=k %}">
+        {{ k }} <span class="badge">{{ i }}</span>
+    </a>
+    {% endifnotequal %}
+{% endfor %}
+</p>

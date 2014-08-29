@@ -15,13 +15,16 @@
     </script>
 {% endblock head-extra %}
 
+{% block navbar-title %}
+    <a class="navbar-brand" href="{% url 'book' book.slug %}">{{ book }}</a>
+{% endblock navbar-title %}
 
 {% block content %}
 
-<h1>
-    {% if expense %}Edit expense on {{ book }}
-    {% else %}New expense for {{ book }}{% endif %}
-</h1>
+<h1>{% if expense %}Edit{% else %}New{% endif %} expense</h1>
+
+<div class="add-expense">
+
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
     {{ form.errors }}
@@ -48,5 +51,11 @@
         <a href="{% url 'expenses' book.slug %}" class="btn btn-default">Cancel</a>
     </div>
 </form>
+
+</div>
+
+<div>
+{% include 'gemcore/_show_tags.html' %}
+</div>
 
 {% endblock content %}
