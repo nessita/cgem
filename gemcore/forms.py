@@ -8,6 +8,7 @@ class BookForm(forms.ModelForm):
 
     class Meta:
         model = Book
+        exclude = ('slug',)
         widgets = dict(
             users=forms.SelectMultiple(attrs={'class': 'form-control'}),
         )
@@ -32,7 +33,8 @@ class ExpenseForm(forms.ModelForm):
         model = Expense
         exclude = ('book',)
         widgets = dict(
-            when=forms.DateInput(attrs={'class': 'form-control datepicker'}),
+            when=forms.DateInput(
+                attrs={'class': 'form-control datepicker'}),
             who=forms.Select(
                 attrs={'class': 'form-control', 'placeholder': 'who'}),
             what=forms.TextInput(
@@ -41,5 +43,5 @@ class ExpenseForm(forms.ModelForm):
             amount=forms.TextInput(
                 attrs={'size': 10, 'class': 'form-control',
                        'placeholder': 'how much'}),
-            currency=forms.Select(attrs={'class': 'form-control'}),
+            account=forms.Select(attrs={'class': 'form-control'}),
         )

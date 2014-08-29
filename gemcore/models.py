@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
@@ -5,7 +7,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
-from autoslug.fields import AutoSlugField
+from django.utils.text import slugify
 from taggit.managers import TaggableManager
 
 
@@ -21,11 +23,16 @@ TAGS = [
 class Book(models.Model):
 
     name = models.CharField(max_length=256)
-    slug = AutoSlugField(populate_from='name', unique=True)
+    slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super(Book, self).clean()
 
     def latest_expenses(self):
         return self.expense_set.all().order_by('-when')[:5]
@@ -78,18 +85,44 @@ class Currency(models.Model):
         return self.code
 
 
+class Account(models.Model):
+
+    name = models.CharField(max_length=256)
+    slug = models.SlugField(unique=True)
+    users = models.ManyToManyField(User)
+    currency = models.ForeignKey(Currency)
+
+    def __str__(self):
+        if self.users.count() == 1:
+            result = '%s %s %s' % (
+                self.name, self.currency, self.users.get().username)
+        else:
+            result = '%s %s shared' % (self.name, self.currency)
+        return result
+
+    def clean(self):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super(Account, self).clean()
+
+
 class Expense(models.Model):
 
     book = models.ForeignKey(Book)
     who = models.ForeignKey(User)
     when = models.DateField(default=datetime.today)
     what = models.TextField()
+    account = models.ForeignKey(Account)
     amount = models.DecimalField(
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
-    currency = models.ForeignKey(Currency, default='ARS')
 
     tags = TaggableManager()
 
     def __str__(self):
-        return '%s (by %s on %s)' % (self.what, self.who, self.when)
+        return '%s (%s %s, by %s on %s)' % (
+            self.what, self.currency, self.amount, self.who, self.when)
+
+    @property
+    def currency(self):
+        return self.account.currency

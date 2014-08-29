@@ -1,1 +1,1 @@
-gem/settings.py:130: 'from gem.local_settings import *' used; unable to detect undefined names
+'from gem.local_settings import *' used; unable to detect undefined names
