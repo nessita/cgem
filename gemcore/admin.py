@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from gemcore.models import Account, Book, Currency, Expense
+from gemcore.models import Account, Book, Currency, Entry
 
 
 class AccountAdmin(admin.ModelAdmin):
@@ -16,4 +16,4 @@ class BookAdmin(admin.ModelAdmin):
 admin.site.register(Account, AccountAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Currency)
-admin.site.register(Expense)
+admin.site.register(Entry)

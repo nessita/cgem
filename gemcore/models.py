@@ -34,41 +34,41 @@ class Book(models.Model):
             self.slug = slugify(self.name)
         return super(Book, self).clean()
 
-    def latest_expenses(self):
-        return self.expense_set.all().order_by('-when')[:5]
+    def latest_entries(self):
+        return self.entry_set.all().order_by('-when')[:5]
 
-    def tags(self, expenses=None):
-        if expenses is None:
-            expenses = self.expense_set.all()
+    def tags(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
         result = defaultdict(int)
-        for e in expenses.filter(tags__isnull=False).distinct():
+        for e in entries.filter(tags__isnull=False).distinct():
             for t in e.tags.all():
                 result[t] += 1
 
         # templates can not handle defaultdicts
         return dict(result)
 
-    def years(self, expenses=None):
-        if expenses is None:
-            expenses = self.expense_set.all()
+    def years(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
 
         result = {}
-        if expenses.count() == 0:
+        if entries.count() == 0:
             return result
 
-        oldest = expenses.order_by('when')[0].when.year
-        newest = expenses.order_by('-when')[0].when.year
+        oldest = entries.order_by('when')[0].when.year
+        newest = entries.order_by('-when')[0].when.year
         for year in range(oldest, newest + 1):
-            year_count = expenses.filter(when__year=year).count()
+            year_count = entries.filter(when__year=year).count()
             if year_count:
                 result[year] = year_count
         return result
 
-    def who(self, expenses=None):
-        if expenses is None:
-            expenses = self.expense_set.all()
+    def who(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
         result = {}
-        for d in expenses.values('who__username').annotate(
+        for d in entries.values('who__username').annotate(
                 models.Count('who')):
             result[d['who__username']] = d['who__count']
         return result
@@ -93,7 +93,7 @@ class Account(models.Model):
     currency = models.ForeignKey(Currency)
 
     class Meta:
-        ordering = ('currency',)
+        ordering = ('currency', 'name')
 
     def __str__(self):
         if self.users.count() == 1:
@@ -109,7 +109,7 @@ class Account(models.Model):
         return super(Account, self).clean()
 
 
-class Expense(models.Model):
+class Entry(models.Model):
 
     book = models.ForeignKey(Book)
     who = models.ForeignKey(User)
@@ -119,6 +119,7 @@ class Expense(models.Model):
     amount = models.DecimalField(
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
+    is_income = models.BooleanField(default=False)
 
     tags = TaggableManager()
 
