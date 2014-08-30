@@ -4,8 +4,8 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from gemcore.forms import BookForm, ExpenseForm
-from gemcore.models import Book, Expense
+from gemcore.forms import BookForm, EntryForm
+from gemcore.models import Book, Entry
 
 
 def remove_thing(request, thing):
@@ -56,24 +56,24 @@ def book_remove(request, book_slug):
 
 @require_GET
 @login_required
-def expenses(request, book_slug):
+def entries(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    expenses = book.expense_set.all()
+    entries = book.entry_set.all()
 
     used_tags = set()
     for tag in request.GET.getlist('tag', []):
-        expenses = expenses.filter(tags__slug=tag)
+        entries = entries.filter(tags__slug=tag)
         used_tags.add(tag)
 
     try:
         year = int(request.GET.get('year'))
-        expenses = expenses.filter(when__year=year)
+        entries = entries.filter(when__year=year)
     except (ValueError, TypeError):
         year = None
 
     try:
         month = int(request.GET.get('month'))
-        expenses = expenses.filter(when__month=month)
+        entries = entries.filter(when__month=month)
     except (ValueError, TypeError):
         month = None
 
@@ -82,62 +82,62 @@ def expenses(request, book_slug):
     except (ValueError, TypeError):
         who = None
     if who:
-        expenses = expenses.filter(who__username=who)
+        entries = entries.filter(who__username=who)
 
-    all_years = book.years(expenses)
-    all_users = book.who(expenses)
-    all_tags = book.tags(expenses)
+    all_years = book.years(entries)
+    all_users = book.who(entries)
+    all_tags = book.tags(entries)
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
-    expenses = expenses.order_by('-when', 'who')
+    entries = entries.order_by('-when', 'who')
     context = dict(
-        expenses=expenses, book=book, year=year, month=month, who=who,
+        entries=entries, book=book, year=year, month=month, who=who,
         all_years=all_years, all_users=all_users, all_tags=all_tags,
         available_tags=available_tags, used_tags=used_tags)
 
-    return render(request, 'gemcore/expenses.html', context)
+    return render(request, 'gemcore/entries.html', context)
 
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def expense(request, book_slug, expense_id=None):
+def entry(request, book_slug, entry_id=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    expense = None
-    if expense_id:
-        expense = get_object_or_404(Expense, book=book, id=expense_id)
+    entry = None
+    if entry_id:
+        entry = get_object_or_404(Entry, book=book, id=entry_id)
 
     if request.method == 'POST':
-        form = ExpenseForm(instance=expense, data=request.POST)
+        form = EntryForm(instance=entry, data=request.POST)
         if form.is_valid():
-            expense = form.save(book=book)
+            entry = form.save(book=book)
             return HttpResponseRedirect(
-                reverse(expenses, kwargs=dict(book_slug=book_slug)))
+                reverse(entries, kwargs=dict(book_slug=book_slug)))
     else:
         currency = None
         who = request.user
-        if expense is None:
+        if entry is None:
             try:
-                last_expense = Expense.objects.filter(
+                last_entry = Entry.objects.filter(
                     who=request.user, book=book).latest('when')
-                currency = last_expense.currency
-            except Expense.DoesNotExist:
+                currency = last_entry.currency
+            except Entry.DoesNotExist:
                 pass
         else:
-            who = expense.who
-        form = ExpenseForm(instance=expense,
+            who = entry.who
+        form = EntryForm(instance=entry,
                            initial=dict(who=who, currency=currency))
 
     all_years = book.years()
     all_users = book.who()
     all_tags = book.tags()
     context = dict(
-        form=form, book=book, expense=expense,
+        form=form, book=book, entry=entry,
         all_years=all_years, all_users=all_users, all_tags=all_tags)
-    return render(request, 'gemcore/expense.html', context)
+    return render(request, 'gemcore/entry.html', context)
 
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def expense_remove(request, book_slug, expense_id):
-    expense = get_object_or_404(
-        Expense, book__slug=book_slug, book__users=request.user, id=expense_id)
-    return remove_thing(request, expense)
+def entry_remove(request, book_slug, entry_id):
+    entry = get_object_or_404(
+        Entry, book__slug=book_slug, book__users=request.user, id=entry_id)
+    return remove_thing(request, entry)

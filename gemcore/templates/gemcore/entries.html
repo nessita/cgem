@@ -27,7 +27,7 @@
                 odd        : ''  // even row zebra striping
             });
 
-            $("#expenses-table").tablesorter({
+            $("#entries-table").tablesorter({
                 theme : "bootstrap",
                 headerTemplate : '{content}  {icon}',
                 headers: {
@@ -70,8 +70,8 @@
     {% endif %}
 </h1>
 
-{% if expenses %}
-<table id="expenses-table" class="table table-condensed">
+{% if entries %}
+<table id="entries-table" class="table table-condensed">
     <thead>
         <tr>
             <th>When</th>
@@ -83,22 +83,22 @@
         </tr>
     </thead>
     <tbody>
-        {% for expense in expenses %}
+        {% for entry in entries %}
         <tr class="{% cycle 'info' 'default' %}">
-            <td>{{ expense.when|date:"d/m/Y" }}</td>
-            <td>{{ expense.who }}</td>
-            <td>{{ expense.what }}</td>
-            <td>{{ expense.amount }} {{ expense.currency }}</td>
-            <td>{% for n in expense.tags.names %}{{ n }}<br/>{% endfor %}</td>
+            <td>{{ entry.when|date:"d/m/Y" }}</td>
+            <td>{{ entry.who }}</td>
+            <td>{{ entry.what }}</td>
+            <td>{{ entry.amount }} {{ entry.currency }}</td>
+            <td>{% for n in entry.tags.names %}{{ n }}<br/>{% endfor %}</td>
             <td>
-                <a href="{% url 'expense' book.slug expense.id %}">Edit</a>
+                <a href="{% url 'entry' book.slug entry.id %}">Edit</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No expenses in the system.</p>
+<p>No entries in the system.</p>
 {% endif %}
 
 <div class="pull-left">
@@ -106,7 +106,7 @@
 </div>
 
 <div class="pull-right btn-group">
-    <a href="{% url 'add-expense' book.slug %}" class="btn btn-primary">Add expense</a>
+    <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">Add entry</a>
 </div>
 
 {% endblock content %}

@@ -1,7 +1,7 @@
 from django import forms
 from taggit.forms import TagField, TagWidget
 
-from gemcore.models import Book, Currency, Expense
+from gemcore.models import Book, Entry
 
 
 class BookForm(forms.ModelForm):
@@ -14,23 +14,17 @@ class BookForm(forms.ModelForm):
         )
 
 
-class CurrencyForm(forms.ModelForm):
-
-    class Meta:
-        model = Currency
-
-
-class ExpenseForm(forms.ModelForm):
+class EntryForm(forms.ModelForm):
 
     tags = TagField(widget=TagWidget(
         attrs={'class': 'form-control', 'placeholder': 'tags'}))
 
     def save(self, *args, book, **kwargs):
         self.instance.book = book
-        return super(ExpenseForm, self).save(*args, **kwargs)
+        return super(EntryForm, self).save(*args, **kwargs)
 
     class Meta:
-        model = Expense
+        model = Entry
         exclude = ('book',)
         widgets = dict(
             when=forms.DateInput(

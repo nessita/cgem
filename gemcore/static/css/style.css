@@ -1,7 +1,7 @@
-.add-expense {
+.add-entry {
     padding-bottom: 10px;
 }
 
-.add-expense .datepicker {
+.add-entry .datepicker {
     width: 7em;
 }
