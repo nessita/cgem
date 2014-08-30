@@ -92,12 +92,15 @@ class Account(models.Model):
     users = models.ManyToManyField(User)
     currency = models.ForeignKey(Currency)
 
+    class Meta:
+        ordering = ('currency',)
+
     def __str__(self):
         if self.users.count() == 1:
             result = '%s %s %s' % (
-                self.name, self.currency, self.users.get().username)
+                self.currency, self.users.get().username, self.name)
         else:
-            result = '%s %s shared' % (self.name, self.currency)
+            result = '%s shared %s' % (self.currency, self.name)
         return result
 
     def clean(self):
