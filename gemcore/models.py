@@ -123,6 +123,9 @@ class Entry(models.Model):
 
     tags = TaggableManager()
 
+    class Meta:
+        verbose_name_plural = 'Entries'
+
     def __str__(self):
         return '%s (%s %s, by %s on %s)' % (
             self.what, self.currency, self.amount, self.who, self.when)
