@@ -123,8 +123,8 @@ def entry(request, book_slug, entry_id=None):
                 pass
         else:
             who = entry.who
-        form = EntryForm(instance=entry,
-                           initial=dict(who=who, currency=currency))
+        form = EntryForm(
+            instance=entry, initial=dict(who=who, currency=currency))
 
     all_years = book.years()
     all_users = book.who()
