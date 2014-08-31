@@ -29,10 +29,10 @@ class Book(models.Model):
     def __str__(self):
         return self.name
 
-    def clean(self):
+    def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
-        return super(Book, self).clean()
+        return super(Book, self).save(*args, **kwargs)
 
     def latest_entries(self):
         return self.entry_set.all().order_by('-when')[:5]
@@ -103,10 +103,10 @@ class Account(models.Model):
             result = '%s shared %s' % (self.currency, self.name)
         return result
 
-    def clean(self):
+    def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
-        return super(Account, self).clean()
+        return super(Account, self).save(*args, **kwargs)
 
 
 class Entry(models.Model):

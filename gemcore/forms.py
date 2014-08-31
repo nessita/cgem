@@ -19,6 +19,14 @@ class EntryForm(forms.ModelForm):
     tags = TagField(widget=TagWidget(
         attrs={'class': 'form-control', 'placeholder': 'tags'}))
 
+    def clean(self):
+        cleaned_data = super(EntryForm, self).clean()
+        if cleaned_data['is_income']:
+            cleaned_data['tags'].append('income')
+        else:
+            cleaned_data['tags'].append('expense')
+        return cleaned_data
+
     def save(self, *args, book, **kwargs):
         self.instance.book = book
         return super(EntryForm, self).save(*args, **kwargs)
