@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
@@ -110,6 +111,8 @@ def entry(request, book_slug, entry_id=None):
         if form.is_valid():
             redirect_url = 'add-entry' if entry is None else 'entries'
             entry = form.save(book=book)
+            messages.success(
+                request, 'Entry "%s" successfully processed.' % entry)
             return HttpResponseRedirect(
                 reverse(redirect_url, kwargs=dict(book_slug=book_slug)))
     else:

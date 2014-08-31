@@ -128,7 +128,7 @@ class Entry(models.Model):
 
     def __str__(self):
         return '%s (%s %s, by %s on %s)' % (
-            self.what, self.currency, self.amount, self.who, self.when)
+            self.what, self.amount, self.account, self.who, self.when)
 
     @property
     def currency(self):
