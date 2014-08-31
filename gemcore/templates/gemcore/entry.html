@@ -16,7 +16,7 @@
 {% endblock head-extra %}
 
 {% block navbar-title %}
-    <a class="navbar-brand" href="{% url 'book' book.slug %}">{{ book }}</a>
+    <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
 {% endblock navbar-title %}
 
 {% block content %}

@@ -5,3 +5,17 @@
 .add-entry .datepicker {
     width: 7em;
 }
+
+.table {
+    width: auto;
+}
+
+.table .expense {
+    color: red;
+}
+
+.table-hover > tbody > tr:hover > td,
+.table-hover > tbody > tr:hover > th {
+    background-color: light-grey;
+    cursor: pointer;
+}

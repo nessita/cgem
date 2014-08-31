@@ -38,7 +38,7 @@
                 },
                 widgets : ["uitheme", "filter", "zebra"],
                 widgetOptions : {
-                    zebra : ["default", "info"],
+                    zebra : ["default", "active"],
                 }
             });
         });
@@ -71,28 +71,31 @@
 </h1>
 
 {% if entries %}
-<table id="entries-table" class="table table-condensed">
+<!-- id="entries-table"  -->
+<table class="table table-condensed table-hover table-striped">
     <thead>
         <tr>
             <th>When</th>
             <th>Who</th>
             <th>What</th>
-            <th>$</th>
+            <th>Amount</th>
+            <th>Account</th>
             <th>Tags</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
         {% for entry in entries %}
-        <tr class="{% cycle 'info' 'default' %}">
+        <tr onclick="window.document.location='{% url 'entry' book.slug entry.id %}'">
             <td>{{ entry.when|date:"d/m/Y" }}</td>
             <td>{{ entry.who }}</td>
             <td>{{ entry.what }}</td>
-            <td>{{ entry.amount }} {{ entry.currency }}</td>
-            <td>{% for n in entry.tags.names %}{{ n }}<br/>{% endfor %}</td>
-            <td>
-                <a href="{% url 'entry' book.slug entry.id %}">Edit</a>
+            <td class="text-right {% if not entry.is_income %}expense{% endif %}">
+                {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}
             </td>
+            <td class="{% if not entry.is_income %}expense{% endif %}">
+                {{ entry.account }}</td>
+            <td>{% for n in entry.tags.names %}{{ n }}<br/>{% endfor %}</td>
         </tr>
         {% endfor %}
     </tbody>
