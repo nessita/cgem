@@ -108,9 +108,10 @@ def entry(request, book_slug, entry_id=None):
     if request.method == 'POST':
         form = EntryForm(instance=entry, data=request.POST)
         if form.is_valid():
+            redirect_url = 'add-entry' if entry is None else 'entries'
             entry = form.save(book=book)
             return HttpResponseRedirect(
-                reverse(entries, kwargs=dict(book_slug=book_slug)))
+                reverse(redirect_url, kwargs=dict(book_slug=book_slug)))
     else:
         currency = None
         who = request.user
