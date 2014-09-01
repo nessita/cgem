@@ -27,7 +27,11 @@
 
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
-    {{ form.errors }}
+
+    {% if form.errors %}
+    <div class="alert alert-danger">{{ form.errors }}</div>
+    {% endif %}
+
     {% for field in form %}
     {% ifnotequal field.name 'is_income' %}
     <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">

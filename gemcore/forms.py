@@ -1,4 +1,5 @@
 from django import forms
+from django_countries.data import COUNTRIES
 from taggit.forms import TagField, TagWidget
 
 from gemcore.models import Book, Entry
@@ -21,10 +22,24 @@ class EntryForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
+        tags = cleaned_data.get('tags', [])
+
+        # auto tag: income or expense?
         if cleaned_data['is_income']:
-            cleaned_data['tags'].append('income')
+            tags.append('income')
         else:
-            cleaned_data['tags'].append('expense')
+            tags.append('expense')
+
+        # auto tag: country
+        if not any(c in tags for c in COUNTRIES):
+            account = cleaned_data.get('account')
+            if account and account.currency.code == 'UYU':
+                tags.append('UY')
+            elif account and account.currency.code == 'ARS':
+                tags.append('AR')
+            else:
+                raise forms.ValidationError('Missing country in tags.')
+
         return cleaned_data
 
     def save(self, *args, book, **kwargs):
