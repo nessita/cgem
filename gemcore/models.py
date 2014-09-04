@@ -124,6 +124,7 @@ class Entry(models.Model):
     tags = TaggableManager()
 
     class Meta:
+        unique_together = ('book', 'who', 'when', 'what', 'amount')
         verbose_name_plural = 'Entries'
 
     def __str__(self):
