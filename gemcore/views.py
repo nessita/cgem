@@ -5,7 +5,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from gemcore.forms import BookForm, EntryForm
+from gemcore.forms import BookForm, CSVExpenseForm, EntryForm
 from gemcore.models import Book, Entry
 
 
@@ -28,7 +28,8 @@ def home(request):
 @login_required
 def books(request):
     books = request.user.book_set.all()
-    return render(request, 'gemcore/books.html', dict(books=books))
+    context = dict(books=books)
+    return render(request, 'gemcore/books.html', context)
 
 
 @require_http_methods(['GET', 'POST'])
@@ -145,3 +146,23 @@ def entry_remove(request, book_slug, entry_id):
     entry = get_object_or_404(
         Entry, book__slug=book_slug, book__users=request.user, id=entry_id)
     return remove_thing(request, entry)
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def load_from_file(request, book_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+
+    if request.method == 'POST':
+        form = CSVExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = form.cleaned_data['csv_file']
+            messages.success(
+                request, 'File %s successfully parsed.' % csv_file.name)
+            return HttpResponseRedirect(
+                reverse('entries', kwargs=dict(book_slug=book_slug)))
+    else:
+        form = CSVExpenseForm()
+
+    context = dict(form=form)
+    return render(request, 'gemcore/load.html', context)
