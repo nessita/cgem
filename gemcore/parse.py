@@ -2,14 +2,15 @@
 
 import csv
 import os
+import sys
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gem.settings')
+if __name__ == '__main__':
+    import django
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gem.settings')
+    django.setup()
 
 from datetime import datetime
 from decimal import Decimal
-
-import django
-django.setup()
 
 from collections import namedtuple
 from django.db.utils import IntegrityError
@@ -34,14 +35,12 @@ WHO = 'Who'
 WHY = 'Why'
 WHAT = 'What'
 AMOUNT = 'How much'
-HEADER = [
-    WHEN, WHO, WHY, WHAT, AMOUNT,
-    'Summary category', 'Summary amount']
+HEADER = [WHEN, WHO, WHY, WHAT, AMOUNT, 'Summary category', 'Summary amount']
 
 
 class ExpenseCSVParser(object):
 
-    def __init__(self, filename):
+    def __init__(self, book=None):
         super(ExpenseCSVParser, self).__init__()
         matiasb = UserData(
             user=User.objects.get(username='matiasb'),
@@ -50,49 +49,61 @@ class ExpenseCSVParser(object):
             user=User.objects.get(username='nessita'),
             account=Account.objects.get(slug='cash-ars-nessita'))
         self.users = {'M': matiasb, 'N': nessita}
-        self.book = Book.objects.get(slug='our-expenses')
-        self.filename = filename
+        if book is None:
+            book = Book.objects.get(slug='our-expenses')
+        self.book = book
 
     def process_row(self, row):
-        userdata = self.users[row[WHO]]
-        amount = row[AMOUNT].strip('$').replace(',', '')
+        try:
+            userdata = self.users[row[WHO]]
+            amount = row[AMOUNT].strip('$').replace(',', '')
+            what = row[WHY]
+            tags = CATEGORY_MAPPING[row[WHAT]]
+        except KeyError:
+            return
+
         data = dict(
             who=userdata.user.id,
             when=datetime.strptime(row[WHEN], '%Y-%m-%d'),
-            what=row[WHY],
+            what=what,
             account=userdata.account.id,
             amount=Decimal(amount),
             is_income=False,
-            tags=CATEGORY_MAPPING[row[WHAT]],
+            tags=tags,
         )
         form = EntryForm(data=data)
         assert form.is_valid(), form.errors
+
         try:
             entry = form.save(book=self.book)
         except IntegrityError:
             entry = None
         return entry
 
-    def parse(self):
+    def parse(self, fileobj):
         header = None
-        result = 0
-        with open(self.filename) as f:
-            reader = csv.reader(f)
-            for row in reader:
-                row = list(filter(None, row))
-                if header is None:
-                    assert HEADER == row, row
-                    header = row
-                    continue
+        result = dict(entries=[], errors=[])
 
-                row = {h: d for h, d in zip(header, row)}
-                entry = self.process_row(row)
-                if entry is not None:
-                    result += 1
-                else:
-                    print('ERROR: could not create entry for %s' % row)
+        reader = csv.reader(fileobj)
+        for row in reader:
+            row = list(filter(None, row))
+            if header is None:
+                assert HEADER == row, row
+                header = row
+                continue
+
+            row = {h: d for h, d in zip(header, row)}
+            entry = self.process_row(row)
+            if entry is not None:
+                result['entries'].append(entry)
+            else:
+                result['errors'].append(row)
+
+        return result
 
 
-parser = ExpenseCSVParser(
-    filename='/home/nessita/Documents/expenses-08-2010.csv')
-parser.parse()
+if __name__ == '__main__':
+    parser = ExpenseCSVParser()
+    filename = sys.argv[1]
+    with open(filename) as f:
+        print(parser.parse(fileobj=f))
