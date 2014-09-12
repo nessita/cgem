@@ -8,12 +8,6 @@
 <h1>Add a book</h1>
 {% endif %}
 
-<div class="row">
-
-<div class="col-md-4">
-</div>
-
-<div class="col-md-8">
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
     {{ form.errors }}
@@ -39,8 +33,5 @@
         {% endif %}
     </div>
 </form>
-</div>
-
-</div>
 
 {% endblock content %}
