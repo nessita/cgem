@@ -23,8 +23,7 @@
 
 <h1>{% if entry %}Edit{% else %}New{% endif %} entry</h1>
 
-<div class="row add-entry">
-<!--div class="col-md-10"-->
+<div class="add-entry">
 
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
@@ -61,7 +60,6 @@
     </div>
 </form>
 
-<!--/div-->
 </div>
 
 <div>
