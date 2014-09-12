@@ -1,3 +1,7 @@
+from collections import OrderedDict
+from datetime import date
+from io import TextIOWrapper
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
@@ -5,8 +9,13 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from gemcore.forms import BookForm, EntryForm
+from gemcore.forms import BookForm, CSVExpenseForm, EntryForm
 from gemcore.models import Book, Entry
+from gemcore.parse import ExpenseCSVParser
+
+
+MONTHS = OrderedDict(
+    [(date(2000, i, 1).strftime('%b'), i) for i in range(1, 13)])
 
 
 def remove_thing(request, thing):
@@ -28,7 +37,8 @@ def home(request):
 @login_required
 def books(request):
     books = request.user.book_set.all()
-    return render(request, 'gemcore/books.html', dict(books=books))
+    context = dict(books=books)
+    return render(request, 'gemcore/books.html', context)
 
 
 @require_http_methods(['GET', 'POST'])
@@ -72,10 +82,10 @@ def entries(request, book_slug):
     except (ValueError, TypeError):
         year = None
 
+    month = request.GET.get('month')
     try:
-        month = int(request.GET.get('month'))
-        entries = entries.filter(when__month=month)
-    except (ValueError, TypeError):
+        entries = entries.filter(when__month=MONTHS[month])
+    except (KeyError, ValueError, TypeError):
         month = None
 
     try:
@@ -86,13 +96,15 @@ def entries(request, book_slug):
         entries = entries.filter(who__username=who)
 
     all_years = book.years(entries)
+    all_months = None if month else list(MONTHS.keys())
     all_users = book.who(entries)
     all_tags = book.tags(entries)
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
     entries = entries.order_by('-when', 'who')
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
-        all_years=all_years, all_users=all_users, all_tags=all_tags,
+        all_years=all_years, all_months=all_months,
+        all_users=all_users, all_tags=all_tags,
         available_tags=available_tags, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)
@@ -145,3 +157,46 @@ def entry_remove(request, book_slug, entry_id):
     entry = get_object_or_404(
         Entry, book__slug=book_slug, book__users=request.user, id=entry_id)
     return remove_thing(request, entry)
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def load_from_file(request, book_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+
+    if request.method == 'POST':
+        form = CSVExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = form.cleaned_data['csv_file']
+
+            # Hack around: "iterator should return strings, not bytes
+            # (did you open the file in text mode?)"
+            csv_file.readable = lambda: True
+            csv_file.writable = lambda: False
+            csv_file.seekable = lambda: True
+            csv_file = TextIOWrapper(csv_file, encoding='utf-8')
+            # end hack
+
+            result = ExpenseCSVParser(book).parse(csv_file)
+            success = len(result['entries'])
+            error = len(result['errors'])
+            if not error:
+                messages.success(
+                    request, 'File %s successfully parsed (%s entries added).'
+                    % (success, csv_file.name))
+            elif success:
+                messages.warning(
+                    request,
+                    'File %s partially parsed (%s successes, %s errors).' %
+                    (csv_file.name, success, error))
+            else:
+                messages.error(
+                    request, 'File %s could not be parsed (%s errors).' %
+                    (csv_file.name, error))
+            return HttpResponseRedirect(
+                reverse('entries', kwargs=dict(book_slug=book_slug)))
+    else:
+        form = CSVExpenseForm()
+
+    context = dict(form=form)
+    return render(request, 'gemcore/load.html', context)

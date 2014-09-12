@@ -62,3 +62,8 @@ class EntryForm(forms.ModelForm):
                        'placeholder': 'how much'}),
             account=forms.Select(attrs={'class': 'form-control'}),
         )
+
+
+class CSVExpenseForm(forms.Form):
+
+    csv_file = forms.FileField()

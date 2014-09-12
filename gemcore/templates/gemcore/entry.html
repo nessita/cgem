@@ -28,8 +28,8 @@
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
 
-    {% if form.errors %}
-    <div class="alert alert-danger">{{ form.errors }}</div>
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
 
     {% for field in form %}
@@ -40,7 +40,8 @@
         {% if field.field.required %}<span class="asteriskField">*</span>{% endif %}
         </label>
         {% if field.errors %}
-        <span class="glyphicon glyphicon-remove form-control-feedback"></span>
+        <span class="glyphicon glyphicon-remove form-control-feedback"
+              title="{{ field.errors.0 }}"></span>
         {% endif %}
         {{ field }}
     </div>
