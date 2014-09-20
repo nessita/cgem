@@ -113,7 +113,7 @@ def entries(request, book_slug):
     all_tags = book.tags(entries)
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
 
-    paginator = Paginator(entries, 25) # Show 25 contacts per page
+    paginator = Paginator(entries, 15)
     page = request.GET.get('page')
     try:
         entries = paginator.page(page)
