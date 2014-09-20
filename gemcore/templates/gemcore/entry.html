@@ -11,6 +11,23 @@
                 autoclose: true,
                 todayHighlight: true
             });
+
+            function strip(str){
+                return str.replace(/^\s+|\s+$/g, '');
+            }
+            
+            $('.tags a').click(function() {
+                var value = $(this).text();
+                var input = $('#id_tags');
+                var current = strip(input.val());
+                if (current.length > 0 && current[current.length - 1] != ','){
+                    current = current + ','
+                }
+                value = strip(value);
+                input.val(current + value + ',');
+                return false;
+            });
+
         });
     </script>
 {% endblock head-extra %}
@@ -46,7 +63,7 @@
     {% endifnotequal %}
     {% endfor %}
 
-    <div class="form-group">
+    <div class="form-group tags">
         {% for tag in all_tags %}
         <a class="tag-vspace-5 btn btn-sm btn-info" href="#">
             <strong>{{ tag }}</strong>
