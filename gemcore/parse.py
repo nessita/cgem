@@ -104,7 +104,5 @@ if __name__ == '__main__':
         result = parser.parse(fileobj=f)
     if result['errors']:
         print(
-            [(k, v) for k, v in result['errors'].items()
-             if k != 'IntegrityError']
+            [(k, v) for k, v in result['errors'].items()]
         )
-        import pdb; pdb.set_trace()
