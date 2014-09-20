@@ -19,11 +19,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'ugpu*6%qi!$)(@dxjd0b%r9ase-wfe32fv+h@)3=r^a=b!jl7@'
 
-DEBUG = True
+DEBUG = False
 
 TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['cuantogastamosestemes.herokuapp.com']
+ALLOWED_HOSTS = ['cgem.herokuapp.com']
 
 DATABASES = {
     'default': {
@@ -46,12 +46,12 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'south',
     'gemcore',
     'taggit',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'django_countries',
     'qurltemplatetag',
 )
 
@@ -88,10 +88,6 @@ USE_TZ = True
 STATIC_ROOT = 'staticfiles'
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'static'),
-)
-
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.contrib.auth.context_processors.auth',
     'django.core.context_processors.debug',
@@ -125,6 +121,10 @@ DATABASES['default'] = dj_database_url.config()
 
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+MIGRATION_MODULES = {
+    'taggit': 'gemcore.taggit_migrations',
+}
 
 try:
     from gem.local_settings import *

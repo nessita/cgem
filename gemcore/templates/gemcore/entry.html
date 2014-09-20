@@ -15,35 +15,55 @@
     </script>
 {% endblock head-extra %}
 
+{% block navbar-title %}
+    <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
+{% endblock navbar-title %}
 
 {% block content %}
 
-<h1>{% if expense %}Edit{% else %}Add a{% endif %} expense on {{ book }}</h1>
+<h1>{% if entry %}Edit{% else %}New{% endif %} entry</h1>
+
+<div class="add-entry">
+
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
-    {{ form.errors }}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
     {% for field in form %}
+    {% ifnotequal field.name 'is_income' %}
     <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
         <label for="{{ field.auto_id }}" class="sr-only">
         {{ field.label }}
         {% if field.field.required %}<span class="asteriskField">*</span>{% endif %}
         </label>
         {% if field.errors %}
-        <span class="glyphicon glyphicon-remove form-control-feedback"></span>
+        <span class="glyphicon glyphicon-remove form-control-feedback"
+              title="{{ field.errors.0 }}"></span>
         {% endif %}
         {{ field }}
     </div>
+    {% endifnotequal %}
     {% endfor %}
 
+    <div class="form-group">Income? {{ form.is_income }}</div>
+
     <div class="btn-group">
-        {% if expense %}
+        {% if entry %}
         <button type="submit" class="btn btn-primary">Save</button>
-        <a href="{% url 'remove-expense' book.slug expense.id %}" class="btn btn-default">Remove</a>
+        <a href="{% url 'remove-entry' book.slug entry.id %}" class="btn btn-default">Remove</a>
         {% else %}
         <button type="submit" class="btn btn-primary">Add</button>
         {% endif %}
-        <a href="{% url 'expenses' book.slug %}" class="btn btn-default">Cancel</a>
     </div>
 </form>
+
+</div>
+
+<div>
+{% include 'gemcore/_show_tags.html' %}
+</div>
 
 {% endblock content %}

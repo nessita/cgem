@@ -1,0 +1,30 @@
+.add-entry {
+    padding-bottom: 10px;
+}
+
+.add-entry .datepicker {
+    width: 7em;
+}
+
+.table {
+    width: auto;
+}
+
+.table .expense {
+    color: red;
+}
+
+.table-hover > tbody > tr:hover > td,
+.table-hover > tbody > tr:hover > th {
+    background-color: light-grey;
+    cursor: pointer;
+}
+
+#search-clear {
+    background: white;
+    border-left: none;
+}
+
+.row-vspace-10 {
+    margin-top: 10px;
+}

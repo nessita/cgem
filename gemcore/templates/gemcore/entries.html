@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load qurl %}
+{% load static %}
+
+{% block navbar-title %}
+    <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
+{% endblock navbar-title %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col-md-12">
+    {% for tag in used_tags %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path tag-=tag %}">{{ tag }} &times;</a>
+    </div>
+    {% endfor %}
+    {% if year %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path year-=year %}">{{ year }} &times;</a>
+    </div>
+    {% endif %}
+    {% if month %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path month-=month %}">{{ month }} &times;</a>
+    </div>
+    {% endif %}
+    {% if who %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path who-=who %}">{{ who }} &times;</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+
+<div class="col-md-4">
+    <div class="row-vspace-10">
+    {% include 'gemcore/_show_tags.html' %}
+    </div>
+
+    <form class="form-inline row-vspace-10" role="search" method="GET" action=".">
+        <div class="input-group input-group-sm">
+            <input id="search" type="text" class="form-control" name="q" placeholder="Search"
+             {% if q %}value="{{ q }}"{% endif %} />
+            <span id="search-clear" class="input-group-addon">
+                <a id="clear" href="#"><span class="glyphicon glyphicon-remove"></span></a>
+            </span>
+            <span class="input-group-btn">
+                <button class="btn btn-default" type="submit">
+                    <span class="glyphicon glyphicon-search"></span>
+                </button>
+            </span>
+        </div><!-- /input-group -->
+    </form>
+
+    <div class="btn-group btn-group-sm row-vspace-10">
+        <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
+            Add entry</a>
+        <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
+            Load from file</a>
+    </div>
+
+</div>
+
+<div class="col-md-8">
+
+    <div class="text-center">
+    <ul class="pagination pagination-sm">
+        {% if entries.has_previous %}
+        <li><a href="?page={{ entries.previous_page_number }}">&laquo;</a></li>
+        {% else %}
+        <li class="disabled"><span>&laquo;<span class="sr-only"> (previous)</span></span></li>
+        {% endif %}
+        {% for p in entries.paginator.page_range %}
+        <li{% ifequal entries.number p %} class="active"{% endifequal %}><a href="?page={{ p }}">{{ p }}</a></li>
+        {% endfor %}
+        {% if entries.has_next %}
+        <li><a href="?page={{ entries.next_page_number }}">&raquo;</a></li>
+        {% else %}
+        <li class="disabled"><span>&raquo;<span class="sr-only"> (next)</span></span></li>
+        {% endif %}
+    </ul>
+    </div>
+
+    {% if entries %}
+    <table class="table table-condensed table-hover table-striped">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>Amount</th>
+                <th>Account</th>
+                <th>Tags</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr onclick="window.document.location='{% url 'entry' book.slug entry.id %}'">
+                <td>{{ entry.when|date:"d/m/Y" }}</td>
+                <td>{{ entry.who }}</td>
+                <td>{{ entry.what }}</td>
+                <td class="text-right {% if not entry.is_income %}expense{% endif %}">
+                    {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}
+                </td>
+                <td class="{% if not entry.is_income %}expense{% endif %}">
+                    {{ entry.account }}</td>
+                <td>{% for n in entry.tags.names %}{{ n }}<br/>{% endfor %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No entries in the system.</dp>
+    {% endif %}
+</div>
+
+</div>
+
+<script>
+$("#clear").click(function(evt){
+    evt.preventDefault();
+    $("#search").val("").focus();
+});
+</script>
+
+{% endblock content %}

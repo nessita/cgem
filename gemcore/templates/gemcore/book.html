@@ -10,11 +10,20 @@
 
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
-    <div class="form-horizontal">
+    {{ form.errors }}
     {% for field in form %}
-        {{ field.label_tag }} {{ field }}
-    {% endfor %}
+    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
+        <label for="{{ field.auto_id }}">
+        {{ field.label }}
+        {% if field.field.required %}<span class="asteriskField">*</span>{% endif %}
+        </label>
+        {% if field.errors %}
+        <span class="glyphicon glyphicon-remove form-control-feedback"></span>
+        {% endif %}
+        {{ field }}
     </div>
+    {% endfor %}
+
     <div class="btn-group">
         {% if book %}
         <button type="submit" class="btn btn-primary" name="save">Save</button>

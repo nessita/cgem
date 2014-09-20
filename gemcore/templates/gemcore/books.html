@@ -1,33 +1,40 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Books that you are part of</h1>
+
 {% for book in books %}
-    <h2><a href="{% url 'expenses' book.slug %}">{{ book }}</a></h2>
-    <div>
-        Recent expenses:
+<div class="row">
+    <h2>
+        <a href="{% url 'entries' book.slug %}">{{ book }}</a>
+        ({% for u in book.users.all %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %})
+    </h2>
+    <div class="col-md-8">
+        Recent entries:
         <ul>
-            {% for expense in book.latest_expenses %}
-            <li><a href="{% url 'edit-expense' book.slug expense.id %}">{{ expense }}</a></li>
+            {% for entry in book.latest_entries %}
+            <li><a href="{% url 'entry' book.slug entry.id %}">{{ entry }}</a></li>
             {% empty %}
-            <li>No expenses for this book yet.</li>
+            <li>No entries for this book yet.</li>
             {% endfor %}
         </ul>
+    </div>
+    <div class="col-md-4">
         <div class="btn-group">
-            <a href="{% url 'add-expense' book.slug %}" class="btn btn-xs btn-primary">
-                Add expense</a>
-            <a href="{% url 'edit-book' book.slug %}" class="btn btn-xs btn-default">
-                Edit book</a>
-            <a href="{% url 'remove-book' book.slug %}" class="btn btn-xs btn-default">
-                Remove book</a>
+            <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
+                Add entry</a>
+            <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
+                Load from file</a>
         </div>
     </div>
 {% empty %}
-    <p>No books in the system yet.</p>
+    <h2>No books in the system yet.</h2>
 {% endfor %}
+</div>
 
-<div class="pull-right btn-group">
-    <a href="{% url 'add-book' %}" class="btn btn-primary">Add Book</a>
+<div class="row">
+    <div class="btn-group">
+        <a href="{% url 'add-book' %}" class="btn btn-default">Add Book</a>
+    </div>
 </div>
 
 {% endblock content %}
