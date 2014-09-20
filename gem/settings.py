@@ -126,6 +126,9 @@ MIGRATION_MODULES = {
     'taggit': 'gemcore.taggit_migrations',
 }
 
+from django.contrib.messages import constants as message_constants
+MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
+
 try:
     from gem.local_settings import *
 except ImportError:

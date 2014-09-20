@@ -9,6 +9,7 @@ if __name__ == '__main__':
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gem.settings')
     django.setup()
 
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
@@ -54,13 +55,10 @@ class ExpenseCSVParser(object):
         self.book = book
 
     def process_row(self, row):
-        try:
-            userdata = self.users[row[WHO]]
-            amount = row[AMOUNT].strip('$').replace(',', '')
-            what = row[WHY]
-            tags = CATEGORY_MAPPING[row[WHAT]]
-        except KeyError:
-            return
+        userdata = self.users[row[WHO]]
+        amount = row[AMOUNT].strip('$').replace(',', '')
+        what = row[WHY]
+        tags = CATEGORY_MAPPING[row[WHAT]]
 
         data = dict(
             who=userdata.user.id,
@@ -74,15 +72,11 @@ class ExpenseCSVParser(object):
         form = EntryForm(data=data)
         assert form.is_valid(), form.errors
 
-        try:
-            entry = form.save(book=self.book)
-        except IntegrityError:
-            entry = None
-        return entry
+        return form.save(book=self.book)
 
     def parse(self, fileobj):
         header = None
-        result = dict(entries=[], errors=[])
+        result = dict(entries=[], errors=defaultdict(list))
 
         reader = csv.reader(fileobj)
         for row in reader:
@@ -93,11 +87,12 @@ class ExpenseCSVParser(object):
                 continue
 
             row = {h: d for h, d in zip(header, row)}
-            entry = self.process_row(row)
-            if entry is not None:
-                result['entries'].append(entry)
+            try:
+                entry = self.process_row(row)
+            except Exception as e:
+                result['errors'][e.__class__.__name__].append((e, row))
             else:
-                result['errors'].append(row)
+                result['entries'].append(entry)
 
         return result
 
@@ -106,4 +101,10 @@ if __name__ == '__main__':
     parser = ExpenseCSVParser()
     filename = sys.argv[1]
     with open(filename) as f:
-        print(parser.parse(fileobj=f))
+        result = parser.parse(fileobj=f)
+    if result['errors']:
+        print(
+            [(k, v) for k, v in result['errors'].items()
+             if k != 'IntegrityError']
+        )
+        import pdb; pdb.set_trace()

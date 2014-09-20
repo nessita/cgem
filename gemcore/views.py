@@ -213,6 +213,12 @@ def load_from_file(request, book_slug):
                 messages.error(
                     request, 'File %s could not be parsed (%s errors).' %
                     (csv_file.name, error))
+
+            if error:
+                for e, errors in result['errors'].items():
+                    error_msg = ', '.join(str(i) for i in errors)
+                    messages.error(request, '%s: %s' % (e, error_msg))
+
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))
     else:
