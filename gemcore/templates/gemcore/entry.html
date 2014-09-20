@@ -21,9 +21,7 @@
 
 {% block content %}
 
-<h1>{% if entry %}Edit{% else %}New{% endif %} entry</h1>
-
-<div class="add-entry">
+<div class="row add-entry">
 
 <form action="." method="POST" class="form-inline" role="form">
     {% csrf_token %}
@@ -48,6 +46,14 @@
     {% endifnotequal %}
     {% endfor %}
 
+    <div class="form-group">
+        {% for tag in all_tags %}
+        <a class="tag-vspace-5 btn btn-sm btn-info" href="#">
+            <strong>{{ tag }}</strong>
+        </a>
+        {% endfor %}
+    </div>
+
     <div class="form-group">Income? {{ form.is_income }}</div>
 
     <div class="btn-group">
@@ -60,10 +66,6 @@
     </div>
 </form>
 
-</div>
-
-<div>
-{% include 'gemcore/_show_tags.html' %}
 </div>
 
 {% endblock content %}
