@@ -36,16 +36,54 @@
 <div class="row">
 
 <div class="col-md-4">
+    <div class="row-vspace-10">
     {% include 'gemcore/_show_tags.html' %}
-    <div class="btn-group">
+    </div>
+
+    <form class="form-inline row-vspace-10" role="search" method="GET" action=".">
+        <div class="input-group input-group-sm">
+            <input id="search" type="text" class="form-control" name="q" placeholder="Search"
+             {% if q %}value="{{ q }}"{% endif %} />
+            <span class="input-group-addon">
+                <a id="clear" href="#"><span class="glyphicon glyphicon-remove"></span></a>
+            </span>
+            <span class="input-group-btn">
+                <button class="btn btn-default" type="submit">
+                    <span class="glyphicon glyphicon-search"></span>
+                </button>
+            </span>
+        </div><!-- /input-group -->
+    </form>
+
+    <div class="btn-group btn-group-sm row-vspace-10">
         <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
             Add entry</a>
         <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
             Load from file</a>
     </div>
+
 </div>
 
 <div class="col-md-8">
+
+    <div class="text-center">
+    <ul class="pagination pagination-sm">
+        {% if entries.has_previous %}
+        <li><a href="?page={{ entries.previous_page_number }}">&laquo;</a></li>
+        {% else %}
+        <li class="disabled"><span>&laquo;<span class="sr-only"> (previous)</span></span></li>
+        {% endif %}
+        {% for p in entries.paginator.page_range %}
+        <li{% ifequal entries.number p %} class="active"{% endifequal %}><a href="?page={{ p }}">{{ p }}</a></li>
+        {% endfor %}
+        {% if entries.has_next %}
+        <li><a href="?page={{ entries.next_page_number }}">&raquo;</a></li>
+        {% else %}
+        <li class="disabled"><span>&raquo;<span class="sr-only"> (next)</span></span></li>
+        {% endif %}
+    </ul>
+    </div>
+
     {% if entries %}
     <table class="table table-condensed table-hover table-striped">
         <thead>
@@ -81,5 +119,12 @@
 </div>
 
 </div>
+
+<script>
+$("#clear").click(function(evt){
+    evt.preventDefault();
+    $("#search").val("").focus();
+});
+</script>
 
 {% endblock content %}

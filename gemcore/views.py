@@ -4,6 +4,7 @@ from io import TextIOWrapper
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
@@ -69,7 +70,12 @@ def book_remove(request, book_slug):
 @login_required
 def entries(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    entries = book.entry_set.all()
+
+    q = request.GET.get('q')
+    if q:
+        entries = book.entry_set.filter(what__icontains=q)
+    else:
+        entries = book.entry_set.all()
 
     used_tags = set()
     for tag in request.GET.getlist('tag', []):
@@ -95,16 +101,33 @@ def entries(request, book_slug):
     if who:
         entries = entries.filter(who__username=who)
 
+    entries = entries.order_by('-when', 'who')
+
+    all_months = None
+    if not month:
+        all_months = sorted(
+            {d.strftime('%b') for d in entries.values_list('when', flat=True)}
+        )
     all_years = book.years(entries)
-    all_months = None if month else list(MONTHS.keys())
     all_users = book.who(entries)
     all_tags = book.tags(entries)
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
-    entries = entries.order_by('-when', 'who')
+
+    paginator = Paginator(entries, 25) # Show 25 contacts per page
+    page = request.GET.get('page')
+    try:
+        entries = paginator.page(page)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page.
+        entries = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range (e.g. 9999), deliver last page of results.
+        entries = paginator.page(paginator.num_pages)
+
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
         all_years=all_years, all_months=all_months,
-        all_users=all_users, all_tags=all_tags,
+        all_users=all_users, all_tags=all_tags, q=q,
         available_tags=available_tags, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)

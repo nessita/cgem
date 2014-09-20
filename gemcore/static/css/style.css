@@ -19,3 +19,16 @@
     background-color: light-grey;
     cursor: pointer;
 }
+
+.input-group-addon {
+    background: white;
+    border-left: none;
+}
+
+#search {
+    background: white;
+}
+
+.row-vspace-10 {
+    margin-top: 10px;
+}
