@@ -19,3 +19,12 @@
     background-color: light-grey;
     cursor: pointer;
 }
+
+#search-clear {
+    background: white;
+    border-left: none;
+}
+
+.row-vspace-10 {
+    margin-top: 10px;
+}
