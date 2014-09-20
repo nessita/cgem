@@ -165,12 +165,9 @@ def entry(request, book_slug, entry_id=None):
         form = EntryForm(
             instance=entry, initial=dict(who=who, currency=currency))
 
-    all_years = book.years()
-    all_users = book.who()
     all_tags = book.tags()
     context = dict(
-        form=form, book=book, entry=entry,
-        all_years=all_years, all_users=all_users, all_tags=all_tags)
+        form=form, book=book, entry=entry, all_tags=all_tags)
     return render(request, 'gemcore/entry.html', context)
 
 
