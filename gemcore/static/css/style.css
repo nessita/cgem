@@ -20,13 +20,9 @@
     cursor: pointer;
 }
 
-.input-group-addon {
+#search-clear {
     background: white;
     border-left: none;
-}
-
-#search {
-    background: white;
 }
 
 .row-vspace-10 {
