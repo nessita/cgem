@@ -15,6 +15,8 @@ from gemcore.models import Book, Entry
 from gemcore.parse import ExpenseCSVParser
 
 
+ENTRIES_PER_PAGE = 15
+MAX_PAGES = 4
 MONTHS = OrderedDict(
     [(date(2000, i, 1).strftime('%b'), i) for i in range(1, 13)])
 
@@ -113,21 +115,39 @@ def entries(request, book_slug):
     all_tags = book.tags(entries)
     available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
 
-    paginator = Paginator(entries, 15)
+    paginator = Paginator(entries, ENTRIES_PER_PAGE)
     page = request.GET.get('page')
     try:
         entries = paginator.page(page)
     except PageNotAnInteger:
         # If page is not an integer, deliver first page.
-        entries = paginator.page(1)
+        page = 1
+        entries = paginator.page(page)
     except EmptyPage:
         # If page is out of range (e.g. 9999), deliver last page of results.
+        page = paginator.num_pages
         entries = paginator.page(paginator.num_pages)
+    else:
+        page = int(page)
+
+    if paginator.num_pages <= MAX_PAGES:
+        page_range = paginator.page_range
+    else:
+        half = MAX_PAGES // 2
+        start = page - half
+        end = page + half
+        if start < 1 and end - start < paginator.num_pages:
+            end = end - start + 1
+            start = 1
+        if end > paginator.num_pages and start > 1:
+            start = start - (end - paginator.num_pages)
+            end = paginator.num_pages
+        page_range = range(start, end + 1)
 
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
-        all_years=all_years, all_months=all_months,
-        all_users=all_users, all_tags=all_tags, q=q,
+        all_years=all_years, all_months=all_months, all_users=all_users,
+        all_tags=all_tags, q=q, page_range=page_range,
         available_tags=available_tags, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)
