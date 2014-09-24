@@ -72,7 +72,7 @@
         {% else %}
         <li class="disabled"><span>&laquo;<span class="sr-only"> (previous)</span></span></li>
         {% endif %}
-        {% for p in entries.paginator.page_range %}
+        {% for p in page_range %}
         <li{% ifequal entries.number p %} class="active"{% endifequal %}><a href="?page={{ p }}">{{ p }}</a></li>
         {% endfor %}
         {% if entries.has_next %}
