@@ -100,9 +100,8 @@ class ExpenseCSVParser(object):
 if __name__ == '__main__':
     parser = ExpenseCSVParser()
     filename = sys.argv[1]
+    print(filename)
     with open(filename) as f:
         result = parser.parse(fileobj=f)
     if result['errors']:
-        print(
-            [(k, v) for k, v in result['errors'].items()]
-        )
+        print('=== ERROR ===', result['errors'].keys())
