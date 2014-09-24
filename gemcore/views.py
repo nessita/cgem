@@ -131,7 +131,8 @@ def entries(request, book_slug):
         page = int(page)
 
     if paginator.num_pages <= MAX_PAGES:
-        page_range = paginator.page_range
+        start = 1
+        end = paginator.num_pages
     else:
         half = MAX_PAGES // 2
         start = page - half
@@ -142,12 +143,12 @@ def entries(request, book_slug):
         if end > paginator.num_pages and start > 1:
             start = start - (end - paginator.num_pages)
             end = paginator.num_pages
-        page_range = range(start, end + 1)
 
+    page_range = range(start, end + 1)
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
         all_years=all_years, all_months=all_months, all_users=all_users,
-        all_tags=all_tags, q=q, page_range=page_range,
+        all_tags=all_tags, q=q, page_range=page_range, start=start, end=end,
         available_tags=available_tags, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)

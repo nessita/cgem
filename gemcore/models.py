@@ -9,15 +9,21 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.text import slugify
 from taggit.managers import TaggableManager
+from taggit.models import Tag
 
 
 CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
 
-TAGS = [
-    'super', 'auto', 'servicios', 'impuestos',
-]
+RAW_TAG_SQL = """
+    SELECT taggit_tag.name, taggit_tag.id, COUNT(tag_id) as tag_count
+    FROM taggit_tag
+    JOIN taggit_taggeditem ON taggit_tag.id = taggit_taggeditem.tag_id
+    JOIN gemcore_entry ON taggit_taggeditem.object_id = gemcore_entry.id
+    WHERE gemcore_entry.book_id = %s AND gemcore_entry.id IN (%s)
+    GROUP BY tag_id;
+"""
 
 
 class Book(models.Model):
@@ -41,12 +47,11 @@ class Book(models.Model):
         if entries is None:
             entries = self.entry_set.all()
         result = defaultdict(int)
-        for e in entries.filter(tags__isnull=False).distinct():
-            for t in e.tags.all():
-                result[t] += 1
 
-        # templates can not handle defaultdicts
-        return dict(result)
+        qs = Tag.objects.raw(
+            RAW_TAG_SQL % (self.id, ', '.join(str(e.id) for e in entries)))
+        result = {q.name: q.tag_count for q in qs}
+        return result
 
     def years(self, entries=None):
         if entries is None:
@@ -67,11 +72,10 @@ class Book(models.Model):
     def who(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
-        result = {}
-        for d in entries.values('who__username').annotate(
-                models.Count('who')):
-            result[d['who__username']] = d['who__count']
-        return result
+        result = defaultdict(int)
+        for d in entries.values_list('who__username', flat=True):
+            result[d] += 1
+        return dict(result)
 
 
 class Currency(models.Model):

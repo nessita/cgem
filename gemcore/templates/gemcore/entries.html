@@ -37,7 +37,40 @@
   <div class="col-md-4">
 
     <div class="row-vspace-10">
-    {% include 'gemcore/_show_tags.html' %}
+        <p>
+        {% for tag, i in all_tags.items %}
+            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
+                {{ tag }} <span class="badge">{{ i }}</span>
+            </a>
+        {% endfor %}
+        </p>
+        <p>
+        {% for k in all_months %}
+            {% ifnotequal k month %}
+            <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
+                {{ k }}
+            </a>
+            {% endifnotequal %}
+        {% endfor %}
+        </p>
+        <p>
+        {% for k, i in all_years.items %}
+            {% ifnotequal k year %}
+            <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% endifnotequal %}
+        {% endfor %}
+        </p>
+        <p>
+        {% for k, i in all_users.items %}
+            {% ifnotequal k who %}
+            <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% endifnotequal %}
+        {% endfor %}
+        </p>
     </div>
 
     <form class="form-inline row-vspace-10" role="search" method="GET" action=".">
@@ -68,17 +101,21 @@
     <div class="text-center">
     <ul class="pagination pagination-sm">
         {% if entries.has_previous %}
-        <li><a href="?page={{ entries.previous_page_number }}">&laquo;</a></li>
-        {% else %}
-        <li class="disabled"><span>&laquo;<span class="sr-only"> (previous)</span></span></li>
+        {% if start > 1 %}
+        <li><a href="{% qurl request.get_full_path page=1 %}">&laquo;</a></li>
+        {% endif %}
+        <li><a href="{% qurl request.get_full_path page=entries.previous_page_number %}">&lsaquo;</a></li>
         {% endif %}
         {% for p in page_range %}
-        <li{% ifequal entries.number p %} class="active"{% endifequal %}><a href="?page={{ p }}">{{ p }}</a></li>
+        <li{% ifequal entries.number p %} class="active"{% endifequal %}>
+            <a href="{% qurl request.get_full_path page=p %}">{{ p }}</a>
+        </li>
         {% endfor %}
         {% if entries.has_next %}
-        <li><a href="?page={{ entries.next_page_number }}">&raquo;</a></li>
-        {% else %}
-        <li class="disabled"><span>&raquo;<span class="sr-only"> (next)</span></span></li>
+        <li><a href="{% qurl request.get_full_path page=entries.next_page_number %}">&rsaquo;</a></li>
+        {% if end < entries.paginator.num_pages %}
+        <li><a href="{% qurl request.get_full_path page=entries.paginator.num_pages %}">&raquo;</a></li>
+        {% endif %}
         {% endif %}
     </ul>
     </div>
@@ -90,8 +127,8 @@
                 <th>When</th>
                 <th>Who</th>
                 <th>What</th>
-                <th>Amount</th>
-                <th>Account</th>
+                <th>$$$</th>
+                <th>From</th>
                 <th>Tags</th>
                 <th></th>
             </tr>
@@ -99,8 +136,8 @@
         <tbody>
             {% for entry in entries %}
             <tr onclick="window.document.location='{% url 'entry' book.slug entry.id %}'">
-                <td>{{ entry.when|date:"d/m/Y" }}</td>
-                <td>{{ entry.who }}</td>
+                <td>{{ entry.when|date:"d-b" }}</td>
+                <td>{{ entry.who.username|slice:"3" }}</td>
                 <td>{{ entry.what }}</td>
                 <td class="text-right {% if not entry.is_income %}expense{% endif %}">
                     {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}

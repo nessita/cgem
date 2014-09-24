@@ -14,7 +14,6 @@ from datetime import datetime
 from decimal import Decimal
 
 from collections import namedtuple
-from django.db.utils import IntegrityError
 from django.contrib.auth.models import User
 from gemcore.forms import EntryForm
 from gemcore.models import Account, Book
