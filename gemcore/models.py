@@ -17,7 +17,7 @@ CURRENCIES = [
 ]
 
 RAW_TAG_SQL = """
-    SELECT taggit_tag.name, taggit_tag.id, COUNT(tag_id) as tag_count
+    SELECT taggit_tag.id, taggit_tag.name, COUNT(taggit_tag.id) as tag_count
     FROM taggit_tag
     JOIN taggit_taggeditem ON taggit_tag.id = taggit_taggeditem.tag_id
     JOIN gemcore_entry ON taggit_taggeditem.object_id = gemcore_entry.id
