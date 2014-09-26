@@ -22,7 +22,7 @@ RAW_TAG_SQL = """
     JOIN taggit_taggeditem ON taggit_tag.id = taggit_taggeditem.tag_id
     JOIN gemcore_entry ON taggit_taggeditem.object_id = gemcore_entry.id
     WHERE gemcore_entry.book_id = %s AND gemcore_entry.id IN (%s)
-    GROUP BY tag_id;
+    GROUP BY taggit_tag.id;
 """
 
 
