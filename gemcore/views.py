@@ -9,6 +9,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
+from taggit.models import Tag
 
 from gemcore.forms import BookForm, CSVExpenseForm, EntryForm
 from gemcore.models import Book, Entry
@@ -186,7 +187,7 @@ def entry(request, book_slug, entry_id=None):
         form = EntryForm(
             instance=entry, initial=dict(who=who, currency=currency))
 
-    all_tags = book.tags()
+    all_tags = Tag.objects.all()
     context = dict(
         form=form, book=book, entry=entry, all_tags=all_tags)
     return render(request, 'gemcore/entry.html', context)
