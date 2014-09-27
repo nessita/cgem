@@ -78,33 +78,23 @@ class Book(models.Model):
         return dict(result)
 
 
-class Currency(models.Model):
-
-    code = models.CharField(max_length=3, choices=[(c, c) for c in CURRENCIES])
-
-    class Meta:
-        verbose_name_plural = "Currencies"
-
-    def __str__(self):
-        return self.code
-
-
 class Account(models.Model):
 
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
-    currency = models.ForeignKey(Currency)
+    currency_code = models.CharField(
+        max_length=3, choices=[(c, c) for c in CURRENCIES])
 
     class Meta:
-        ordering = ('currency', 'name')
+        ordering = ('currency_code', 'name')
 
     def __str__(self):
         if self.users.count() == 1:
             result = '%s %s %s' % (
-                self.currency, self.users.get().username, self.name)
+                self.currency_code, self.users.get().username, self.name)
         else:
-            result = '%s shared %s' % (self.currency, self.name)
+            result = '%s shared %s' % (self.currency_code, self.name)
         return result
 
     def save(self, *args, **kwargs):
@@ -137,4 +127,4 @@ class Entry(models.Model):
 
     @property
     def currency(self):
-        return self.account.currency
+        return self.account.currency_code
