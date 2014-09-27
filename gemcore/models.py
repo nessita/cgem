@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
+from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -16,21 +17,9 @@ CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
 TAGS = [
-    'AR',
-    'UY',
-    'bureaucracy',
-    'car',
-    'change',
-    'food',
-    'fun',
-    'health',
-    'house',
-    'maintainance',
-    'other',
-    'rent',
-    'taxes',
-    'travel',
-    'utilities',
+    'AR', 'UY',
+    'bureaucracy', 'car', 'change', 'food', 'fun', 'health', 'house',
+    'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
     'withdraw',
 ]
 
@@ -132,6 +121,7 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
     is_income = models.BooleanField(default=False)
+    flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
 
     tags = TaggableManager()
 
