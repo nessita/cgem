@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
+from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -14,6 +15,12 @@ from taggit.models import Tag
 
 CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
+]
+TAGS = [
+    'AR', 'UY',
+    'bureaucracy', 'car', 'change', 'food', 'fun', 'health', 'house',
+    'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
+    'withdraw',
 ]
 
 RAW_TAG_SQL = """
@@ -78,33 +85,23 @@ class Book(models.Model):
         return dict(result)
 
 
-class Currency(models.Model):
-
-    code = models.CharField(max_length=3, choices=[(c, c) for c in CURRENCIES])
-
-    class Meta:
-        verbose_name_plural = "Currencies"
-
-    def __str__(self):
-        return self.code
-
-
 class Account(models.Model):
 
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
-    currency = models.ForeignKey(Currency)
+    currency_code = models.CharField(
+        max_length=3, choices=[(c, c) for c in CURRENCIES])
 
     class Meta:
-        ordering = ('currency', 'name')
+        ordering = ('currency_code', 'name')
 
     def __str__(self):
         if self.users.count() == 1:
             result = '%s %s %s' % (
-                self.currency, self.users.get().username, self.name)
+                self.currency_code, self.users.get().username, self.name)
         else:
-            result = '%s shared %s' % (self.currency, self.name)
+            result = '%s shared %s' % (self.currency_code, self.name)
         return result
 
     def save(self, *args, **kwargs):
@@ -124,6 +121,7 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
     is_income = models.BooleanField(default=False)
+    flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
 
     tags = TaggableManager()
 
@@ -137,4 +135,4 @@ class Entry(models.Model):
 
     @property
     def currency(self):
-        return self.account.currency
+        return self.account.currency_code

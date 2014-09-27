@@ -1,11 +1,11 @@
 from django.contrib import admin
 
-from gemcore.models import Account, Book, Currency, Entry
+from gemcore.models import Account, Book, Entry
 
 
 class AccountAdmin(admin.ModelAdmin):
 
-    prepopulated_fields = {'slug': ('name', 'currency')}
+    prepopulated_fields = {'slug': ('name',)}
 
 
 class BookAdmin(admin.ModelAdmin):
@@ -21,5 +21,4 @@ class EntryAdmin(admin.ModelAdmin):
 
 admin.site.register(Account, AccountAdmin)
 admin.site.register(Book, BookAdmin)
-admin.site.register(Currency)
 admin.site.register(Entry, EntryAdmin)
