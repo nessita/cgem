@@ -24,12 +24,6 @@ class EntryForm(forms.ModelForm):
         cleaned_data = super(EntryForm, self).clean()
         tags = cleaned_data.get('tags', [])
 
-        # auto tag: income or expense?
-        if cleaned_data['is_income']:
-            tags.append('income')
-        else:
-            tags.append('expense')
-
         # auto tag: country
         if not any(c in tags for c in COUNTRIES):
             account = cleaned_data.get('account')
