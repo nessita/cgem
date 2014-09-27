@@ -27,9 +27,9 @@ class EntryForm(forms.ModelForm):
         # auto tag: country
         if not any(c in tags for c in COUNTRIES):
             account = cleaned_data.get('account')
-            if account and account.currency.code == 'UYU':
+            if account and account.currency_code == 'UYU':
                 tags.append('UY')
-            elif account and account.currency.code == 'ARS':
+            elif account and account.currency_code == 'ARS':
                 tags.append('AR')
             else:
                 raise forms.ValidationError('Missing country in tags.')

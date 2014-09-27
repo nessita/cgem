@@ -15,6 +15,24 @@ from taggit.models import Tag
 CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
+TAGS = [
+    'AR',
+    'UY',
+    'bureaucracy',
+    'car',
+    'change',
+    'food',
+    'fun',
+    'health',
+    'house',
+    'maintainance',
+    'other',
+    'rent',
+    'taxes',
+    'travel',
+    'utilities',
+    'withdraw',
+]
 
 RAW_TAG_SQL = """
     SELECT taggit_tag.id, taggit_tag.name, COUNT(taggit_tag.id) as tag_count
