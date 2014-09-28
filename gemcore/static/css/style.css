@@ -25,10 +25,23 @@
     border-left: none;
 }
 
-.tag-vspace-5 {
-    margin-top: 5px;
-}
-
 .row-vspace-10 {
     margin-top: 10px;
+}
+
+
+#id_flags {
+    list-style: none outside none;
+}
+
+#id_flags > li {
+    margin-top: 5px;
+    display: inline-block;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 5px 10px;
 }

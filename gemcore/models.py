@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.text import slugify
+from django_countries import countries
 from taggit.managers import TaggableManager
 from taggit.models import Tag
 
@@ -17,7 +18,6 @@ CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
 TAGS = [
-    'AR', 'UY',
     'bureaucracy', 'car', 'change', 'food', 'fun', 'health', 'house',
     'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
     'withdraw',
@@ -120,8 +120,9 @@ class Entry(models.Model):
     amount = models.DecimalField(
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
-    is_income = models.BooleanField(default=False)
-    flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
+    is_income = models.BooleanField(default=False, verbose_name='Income?')
+    flags = BitField(flags=[(t.lower(), t) for t in TAGS])
+    country = models.CharField(max_length=2, choices=countries, null=True)
 
     tags = TaggableManager()
 

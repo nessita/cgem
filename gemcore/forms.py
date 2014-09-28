@@ -1,6 +1,5 @@
 from django import forms
 from django_countries.data import COUNTRIES
-from taggit.forms import TagField, TagWidget
 
 from gemcore.models import Book, Entry
 
@@ -16,9 +15,6 @@ class BookForm(forms.ModelForm):
 
 
 class EntryForm(forms.ModelForm):
-
-    tags = TagField(widget=TagWidget(
-        attrs={'class': 'form-control', 'placeholder': 'tags'}))
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
@@ -42,7 +38,7 @@ class EntryForm(forms.ModelForm):
 
     class Meta:
         model = Entry
-        exclude = ('book',)
+        exclude = ('book', 'tags')
         widgets = dict(
             when=forms.DateInput(
                 attrs={'class': 'form-control datepicker'}),
@@ -55,6 +51,8 @@ class EntryForm(forms.ModelForm):
                 attrs={'size': 10, 'class': 'form-control',
                        'placeholder': 'how much'}),
             account=forms.Select(attrs={'class': 'form-control'}),
+            country=forms.Select(
+                attrs={'class': 'form-control', 'placeholder': 'where'}),
         )
 
 

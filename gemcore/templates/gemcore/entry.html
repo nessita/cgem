@@ -48,7 +48,7 @@
     {% endif %}
 
     {% for field in form %}
-    {% ifnotequal field.name 'is_income' %}
+    {% if not field.name == 'is_income' and not field.name == 'flags' %}
     <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
         <label for="{{ field.auto_id }}" class="sr-only">
         {{ field.label }}
@@ -60,18 +60,12 @@
         {% endif %}
         {{ field }}
     </div>
-    {% endifnotequal %}
+    {% endif %}
     {% endfor %}
 
-    <div class="form-group tags">
-        {% for tag in all_tags %}
-        <a class="tag-vspace-5 btn btn-sm btn-info" href="#">
-            <strong>{{ tag }}</strong>
-        </a>
-        {% endfor %}
-    </div>
+    <div class="form-group checkbox">{{ form.is_income }} Income?</div>
 
-    <div class="form-group">Income? {{ form.is_income }}</div>
+    <div class="form-group tags">{{ form.flags }}</div>
 
     <div class="btn-group">
         {% if entry %}
