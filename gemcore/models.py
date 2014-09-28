@@ -121,7 +121,7 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
     is_income = models.BooleanField(default=False, verbose_name='Income?')
-    flags = BitField(flags=[(t.lower(), t) for t in TAGS])
+    flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
     country = models.CharField(max_length=2, choices=countries, null=True)
 
     tags = TaggableManager()

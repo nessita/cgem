@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='entry',
             name='flags',
-            field=bitfield.models.BitField([('bureaucracy', 'bureaucracy'), ('car', 'car'), ('change', 'change'), ('food', 'food'), ('fun', 'fun'), ('health', 'health'), ('house', 'house'), ('maintainance', 'maintainance'), ('other', 'other'), ('rent', 'rent'), ('taxes', 'taxes'), ('travel', 'travel'), ('utilities', 'utilities'), ('withdraw', 'withdraw')], default=None),
+            field=bitfield.models.BitField([('bureaucracy', 'bureaucracy'), ('car', 'car'), ('change', 'change'), ('food', 'food'), ('fun', 'fun'), ('health', 'health'), ('house', 'house'), ('maintainance', 'maintainance'), ('other', 'other'), ('rent', 'rent'), ('taxes', 'taxes'), ('travel', 'travel'), ('utilities', 'utilities'), ('withdraw', 'withdraw')], default=None, null=True),
         ),
         migrations.AlterField(
             model_name='entry',
