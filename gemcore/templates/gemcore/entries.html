@@ -30,6 +30,11 @@
         <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path who-=who %}">{{ who }} &times;</a>
     </div>
     {% endif %}
+    {% if where %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path where-=where %}">{{ where }} &times;</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -63,12 +68,17 @@
         {% endfor %}
         </p>
         <p>
+        {% for k, i in all_countries.items %}
+            <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+        {% endfor %}
+        </p>
+        <p>
         {% for k, i in all_users.items %}
-            {% ifnotequal k who %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
-            {% endifnotequal %}
         {% endfor %}
         </p>
     </div>
@@ -144,7 +154,12 @@
                 </td>
                 <td class="{% if not entry.is_income %}expense{% endif %}">
                     {{ entry.account }}</td>
-                <td>{% for n in entry.tags.names %}{{ n }}<br/>{% endfor %}</td>
+                <td>
+                    {{ entry.country }}<br/>
+                    {% for t, is_set in entry.flags %}
+                    {% if is_set %}{{ t }}<br/>{% endif %}
+                    {% endfor %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

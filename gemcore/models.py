@@ -7,11 +7,10 @@ from decimal import Decimal
 from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import connection, models
 from django.utils.text import slugify
 from django_countries import countries
 from taggit.managers import TaggableManager
-from taggit.models import Tag
 
 
 CURRENCIES = [
@@ -22,15 +21,6 @@ TAGS = [
     'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
     'withdraw',
 ]
-
-RAW_TAG_SQL = """
-    SELECT taggit_tag.id, taggit_tag.name, COUNT(taggit_tag.id) as tag_count
-    FROM taggit_tag
-    JOIN taggit_taggeditem ON taggit_tag.id = taggit_taggeditem.tag_id
-    JOIN gemcore_entry ON taggit_taggeditem.object_id = gemcore_entry.id
-    WHERE gemcore_entry.book_id = %s AND gemcore_entry.id IN (%s)
-    GROUP BY taggit_tag.id;
-"""
 
 
 class Book(models.Model):
@@ -53,11 +43,24 @@ class Book(models.Model):
     def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
+
+        entries = ', '.join(str(e.id) for e in entries)
         result = defaultdict(int)
 
-        qs = Tag.objects.raw(
-            RAW_TAG_SQL % (self.id, ', '.join(str(e.id) for e in entries)))
-        result = {q.name: q.tag_count for q in qs}
+        result = {}
+        cursor = connection.cursor()
+        for tag in TAGS:
+            mask = getattr(Entry.flags, tag).mask
+            cursor.execute(
+                "SELECT COUNT(*) as entry_count FROM gemcore_entry "
+                "WHERE gemcore_entry.book_id = %s "
+                "AND gemcore_entry.id IN (%s) "
+                "AND gemcore_entry.flags & %s = %s;" %
+                (self.id, entries, mask, mask))
+            tag_count = cursor.fetchone()[0]
+            if tag_count:
+                result[tag] = tag_count
+
         return result
 
     def years(self, entries=None):
@@ -74,6 +77,21 @@ class Book(models.Model):
             year_count = entries.filter(when__year=year).count()
             if year_count:
                 result[year] = year_count
+        return result
+
+    def countries(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        entries = ', '.join(str(e.id) for e in entries)
+        result = {}
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT country, COUNT(*) FROM gemcore_entry "
+            "WHERE gemcore_entry.book_id = %s "
+            "AND gemcore_entry.id IN (%s) "
+            "GROUP BY gemcore_entry.country;" % (self.id, entries))
+        result = dict(cursor.fetchall())
         return result
 
     def who(self, entries=None):
