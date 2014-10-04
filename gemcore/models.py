@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 from decimal import Decimal
 
 from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import connection, models
 from django.utils.text import slugify
 from django_countries import countries
 from taggit.managers import TaggableManager
-from taggit.models import Tag
 
 
 CURRENCIES = [
@@ -22,15 +21,6 @@ TAGS = [
     'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
     'withdraw',
 ]
-
-RAW_TAG_SQL = """
-    SELECT taggit_tag.id, taggit_tag.name, COUNT(taggit_tag.id) as tag_count
-    FROM taggit_tag
-    JOIN taggit_taggeditem ON taggit_tag.id = taggit_taggeditem.tag_id
-    JOIN gemcore_entry ON taggit_taggeditem.object_id = gemcore_entry.id
-    WHERE gemcore_entry.book_id = %s AND gemcore_entry.id IN (%s)
-    GROUP BY taggit_tag.id;
-"""
 
 
 class Book(models.Model):
@@ -53,27 +43,51 @@ class Book(models.Model):
     def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
-        result = defaultdict(int)
 
-        qs = Tag.objects.raw(
-            RAW_TAG_SQL % (self.id, ', '.join(str(e.id) for e in entries)))
-        result = {q.name: q.tag_count for q in qs}
+        if not entries:
+            return {}
+
+        result = OrderedDict()
+        for tag in TAGS:
+            tag_count = entries.filter(flags=getattr(Entry.flags, tag)).count()
+            if tag_count:
+                result[tag] = tag_count
+
         return result
 
     def years(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
 
-        result = {}
-        if entries.count() == 0:
-            return result
+        if not entries:
+            return {}
 
-        oldest = entries.order_by('when')[0].when.year
-        newest = entries.order_by('-when')[0].when.year
+        result = OrderedDict()
+        oldest = entries.earliest('when').when.year
+        newest = entries.latest('when').when.year
         for year in range(oldest, newest + 1):
             year_count = entries.filter(when__year=year).count()
             if year_count:
                 result[year] = year_count
+
+        return result
+
+    def countries(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        if not entries:
+            return {}
+
+        entries = ', '.join(str(e.id) for e in entries)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT gemcore_entry.country, COUNT(*) FROM gemcore_entry "
+            "WHERE gemcore_entry.book_id = %s "
+            "AND gemcore_entry.id IN (%s) "
+            "GROUP BY gemcore_entry.country "
+            "ORDER BY gemcore_entry.country ASC;" % (self.id, entries))
+        result = OrderedDict(cursor.fetchall())
         return result
 
     def who(self, entries=None):

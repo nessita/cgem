@@ -1,5 +1,8 @@
+import operator
+
 from collections import OrderedDict
 from datetime import date
+from functools import reduce
 from io import TextIOWrapper
 
 from django.contrib import messages
@@ -80,16 +83,12 @@ def entries(request, book_slug):
     else:
         entries = book.entry_set.all()
 
-    used_tags = set()
-    for tag in request.GET.getlist('tag', []):
-        entries = entries.filter(tags__slug=tag)
-        used_tags.add(tag)
-
     try:
         year = int(request.GET.get('year'))
-        entries = entries.filter(when__year=year)
     except (ValueError, TypeError):
         year = None
+    else:
+        entries = entries.filter(when__year=year)
 
     month = request.GET.get('month')
     try:
@@ -97,24 +96,33 @@ def entries(request, book_slug):
     except (KeyError, ValueError, TypeError):
         month = None
 
-    try:
-        who = request.GET.get('who', None)
-    except (ValueError, TypeError):
-        who = None
+    who = request.GET.get('who')
     if who:
         entries = entries.filter(who__username=who)
 
+    country = request.GET.get('country')
+    if country:
+        entries = entries.filter(country=country)
+
+    used_tags = set(request.GET.getlist('tag', []))
+    if used_tags:
+        flags = reduce(
+            operator.or_,
+            [getattr(Entry.flags, t.lower(), 0) for t in used_tags])
+        entries = entries.filter(flags=flags)
+
     entries = entries.order_by('-when', 'who')
 
-    all_months = None
-    if not month:
-        all_months = sorted(
-            {d.strftime('%b') for d in entries.values_list('when', flat=True)}
+    years = [] if year else book.years(entries)
+    months = [] if month else [
+        d.strftime('%b') for d in sorted(
+            {date(2000, d.month, 1)
+             for d in entries.values_list('when', flat=True)}
         )
-    all_years = book.years(entries)
-    all_users = book.who(entries)
-    all_tags = book.tags(entries)
-    available_tags = set(str(i) for i in all_tags.keys()).difference(used_tags)
+    ]
+    countries = [] if country else book.countries(entries)
+    users = [] if who else book.who(entries)
+    tags = book.tags(entries)
 
     paginator = Paginator(entries, ENTRIES_PER_PAGE)
     page = request.GET.get('page')
@@ -148,9 +156,9 @@ def entries(request, book_slug):
     page_range = range(start, end + 1)
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
-        all_years=all_years, all_months=all_months, all_users=all_users,
-        all_tags=all_tags, q=q, page_range=page_range, start=start, end=end,
-        available_tags=available_tags, used_tags=used_tags)
+        country=country, years=years, months=months, users=users,
+        countries=countries, tags=tags, q=q, page_range=page_range,
+        start=start, end=end, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)
 
@@ -187,9 +195,7 @@ def entry(request, book_slug, entry_id=None):
         form = EntryForm(
             instance=entry, initial=dict(who=who, currency=currency))
 
-    all_tags = Tag.objects.all()
-    context = dict(
-        form=form, book=book, entry=entry, all_tags=all_tags)
+    context = dict(form=form, book=book, entry=entry)
     return render(request, 'gemcore/entry.html', context)
 
 
@@ -221,7 +227,7 @@ def load_from_file(request, book_slug):
 
             result = ExpenseCSVParser(book).parse(csv_file)
             success = len(result['entries'])
-            error = len(result['errors'])
+            error = sum(len(i) for i in result['errors'].values())
             if not error:
                 messages.success(
                     request, 'File %s successfully parsed (%s entries added).'
