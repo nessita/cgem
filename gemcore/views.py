@@ -96,7 +96,6 @@ def entries(request, book_slug):
     except (KeyError, ValueError, TypeError):
         month = None
 
-    users = []
     who = request.GET.get('who')
     if who:
         entries = entries.filter(who__username=who)
