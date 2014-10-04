@@ -30,9 +30,9 @@
         <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path who-=who %}">{{ who }} &times;</a>
     </div>
     {% endif %}
-    {% if where %}
+    {% if country %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path where-=where %}">{{ where }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path country-=country %}">{{ country }} &times;</a>
     </div>
     {% endif %}
   </div>
@@ -43,14 +43,14 @@
 
     <div class="row-vspace-10">
         <p>
-        {% for tag, i in all_tags.items %}
+        {% for tag, i in tags.items %}
             <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
                 {{ tag }} <span class="badge">{{ i }}</span>
             </a>
         {% endfor %}
         </p>
         <p>
-        {% for k in all_months %}
+        {% for k in months %}
             {% ifnotequal k month %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
                 {{ k }}
@@ -59,7 +59,7 @@
         {% endfor %}
         </p>
         <p>
-        {% for k, i in all_years.items %}
+        {% for k, i in years.items %}
             {% ifnotequal k year %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
@@ -68,14 +68,14 @@
         {% endfor %}
         </p>
         <p>
-        {% for k, i in all_countries.items %}
+        {% for k, i in countries.items %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
         {% endfor %}
         </p>
         <p>
-        {% for k, i in all_users.items %}
+        {% for k, i in users.items %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>

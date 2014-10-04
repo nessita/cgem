@@ -43,11 +43,11 @@ class Book(models.Model):
     def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
-
         entries = ', '.join(str(e.id) for e in entries)
-        result = defaultdict(int)
-
         result = {}
+        if not entries:
+            return result
+
         cursor = connection.cursor()
         for tag in TAGS:
             mask = getattr(Entry.flags, tag).mask

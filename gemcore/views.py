@@ -87,7 +87,6 @@ def entries(request, book_slug):
         year = int(request.GET.get('year'))
     except (ValueError, TypeError):
         year = None
-        all_years = book.years(entries)
     else:
         entries = entries.filter(when__year=year)
 
@@ -96,34 +95,35 @@ def entries(request, book_slug):
         entries = entries.filter(when__month=MONTHS[month])
     except (KeyError, ValueError, TypeError):
         month = None
-        months = entries.values_list('when', flat=True)
-        all_months = [
-            d.strftime('%b')
-            for d in sorted({date(2000, d.month, 1) for d in months})
-        ]
 
+    users = []
     who = request.GET.get('who')
     if who:
         entries = entries.filter(who__username=who)
-    else:
-        all_users = book.who(entries)
 
     country = request.GET.get('country')
     if country:
         entries = entries.filter(country=country)
-    else:
-        all_countries = book.countries(entries)
 
-    tags = set(request.GET.getlist('tag', []))
-    if tags:
+    used_tags = set(request.GET.getlist('tag', []))
+    if used_tags:
         flags = reduce(
-            operator.or_, [getattr(Entry.flags, t.lower(), 0) for t in tags])
+            operator.or_,
+            [getattr(Entry.flags, t.lower(), 0) for t in used_tags])
         entries = entries.filter(flags=flags)
 
     entries = entries.order_by('-when', 'who')
 
-    all_tags = book.tags(entries)
-    available_tags = set(str(i) for i in all_tags.keys()).difference(tags)
+    years = [] if year else book.years(entries)
+    months = [] if month else [
+        d.strftime('%b') for d in sorted(
+            {date(2000, d.month, 1)
+             for d in entries.values_list('when', flat=True)}
+        )
+    ]
+    countries = [] if country else book.countries(entries)
+    users = [] if who else book.who(entries)
+    tags = book.tags(entries)
 
     paginator = Paginator(entries, ENTRIES_PER_PAGE)
     page = request.GET.get('page')
@@ -157,11 +157,9 @@ def entries(request, book_slug):
     page_range = range(start, end + 1)
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
-        where=country,
-        all_years=all_years, all_months=all_months, all_users=all_users,
-        all_countries=all_countries, all_tags=all_tags,
-        q=q, page_range=page_range, start=start, end=end,
-        available_tags=available_tags, used_tags=tags)
+        country=country, years=years, months=months, users=users,
+        countries=countries, tags=tags, q=q, page_range=page_range,
+        start=start, end=end, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)
 
