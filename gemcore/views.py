@@ -228,7 +228,7 @@ def load_from_file(request, book_slug):
 
             result = ExpenseCSVParser(book).parse(csv_file)
             success = len(result['entries'])
-            error = len(result['errors'])
+            error = sum(len(i) for i in result['errors'].values())
             if not error:
                 messages.success(
                     request, 'File %s successfully parsed (%s entries added).'
