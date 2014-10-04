@@ -18,18 +18,8 @@ class EntryForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
-        tags = cleaned_data.get('tags', [])
-
-        # auto tag: country
-        if not any(c in tags for c in COUNTRIES):
-            account = cleaned_data.get('account')
-            if account and account.currency_code == 'UYU':
-                tags.append('UY')
-            elif account and account.currency_code == 'ARS':
-                tags.append('AR')
-            else:
-                raise forms.ValidationError('Missing country in tags.')
-
+        if not cleaned_data['flags']:
+            raise forms.ValidationError('Missing tags, choose at leas one.')
         return cleaned_data
 
     def save(self, *args, book, **kwargs):

@@ -16,19 +16,19 @@ from decimal import Decimal
 from collections import namedtuple
 from django.contrib.auth.models import User
 from gemcore.forms import EntryForm
-from gemcore.models import Account, Book
+from gemcore.models import Account, Book, Entry
 
 UserData = namedtuple('UserData', ['user', 'account'])
 
-CATEGORY_MAPPING = {
-    'Comida/super': 'food',
-    'Gastos fijos': 'taxes, utilities',
-    'Mantenimiento': 'maintainance',
-    'Otros': 'other',
-    'Recreacion': 'fun',
-    'Salud': 'health',
-    'Transporte': 'travel',
-    'Auto': 'car',
+TAGS_MAPPING = {
+    'Comida/super': ['food'],
+    'Gastos fijos': ['taxes', 'utilities'],
+    'Mantenimiento': ['maintainance'],
+    'Otros': ['other'],
+    'Recreacion': ['fun'],
+    'Salud': ['health'],
+    'Transporte': ['travel'],
+    'Auto': ['car'],
 }
 WHEN = 'When'
 WHO = 'Who'
@@ -56,17 +56,16 @@ class ExpenseCSVParser(object):
     def process_row(self, row):
         userdata = self.users[row[WHO]]
         amount = row[AMOUNT].strip('$').replace(',', '')
-        what = row[WHY]
-        tags = CATEGORY_MAPPING[row[WHAT]]
 
         data = dict(
             who=userdata.user.id,
             when=datetime.strptime(row[WHEN], '%Y-%m-%d'),
-            what=what,
+            what=row[WHY],
             account=userdata.account.id,
             amount=Decimal(amount),
             is_income=False,
-            tags=tags,
+            country='AR',
+            flags=TAGS_MAPPING[row[WHAT]],
         )
         form = EntryForm(data=data)
         assert form.is_valid(), form.errors

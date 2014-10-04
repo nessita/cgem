@@ -5,6 +5,14 @@
     <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
     <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
     <script>
+        var currency_mapping = {
+            '1': 'AR',
+            '2': 'AR',
+            '6': 'AR',
+            '7': 'AR',
+            '11': 'UY',
+            '12': 'AR',
+        }
         $(document).ready(function() {
             $('input.datepicker').datepicker({
                 format: "yyyy-mm-dd",
@@ -26,6 +34,11 @@
                 value = strip(value);
                 input.val(current + value + ',');
                 return false;
+            });
+
+            $('#id_account').change(function() {
+                var country = currency_mapping[$(this).val()];
+                $('#id_country').val(country);
             });
 
         });

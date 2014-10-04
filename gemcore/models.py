@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 from decimal import Decimal
 
@@ -43,21 +43,13 @@ class Book(models.Model):
     def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
-        entries = ', '.join(str(e.id) for e in entries)
-        result = {}
-        if not entries:
-            return result
 
-        cursor = connection.cursor()
+        if not entries:
+            return {}
+
+        result = OrderedDict()
         for tag in TAGS:
-            mask = getattr(Entry.flags, tag).mask
-            cursor.execute(
-                "SELECT COUNT(*) as entry_count FROM gemcore_entry "
-                "WHERE gemcore_entry.book_id = %s "
-                "AND gemcore_entry.id IN (%s) "
-                "AND gemcore_entry.flags & %s = %s;" %
-                (self.id, entries, mask, mask))
-            tag_count = cursor.fetchone()[0]
+            tag_count = entries.filter(flags=getattr(Entry.flags, tag)).count()
             if tag_count:
                 result[tag] = tag_count
 
@@ -67,31 +59,35 @@ class Book(models.Model):
         if entries is None:
             entries = self.entry_set.all()
 
-        result = {}
-        if entries.count() == 0:
-            return result
+        if not entries:
+            return {}
 
-        oldest = entries.order_by('when')[0].when.year
-        newest = entries.order_by('-when')[0].when.year
+        result = OrderedDict()
+        oldest = entries.earliest('when').when.year
+        newest = entries.latest('when').when.year
         for year in range(oldest, newest + 1):
             year_count = entries.filter(when__year=year).count()
             if year_count:
                 result[year] = year_count
+
         return result
 
     def countries(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
 
+        if not entries:
+            return {}
+
         entries = ', '.join(str(e.id) for e in entries)
-        result = {}
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT country, COUNT(*) FROM gemcore_entry "
+            "SELECT gemcore_entry.country, COUNT(*) FROM gemcore_entry "
             "WHERE gemcore_entry.book_id = %s "
             "AND gemcore_entry.id IN (%s) "
-            "GROUP BY gemcore_entry.country;" % (self.id, entries))
-        result = dict(cursor.fetchall())
+            "GROUP BY gemcore_entry.country "
+            "ORDER BY gemcore_entry.country ASC;" % (self.id, entries))
+        result = OrderedDict(cursor.fetchall())
         return result
 
     def who(self, entries=None):

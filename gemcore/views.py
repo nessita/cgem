@@ -196,9 +196,7 @@ def entry(request, book_slug, entry_id=None):
         form = EntryForm(
             instance=entry, initial=dict(who=who, currency=currency))
 
-    all_tags = Tag.objects.all()
-    context = dict(
-        form=form, book=book, entry=entry, all_tags=all_tags)
+    context = dict(form=form, book=book, entry=entry)
     return render(request, 'gemcore/entry.html', context)
 
 
