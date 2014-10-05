@@ -95,7 +95,7 @@ class ExpenseCSVParser(object):
         return result
 
 
-class BankSCVParser(objects):
+class BankSCVParser(object):
 
     def __init__(self, book=None):
         if book is None:

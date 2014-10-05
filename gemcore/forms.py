@@ -42,6 +42,8 @@ class EntryForm(forms.ModelForm):
             account=forms.Select(attrs={'class': 'form-control'}),
             country=forms.Select(
                 attrs={'class': 'form-control', 'placeholder': 'where'}),
+            notes=forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'notes'}),
         )
 
 
