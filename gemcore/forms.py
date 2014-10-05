@@ -1,5 +1,4 @@
 from django import forms
-from django_countries.data import COUNTRIES
 
 from gemcore.models import Book, Entry
 
