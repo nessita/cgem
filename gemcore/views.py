@@ -105,10 +105,10 @@ def entries(request, book_slug):
 
     used_tags = set(request.GET.getlist('tag', []))
     if used_tags:
-        flags = reduce(
+        tags = reduce(
             operator.or_,
-            [getattr(Entry.flags, t.lower(), 0) for t in used_tags])
-        entries = entries.filter(flags=flags)
+            [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
+        entries = entries.filter(tags=tags)
 
     entries = entries.order_by('-when', 'who')
 

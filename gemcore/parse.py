@@ -65,7 +65,7 @@ class ExpenseCSVParser(object):
             amount=Decimal(amount),
             is_income=False,
             country='AR',
-            flags=TAGS_MAPPING[row[WHAT]],
+            tags=TAGS_MAPPING[row[WHAT]],
         )
         form = EntryForm(data=data)
         assert form.is_valid(), form.errors
@@ -93,6 +93,56 @@ class ExpenseCSVParser(object):
                 result['entries'].append(entry)
 
         return result
+
+
+class BankSCVParser(objects):
+
+    def __init__(self, book=None):
+        if book is None:
+            book = Book.objects.get(slug='our-expenses')
+        self.book = book
+        self.user = User.objects.get(username='nessita')
+        self.account = Account.objects.get(slug='cash-usd-shared')
+
+    def process_row(self, row):
+        amount = row[AMOUNT].strip('$').replace(',', '')
+        data = dict(
+            who=self.user.id,
+            when=datetime.strptime(row[WHEN], '%Y-%m-%d'),
+            what=row[WHY],
+            account=self.account.id,
+            amount=Decimal(amount),
+            is_income=False,
+            country='UY',
+            tags='automatic',
+        )
+        form = EntryForm(data=data)
+        assert form.is_valid(), form.errors
+
+        return form.save(book=self.book)
+
+    def parse(self, fileobj):
+        header = None
+        result = dict(entries=[], errors=defaultdict(list))
+
+        reader = csv.reader(fileobj)
+        for row in reader:
+            row = list(filter(None, row))
+            if header is None:
+                assert HEADER == row, row
+                header = row
+                continue
+
+            row = {h: d for h, d in zip(header, row)}
+            try:
+                entry = self.process_row(row)
+            except Exception as e:
+                result['errors'][e.__class__.__name__].append((e, row))
+            else:
+                result['entries'].append(entry)
+
+        return result
+
 
 
 if __name__ == '__main__':

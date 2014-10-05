@@ -17,7 +17,7 @@ class EntryForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
-        if not cleaned_data['flags']:
+        if not cleaned_data['tags']:
             raise forms.ValidationError('Missing tags, choose at leas one.')
         return cleaned_data
 

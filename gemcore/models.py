@@ -48,7 +48,7 @@ class Book(models.Model):
 
         result = OrderedDict()
         for tag in TAGS:
-            tag_count = entries.filter(flags=getattr(Entry.flags, tag)).count()
+            tag_count = entries.filter(tags=getattr(Entry.tags, tag)).count()
             if tag_count:
                 result[tag] = tag_count
 
@@ -134,7 +134,7 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0.01'))])
     is_income = models.BooleanField(default=False, verbose_name='Income?')
-    flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
+    tags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
     country = models.CharField(max_length=2, choices=countries, null=True)
 
     class Meta:

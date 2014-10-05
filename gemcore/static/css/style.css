@@ -30,11 +30,11 @@
 }
 
 
-#id_flags {
+#id_tags {
     list-style: none outside none;
 }
 
-#id_flags > li {
+#id_tags > li {
     margin-top: 5px;
     display: inline-block;
     background-color: #5bc0de;

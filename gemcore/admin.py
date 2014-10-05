@@ -21,7 +21,7 @@ class EntryAdmin(admin.ModelAdmin):
     search_fields = ('what', 'when')
     list_filter = (
         'who', 'account', 'when',
-        ('flags', BitFieldListFilter),
+        ('tags', BitFieldListFilter),
     )
     formfield_overrides = {
         BitField: {'widget': BitFieldCheckboxSelectMultiple},

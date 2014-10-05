@@ -61,7 +61,7 @@
     {% endif %}
 
     {% for field in form %}
-    {% if not field.name == 'is_income' and not field.name == 'flags' %}
+    {% if not field.name == 'is_income' and not field.name == 'tags' %}
     <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
         <label for="{{ field.auto_id }}" class="sr-only">
         {{ field.label }}
@@ -78,7 +78,7 @@
 
     <div class="form-group checkbox">{{ form.is_income }} Income?</div>
 
-    <div class="form-group tags">{{ form.flags }}</div>
+    <div class="form-group tags">{{ form.tags }}</div>
 
     <div class="btn-group">
         {% if entry %}
