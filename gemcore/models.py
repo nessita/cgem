@@ -136,6 +136,7 @@ class Entry(models.Model):
     is_income = models.BooleanField(default=False, verbose_name='Income?')
     tags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
     country = models.CharField(max_length=2, choices=countries, null=True)
+    notes = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('book', 'who', 'when', 'what', 'amount')
