@@ -10,7 +10,6 @@ from django.core.validators import MinValueValidator
 from django.db import connection, models
 from django.utils.text import slugify
 from django_countries import countries
-from taggit.managers import TaggableManager
 
 
 CURRENCIES = [
@@ -137,8 +136,6 @@ class Entry(models.Model):
     is_income = models.BooleanField(default=False, verbose_name='Income?')
     flags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
     country = models.CharField(max_length=2, choices=countries, null=True)
-
-    tags = TaggableManager()
 
     class Meta:
         unique_together = ('book', 'who', 'when', 'what', 'amount')
