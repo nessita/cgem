@@ -16,7 +16,7 @@ from decimal import Decimal
 from collections import namedtuple
 from django.contrib.auth.models import User
 from gemcore.forms import EntryForm
-from gemcore.models import Account, Book, Entry
+from gemcore.models import Account, Book
 
 UserData = namedtuple('UserData', ['user', 'account'])
 
