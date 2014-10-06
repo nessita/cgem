@@ -15,10 +15,10 @@ from django_countries import countries
 CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
-TAGS = [
+TAGS = [  # order is IMPORTANT, do not re-order
     'bureaucracy', 'car', 'change', 'food', 'fun', 'health', 'house',
     'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
-    'withdraw',
+    'withdraw', 'imported',
 ]
 
 
