@@ -52,7 +52,7 @@ class CSVExpenseForm(forms.Form):
 
     csv_file = forms.FileField(required=False)
     csv_content = forms.CharField(
-        required=True,
+        required=False,
         label='CSV content (optional, only used if not file given)',
         widget=forms.Textarea(attrs={'class': 'form-control'}))
 
