@@ -3,7 +3,7 @@ import operator
 from collections import OrderedDict
 from datetime import date
 from functools import reduce
-from io import TextIOWrapper
+from io import StringIO, TextIOWrapper
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from gemcore.forms import BookForm, CSVExpenseForm, EntryForm
 from gemcore.models import Book, Entry
-from gemcore.parse import ExpenseCSVParser
+from gemcore.parse import BankCSVParser, ExpenseCSVParser
 
 
 ENTRIES_PER_PAGE = 15
@@ -105,10 +105,10 @@ def entries(request, book_slug):
 
     used_tags = set(request.GET.getlist('tag', []))
     if used_tags:
-        flags = reduce(
+        tags = reduce(
             operator.or_,
-            [getattr(Entry.flags, t.lower(), 0) for t in used_tags])
-        entries = entries.filter(flags=flags)
+            [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
+        entries = entries.filter(tags=tags)
 
     entries = entries.order_by('-when', 'who')
 
@@ -208,24 +208,33 @@ def entry_remove(request, book_slug, entry_id):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def load_from_file(request, book_slug):
+def load_from_file(request, book_slug, kind):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
         form = CSVExpenseForm(request.POST, request.FILES)
         if form.is_valid():
-            csv_file = form.cleaned_data['csv_file']
+            csv_file = form.cleaned_data.get('csv_file')
+            if csv_file:
+                # Hack around: "iterator should return strings, not bytes
+                # (did you open the file in text mode?)"
+                csv_file.readable = lambda: True
+                csv_file.writable = lambda: False
+                csv_file.seekable = lambda: True
+                csv_file = TextIOWrapper(csv_file, encoding='utf-8')
+                # end hack
+            else:
+                csv_content = form.cleaned_data.get('csv_content')
+                csv_file = StringIO(csv_content)
+                csv_file.name = 'test.csv'
 
-            # Hack around: "iterator should return strings, not bytes
-            # (did you open the file in text mode?)"
-            csv_file.readable = lambda: True
-            csv_file.writable = lambda: False
-            csv_file.seekable = lambda: True
-            csv_file = TextIOWrapper(csv_file, encoding='utf-8')
-            # end hack
+            if kind == 'bank':
+                result = BankCSVParser(book).parse(csv_file)
+            else:
+                assert kind == 'expense'
+                result = ExpenseCSVParser(book).parse(csv_file)
 
-            result = ExpenseCSVParser(book).parse(csv_file)
-            success = len(result['entries'])
+            success = len([e for e in result['entries'] if e])
             error = sum(len(i) for i in result['errors'].values())
             if not error:
                 messages.success(

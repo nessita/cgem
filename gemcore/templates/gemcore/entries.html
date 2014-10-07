@@ -101,8 +101,10 @@
     <div class="btn-group btn-group-sm row-vspace-10">
         <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
             Add entry</a>
-        <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
+        <a href="{% url 'load-from-file' book.slug 'expense' %}" class="btn btn-default">
             Load from file</a>
+        <a href="{% url 'load-from-file' book.slug 'bank' %}" class="btn btn-default">
+            Load bank record</a>
     </div>
 
   </div>
@@ -156,7 +158,7 @@
                     {{ entry.account }}</td>
                 <td>
                     {{ entry.country }}<br/>
-                    {% for t, is_set in entry.flags %}
+                    {% for t, is_set in entry.tags %}
                     {% if is_set %}{{ t }}<br/>{% endif %}
                     {% endfor %}
                 </td>
