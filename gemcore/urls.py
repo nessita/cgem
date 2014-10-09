@@ -7,8 +7,10 @@ urlpatterns = patterns(
     url(r'^$', 'books', name='books'),
     url(r'^add/$', 'book', name='add-book'),
     url(r'^(?P<book_slug>[\w-]+)/$', 'book', name='book'),
-    url(r'^(?P<book_slug>[\w-]+)/fromfile/(?P<kind>expense|bank)/$',
-        'load_from_file', name='load-from-file'),
+    url(r'^(?P<book_slug>[\w-]+)/fromfile/$', 'load_from_file',
+        name='load-from-file'),
+    url(r'^(?P<book_slug>[\w-]+)/transfer/$', 'account_transfer',
+        name='account-transfer'),
     url(r'^(?P<book_slug>[\w-]+)/remove/$', 'book_remove', name='remove-book'),
     # entries
     url(r'^(?P<book_slug>[\w-]+)/entry/$', 'entries', name='entries'),

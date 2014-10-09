@@ -13,7 +13,12 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from gemcore.forms import BookForm, CSVExpenseForm, EntryForm
+from gemcore.forms import (
+    BookForm,
+    AccountTransferForm,
+    CSVExpenseForm,
+    EntryForm,
+)
 from gemcore.models import Book, Entry
 from gemcore.parse import BankCSVParser, ExpenseCSVParser
 
@@ -208,7 +213,7 @@ def entry_remove(request, book_slug, entry_id):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def load_from_file(request, book_slug, kind):
+def load_from_file(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
@@ -228,10 +233,11 @@ def load_from_file(request, book_slug, kind):
                 csv_file = StringIO(csv_content)
                 csv_file.name = 'test.csv'
 
-            if kind == 'bank':
+            source = form.cleaned_data['source']
+            if source == 'bank':
                 result = BankCSVParser(book).parse(csv_file)
             else:
-                assert kind == 'expense'
+                assert source == 'expense'
                 result = ExpenseCSVParser(book).parse(csv_file)
 
             success = len([e for e in result['entries'] if e])
@@ -262,3 +268,42 @@ def load_from_file(request, book_slug, kind):
 
     context = dict(form=form)
     return render(request, 'gemcore/load.html', context)
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def account_transfer(request, book_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+
+    if request.method == 'POST':
+        form = AccountTransferForm(request.user, request.POST)
+        if form.is_valid():
+            source_account = form.cleaned_data.get('source_account')
+            source_amount = form.cleaned_data.get('source_amount')
+            target_account = form.cleaned_data.get('target_account')
+            target_amount = form.cleaned_data.get('target_amount')
+            when = form.cleaned_data.get('when')
+            what = form.cleaned_data.get('what')
+            country = form.cleaned_data.get('country')
+            tags = Entry.tags.change
+
+            Entry.objects.create(
+                book=book, who=request.user, when=when,
+                what=what + ' (source)',
+                account=source_account, amount=source_amount,
+                is_income=False, country=country, tags=tags,
+            )
+            Entry.objects.create(
+                book=book, who=request.user, when=when,
+                what=what + ' (target)',
+                account=target_account, amount=target_amount,
+                is_income=True, country=country, tags=tags,
+            )
+
+            return HttpResponseRedirect(
+                reverse('entries', kwargs=dict(book_slug=book_slug)))
+    else:
+        form = AccountTransferForm(request.user)
+
+    context = dict(form=form)
+    return render(request, 'gemcore/transfer.html', context)

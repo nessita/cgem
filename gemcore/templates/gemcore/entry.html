@@ -4,45 +4,7 @@
 {% block head-extra %}
     <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
     <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
-    <script>
-        var currency_mapping = {
-            '1': 'AR',
-            '2': 'AR',
-            '6': 'AR',
-            '7': 'AR',
-            '11': 'UY',
-            '12': 'AR',
-        }
-        $(document).ready(function() {
-            $('input.datepicker').datepicker({
-                format: "yyyy-mm-dd",
-                autoclose: true,
-                todayHighlight: true
-            });
-
-            function strip(str){
-                return str.replace(/^\s+|\s+$/g, '');
-            }
-
-            $('.tags a').click(function() {
-                var value = $(this).text();
-                var input = $('#id_tags');
-                var current = strip(input.val());
-                if (current.length > 0 && current[current.length - 1] != ','){
-                    current = current + ','
-                }
-                value = strip(value);
-                input.val(current + value + ',');
-                return false;
-            });
-
-            $('#id_account').change(function() {
-                var country = currency_mapping[$(this).val()];
-                $('#id_country').val(country);
-            });
-
-        });
-    </script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
 {% endblock head-extra %}
 
 {% block navbar-title %}
@@ -60,21 +22,13 @@
     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
 
-    {% for field in form %}
-    {% if not field.name == 'is_income' and not field.name == 'tags' %}
-    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
-        <label for="{{ field.auto_id }}" class="sr-only">
-        {{ field.label }}
-        {% if field.field.required %}<span class="asteriskField">*</span>{% endif %}
-        </label>
-        {% if field.errors %}
-        <span class="glyphicon glyphicon-remove form-control-feedback"
-              title="{{ field.errors.0 }}"></span>
-        {% endif %}
-        {{ field }}
-    </div>
-    {% endif %}
-    {% endfor %}
+    {% include 'gemcore/_form_field.html' with field=form.who sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.account sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.amount sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.notes sronly=True %}
 
     <div class="form-group checkbox">{{ form.is_income }} Income?</div>
 

@@ -100,11 +100,11 @@
 
     <div class="btn-group btn-group-sm row-vspace-10">
         <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
-            Add entry</a>
-        <a href="{% url 'load-from-file' book.slug 'expense' %}" class="btn btn-default">
+            New entry</a>
+        <a href="{% url 'account-transfer' book.slug %}" class="btn btn-default">
+            Account transfer</a>
+        <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
             Load from file</a>
-        <a href="{% url 'load-from-file' book.slug 'bank' %}" class="btn btn-default">
-            Load bank record</a>
     </div>
 
   </div>

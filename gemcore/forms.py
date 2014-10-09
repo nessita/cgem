@@ -1,6 +1,9 @@
-from django import forms
+from datetime import date
 
-from gemcore.models import Book, Entry
+from django import forms
+from django_countries import countries
+
+from gemcore.models import Account, Book, Entry
 
 
 class BookForm(forms.ModelForm):
@@ -36,7 +39,7 @@ class EntryForm(forms.ModelForm):
             what=forms.TextInput(
                 attrs={'class': 'form-control', 'placeholder': 'what',
                        'autofocus': 'true'}),
-            amount=forms.TextInput(
+            amount=forms.NumberInput(
                 attrs={'size': 10, 'class': 'form-control',
                        'placeholder': 'how much'}),
             account=forms.Select(attrs={'class': 'form-control'}),
@@ -50,6 +53,11 @@ class EntryForm(forms.ModelForm):
 
 class CSVExpenseForm(forms.Form):
 
+    source = forms.ChoiceField(
+        choices=(('bank', 'Bank'), ('expense', 'Expense')),
+        widget=forms.Select(
+            attrs={'class': 'form-control', 'autofocus': 'true'})
+    )
     csv_file = forms.FileField(required=False)
     csv_content = forms.CharField(
         required=False,
@@ -62,5 +70,53 @@ class CSVExpenseForm(forms.Form):
                 and not cleaned_data.get('csv_content')):
             raise forms.ValidationError(
                 'Either the CSV file or the CSV content should be set.')
+
+        return cleaned_data
+
+
+class AccountTransferForm(forms.Form):
+
+    source_account = forms.CharField()
+    source_amount = forms.DecimalField(
+        label='$', min_value=0.1, decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+    )
+    target_account = forms.CharField()
+    target_amount = forms.DecimalField(
+        label='$', min_value=0.1, decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+    )
+    what = forms.CharField(
+        initial='Traspaso de fondos',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'what'}))
+    when = forms.DateField(
+        initial=date.today(),
+        widget=forms.DateInput(attrs={'class': 'form-control datepicker'}),
+    )
+    country = forms.ChoiceField(
+        choices=countries, initial='UY',
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        super(AccountTransferForm, self).__init__(*args, **kwargs)
+        self.fields['source_account'] = forms.ModelChoiceField(
+            label='From', queryset=Account.objects.filter(users=user),
+            widget=forms.Select(
+                attrs={'class': 'form-control', 'autofocus': 'true'}),
+        )
+        self.fields['target_account'] = forms.ModelChoiceField(
+            label='To', queryset=Account.objects.filter(users=user),
+            widget=forms.Select(attrs={'class': 'form-control'}),
+        )
+
+    def clean(self):
+        cleaned_data = super(AccountTransferForm, self).clean()
+        source = cleaned_data.get('source_account')
+        target = cleaned_data.get('target_account')
+        if source == target:
+            raise forms.ValidationError(
+                'Source account can not be the same as the target account.')
 
         return cleaned_data
