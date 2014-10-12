@@ -20,9 +20,17 @@
     cursor: pointer;
 }
 
-#search-clear {
-    background: white;
-    border-left: none;
+#entry-form-search .row {
+    padding-left: 15px;
+    padding-right: 10px;
+}
+
+#entry-form-search div {
+    padding: 0;
+}
+
+#entry-form-search .form-control-feedback {
+    right: 0;
 }
 
 .row-vspace-10 {

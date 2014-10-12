@@ -87,6 +87,10 @@ def entries(request, book_slug):
     else:
         entries = book.entry_set.all()
 
+    when = request.GET.get('when')
+    if when:
+        entries = book.entry_set.filter(when=when)
+
     try:
         year = int(request.GET.get('year'))
     except (ValueError, TypeError):
@@ -161,7 +165,7 @@ def entries(request, book_slug):
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
         country=country, years=years, months=months, users=users,
-        countries=countries, tags=tags, q=q, page_range=page_range,
+        countries=countries, tags=tags, q=q, when=when, page_range=page_range,
         start=start, end=end, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)

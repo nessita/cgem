@@ -2,6 +2,12 @@
 {% load qurl %}
 {% load static %}
 
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
+{% endblock head-extra %}
+
 {% block navbar-title %}
     <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
 {% endblock navbar-title %}
@@ -15,6 +21,11 @@
         <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path tag-=tag %}">{{ tag }} &times;</a>
     </div>
     {% endfor %}
+    {% if when %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=when %}">{{ when }} &times;</a>
+    </div>
+    {% endif %}
     {% if year %}
     <div class="btn-group">
         <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path year-=year %}">{{ year }} &times;</a>
@@ -83,19 +94,26 @@
         </p>
     </div>
 
-    <form class="form-inline row-vspace-10" role="search" method="GET" action=".">
-        <div class="input-group input-group-sm">
-            <input id="search" type="text" class="form-control" name="q" placeholder="Search"
-             {% if q %}value="{{ q }}"{% endif %} />
-            <span id="search-clear" class="input-group-addon">
-                <a id="clear" href="#"><span class="glyphicon glyphicon-remove"></span></a>
-            </span>
-            <span class="input-group-btn">
-                <button class="btn btn-default" type="submit">
-                    <span class="glyphicon glyphicon-search"></span>
-                </button>
-            </span>
-        </div><!-- /input-group -->
+    <form id="entry-form-search" class="form-horizontal" method="GET" action=".">
+    <div class="row">
+        <div class="col-xs-5 has-feedback">
+            <input type="text" class="form-control input-sm" name="q" autofocus="on" 
+                   id="search-text" placeholder="Search" {% if q %}value="{{ q }}"{% endif %} />
+            <span style="cursor: pointer;" id="clear-search-text"
+                  class="glyphicon glyphicon-remove form-control-feedback"></span>
+        </div>
+        <div class="col-xs-5 has-feedback">
+            <input type="date" class="form-control input-sm datepicker" name="when"
+                   id="search-date" placeholder="When" />
+            <span style="cursor: pointer;" id="clear-search-date"
+                  class="glyphicon glyphicon-remove form-control-feedback"></span>
+          </div>
+        <div class="col-xs-2">
+            <button class="btn btn-sm btn-default" type="submit">
+                <span class="glyphicon glyphicon-search"></span>
+            </button>
+        </div>
+    </div>
     </form>
 
     <div class="btn-group btn-group-sm row-vspace-10">
@@ -174,9 +192,13 @@
 </div>
 
 <script>
-$("#clear").click(function(evt){
+$("#clear-search-text").click(function(evt) {
     evt.preventDefault();
-    $("#search").val("").focus();
+    $("#search-text").val("").focus();
+});
+$("#clear-search-date").click(function(evt) {
+    evt.preventDefault();
+    $("#search-date").val("").focus();
 });
 </script>
 
