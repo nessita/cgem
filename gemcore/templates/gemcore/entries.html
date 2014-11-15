@@ -117,7 +117,7 @@
     </form>
 
     <div class="btn-group btn-group-sm row-vspace-10">
-        <a href="{% url 'add-entry' book.slug %}" class="btn btn-primary">
+        <a href="{% url 'add-entry' book.slug %}{% qurl . when=when %}" class="btn btn-primary">
             New entry</a>
         <a href="{% url 'account-transfer' book.slug %}" class="btn btn-default">
             Account transfer</a>

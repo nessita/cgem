@@ -200,8 +200,13 @@ def entry(request, book_slug, entry_id=None):
                 pass
         else:
             who = entry.who
-        form = EntryForm(
-            instance=entry, initial=dict(who=who, currency=currency))
+
+        initial = dict(who=who, currency=currency)
+        when = request.GET.get('when')
+        if when:
+            initial['when'] = when
+
+        form = EntryForm(instance=entry, initial=initial)
 
     context = dict(form=form, book=book, entry=entry)
     return render(request, 'gemcore/entry.html', context)
