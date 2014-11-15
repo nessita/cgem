@@ -121,7 +121,7 @@ class BankCSVParser(CSVParser):
     def __init__(self, book=None):
         super(BankCSVParser, self).__init__(book=book)
         self.user = User.objects.get(username='nessita')
-        self.account = Account.objects.get(slug='cash-usd-shared')
+        self.account = Account.objects.get(slug='disc-usd-shared')
         self.extra = defaultdict(dict)
 
     def process_data(self, data):

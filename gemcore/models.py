@@ -16,9 +16,21 @@ CURRENCIES = [
     'ARS', 'EUR', 'USD', 'UYU', 'GBP',
 ]
 TAGS = [  # order is IMPORTANT, do not re-order
-    'bureaucracy', 'car', 'change', 'food', 'fun', 'health', 'house',
-    'maintainance', 'other', 'rent', 'taxes', 'travel', 'utilities',
-    'withdraw', 'imported',
+    'bureaucracy',  # 1
+    'car',  # 2
+    'change',  # 4
+    'food',  # 8
+    'fun',  # 16
+    'health',  # 32
+    'house',  # 64
+    'maintainance',  # 128
+    'other',  # 256
+    'rent',  # 512
+    'taxes',  # 1024
+    'travel',  # 2048
+    'utilities',  # 4096
+    'withdraw',  # 8192
+    'imported',  # 16384
 ]
 
 
