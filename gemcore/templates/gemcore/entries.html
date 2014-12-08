@@ -98,13 +98,15 @@
     <div class="row">
         <div class="col-xs-5 has-feedback">
             <input type="text" class="form-control input-sm" name="q" autofocus="on" 
-                   id="search-text" placeholder="Search" {% if q %}value="{{ q }}"{% endif %} />
+                   id="search-text" placeholder="Search"
+                   {% if q %}value="{{ q }}"{% endif %} />
             <span style="cursor: pointer;" id="clear-search-text"
                   class="glyphicon glyphicon-remove form-control-feedback"></span>
         </div>
         <div class="col-xs-5 has-feedback">
             <input type="date" class="form-control input-sm datepicker" name="when"
-                   id="search-date" placeholder="When" />
+                   id="search-date" placeholder="When"
+                   {% if when %}value="{{ when }}"{% endif %} />
             <span style="cursor: pointer;" id="clear-search-date"
                   class="glyphicon glyphicon-remove form-control-feedback"></span>
           </div>
