@@ -179,6 +179,7 @@ def entry(request, book_slug, entry_id=None):
     if entry_id:
         entry = get_object_or_404(Entry, book=book, id=entry_id)
 
+    context = dict(book=book, entry=entry)
     if request.method == 'POST':
         form = EntryForm(instance=entry, data=request.POST)
         if form.is_valid():
@@ -207,8 +208,17 @@ def entry(request, book_slug, entry_id=None):
             initial['when'] = when
 
         form = EntryForm(instance=entry, initial=initial)
+        if entry:
+            try:
+                context['entry_prev'] = entry.get_previous_by_when()
+            except Entry.DoesNotExist:
+                pass
+            try:
+                context['entry_next'] = entry.get_next_by_when()
+            except Entry.DoesNotExist:
+                pass
 
-    context = dict(form=form, book=book, entry=entry)
+    context['form'] = form
     return render(request, 'gemcore/entry.html', context)
 
 

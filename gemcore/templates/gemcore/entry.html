@@ -34,12 +34,24 @@
 
     <div class="form-group tags">{{ form.tags }}</div>
 
-    <div class="btn-group">
-        {% if entry %}
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href="{% url 'remove-entry' book.slug entry.id %}" class="btn btn-default">Remove</a>
-        {% else %}
-        <button type="submit" class="btn btn-primary">Add</button>
+    <div class="text-center">
+        {% if entry_prev %}
+        <div class="entry-navigation">
+            <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
+        </div>
+        {% endif %}
+        <div class="btn-group">
+            {% if entry %}
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'remove-entry' book.slug entry.id %}" class="btn btn-default">Remove</a>
+            {% else %}
+            <button type="submit" class="btn btn-primary">Add</button>
+            {% endif %}
+        </div>
+        {% if entry_next %}
+        <div class="entry-navigation">
+            <a href="{% url 'entry' book.slug entry_next.id %}">next &raquo;</a>
+        </div>
         {% endif %}
     </div>
 </form>
