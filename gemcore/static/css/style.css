@@ -6,6 +6,10 @@
     width: 7em;
 }
 
+.entry-navigation {
+    display: inline-block;
+}
+
 .table {
     width: auto;
 }
