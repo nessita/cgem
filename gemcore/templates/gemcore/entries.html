@@ -167,10 +167,10 @@
         </thead>
         <tbody>
             {% for entry in entries %}
-            <tr onclick="window.document.location='{% url 'entry' book.slug entry.id %}'">
+            <tr>
                 <td>{{ entry.when|date:"d-b" }}</td>
                 <td>{{ entry.who.username|slice:"3" }}</td>
-                <td>{{ entry.what }}</td>
+                <td><a href="{% url 'entry' book.slug entry.id %}">{{ entry.what }}</a></td>
                 <td class="text-right {% if not entry.is_income %}expense{% endif %}">
                     {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}
                 </td>

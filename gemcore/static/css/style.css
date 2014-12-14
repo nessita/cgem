@@ -18,12 +18,6 @@
     color: red;
 }
 
-.table-hover > tbody > tr:hover > td,
-.table-hover > tbody > tr:hover > th {
-    background-color: light-grey;
-    cursor: pointer;
-}
-
 #entry-form-search .row {
     padding-left: 15px;
     padding-right: 10px;
