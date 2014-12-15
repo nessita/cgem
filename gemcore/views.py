@@ -112,6 +112,10 @@ def entries(request, book_slug):
     if country:
         entries = entries.filter(country=country)
 
+    account = request.GET.get('account')
+    if account:
+        entries = entries.filter(account__slug=account)
+
     used_tags = set(request.GET.getlist('tag', []))
     if used_tags:
         tags = reduce(
@@ -164,9 +168,9 @@ def entries(request, book_slug):
     page_range = range(start, end + 1)
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
-        country=country, years=years, months=months, users=users,
-        countries=countries, tags=tags, q=q, when=when, page_range=page_range,
-        start=start, end=end, used_tags=used_tags)
+        country=country, account=account, years=years, months=months,
+        users=users, countries=countries, tags=tags, q=q, when=when,
+        page_range=page_range, start=start, end=end, used_tags=used_tags)
 
     return render(request, 'gemcore/entries.html', context)
 

@@ -46,6 +46,11 @@
         <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path country-=country %}">{{ country }} &times;</a>
     </div>
     {% endif %}
+    {% if account %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path account-=account %}">{{ account }} &times;</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -170,12 +175,15 @@
             <tr>
                 <td>{{ entry.when|date:"d-b" }}</td>
                 <td>{{ entry.who.username|slice:"3" }}</td>
-                <td><a href="{% url 'entry' book.slug entry.id %}">{{ entry.what }}</a></td>
+                <td>
+                    <a href="{% url 'entry' book.slug entry.id %}">{{ entry.what }}</a>
+                </td>
                 <td class="text-right {% if not entry.is_income %}expense{% endif %}">
                     {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}
                 </td>
-                <td class="{% if not entry.is_income %}expense{% endif %}">
-                    {{ entry.account }}</td>
+                <td>
+                    <a href="{% qurl request.get_full_path account=entry.account.slug %}">{{ entry.account }}</a>
+                </td>
                 <td>
                     {{ entry.country }}<br/>
                     {% for t, is_set in entry.tags %}
