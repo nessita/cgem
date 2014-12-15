@@ -101,6 +101,16 @@ class Book(models.Model):
         result = OrderedDict(cursor.fetchall())
         return result
 
+    def accounts(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        if not entries:
+            return []
+
+        return entries.order_by('account').values_list(
+            'account__slug', flat=True).distinct()
+
     def who(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
@@ -133,6 +143,20 @@ class Account(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         return super(Account, self).save(*args, **kwargs)
+
+    def balance(self, book):
+        entries = book.entry_set.filter(account=self)
+        totals = entries.values('is_income').annotate(models.Sum('amount'))
+        assert len(totals) <= 2, totals
+
+        result = {'income': Decimal(0), 'expense': Decimal(0)}
+        for item in totals:
+            if item['is_income']:
+                result['income'] = item['amount__sum']
+            else:
+                result['expense'] = item['amount__sum']
+        result['result'] = result['income'] - result['expense']
+        return result
 
 
 class Entry(models.Model):

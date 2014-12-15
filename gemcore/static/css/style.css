@@ -14,8 +14,12 @@
     width: auto;
 }
 
-.table .expense {
+.expense {
     color: red;
+}
+
+.balance {
+    text-align: right;
 }
 
 #entry-form-search .row {

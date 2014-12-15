@@ -7,10 +7,6 @@
     <script src="{% static 'js/add-entry.js' %}"></script>
 {% endblock head-extra %}
 
-{% block navbar-title %}
-    <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
-{% endblock navbar-title %}
-
 {% block content %}
 
 <div class="row add-entry">

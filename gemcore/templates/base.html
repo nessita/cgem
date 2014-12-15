@@ -26,7 +26,13 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          {% block navbar-title %}<a class="navbar-brand" href="{% url 'books' %}">cgem</a>{% endblock navbar-title %}
+          {% block navbar-title %}
+            {% if book %}
+            <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
+            {% else %}
+            <a class="navbar-brand" href="{% url 'books' %}">cgem</a>
+            {% endif %}
+          {% endblock navbar-title %}
         </div>
 
         <!-- Collect the nav links, forms, and other content for toggling -->

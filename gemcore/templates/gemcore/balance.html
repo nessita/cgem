@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>{{ book }}: Balance for {{ account }}</h1>
+
+<div class="row">
+    <div class="col-md-4">
+
+    <dl class="dl-horizontal">
+        <dt>Income</dt><dd class="balance">{{ balance.income }}</dd>
+        <dt>Expense</dt><dd class="balance expense">-{{ balance.expense }}</dd>
+        <dt>Total</dt><dd class="balance {% if balance.result < 0 %}expense{% endif %}">{{ balance.result }}</dd>
+    </dl>
+
+    </div>
+</div>
+
+{% endblock content %}

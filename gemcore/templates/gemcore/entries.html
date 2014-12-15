@@ -8,10 +8,6 @@
     <script src="{% static 'js/add-entry.js' %}"></script>
 {% endblock head-extra %}
 
-{% block navbar-title %}
-    <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
-{% endblock navbar-title %}
-
 {% block content %}
 
 <div class="row">
@@ -131,6 +127,12 @@
         <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
             Load from file</a>
     </div>
+
+    {% for account in accounts %}
+    <div class="row-vspace-10">
+        <a href="{% url 'balance' book.slug account %}">Balance for {{ account }}</a>
+    </div>
+    {% endfor %}
 
   </div>
   <div class="col-md-8">

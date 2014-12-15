@@ -19,7 +19,7 @@ from gemcore.forms import (
     CSVExpenseForm,
     EntryForm,
 )
-from gemcore.models import Book, Entry
+from gemcore.models import Account, Book, Entry
 from gemcore.parse import BankCSVParser, ExpenseCSVParser
 
 
@@ -133,6 +133,7 @@ def entries(request, book_slug):
         )
     ]
     countries = [] if country else book.countries(entries)
+    accounts = [] if account else book.accounts(entries)
     users = [] if who else book.who(entries)
     tags = book.tags(entries)
 
@@ -169,8 +170,9 @@ def entries(request, book_slug):
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
         country=country, account=account, years=years, months=months,
-        users=users, countries=countries, tags=tags, q=q, when=when,
-        page_range=page_range, start=start, end=end, used_tags=used_tags)
+        users=users, countries=countries, accounts=accounts, tags=tags,
+        q=q, when=when, used_tags=used_tags,
+        page_range=page_range, start=start, end=end)
 
     return render(request, 'gemcore/entries.html', context)
 
@@ -330,3 +332,17 @@ def account_transfer(request, book_slug):
 
     context = dict(form=form)
     return render(request, 'gemcore/transfer.html', context)
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def balance(request, book_slug, account_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    account = get_object_or_404(Account, slug=account_slug)
+
+    context = {
+        'account': account,
+        'balance': account.balance(book),
+        'book': book,
+    }
+    return render(request, 'gemcore/balance.html', context)
