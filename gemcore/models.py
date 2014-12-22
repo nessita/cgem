@@ -144,12 +144,28 @@ class Account(models.Model):
             self.slug = slugify(self.name)
         return super(Account, self).save(*args, **kwargs)
 
-    def balance(self, book):
+    def balance(self, book, start=None, end=None):
         entries = book.entry_set.filter(account=self)
+        if start and end:
+            assert start < end
+            entries = entries.filter(when__range=(start, end))
+        elif start:
+            entries = entries.filter(when__gte=start)
+            end = datetime.today()
+        elif end:
+            entries = entries.filter(when__lte=end)
+            start = entries.earliest('when').when
+        else:
+            start = entries.earliest('when').when
+            end = entries.latest('when').when
+
         totals = entries.values('is_income').annotate(models.Sum('amount'))
         assert len(totals) <= 2, totals
 
-        result = {'income': Decimal(0), 'expense': Decimal(0)}
+        result = {
+            'start': start, 'end': end, 'result': Decimal(0),
+            'income': Decimal(0), 'expense': Decimal(0),
+        }
         for item in totals:
             if item['is_income']:
                 result['income'] = item['amount__sum']

@@ -53,88 +53,92 @@
 <div class="row">
   <div class="col-md-4">
 
-    <div class="row-vspace-10">
-        <p>
-        {% for tag, i in tags.items %}
+    <div class="row">
+        <h3>Filters</h3>
+        <p>{% for tag, i in tags.items %}
             <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
                 {{ tag }} <span class="badge">{{ i }}</span>
             </a>
-        {% endfor %}
-        </p>
-        <p>
-        {% for k in months %}
+        {% endfor %}</p>
+        <p>{% for k in months %}
             {% ifnotequal k month %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
                 {{ k }}
             </a>
             {% endifnotequal %}
-        {% endfor %}
-        </p>
-        <p>
-        {% for k, i in years.items %}
+        {% endfor %}</p>
+        <p>{% for k, i in years.items %}
             {% ifnotequal k year %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
             {% endifnotequal %}
-        {% endfor %}
-        </p>
-        <p>
-        {% for k, i in countries.items %}
+        {% endfor %}</p>
+        <p>{% for k, i in countries.items %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
-        {% endfor %}
-        </p>
-        <p>
-        {% for k, i in users.items %}
+        {% endfor %}</p>
+        <p>{% for k, i in users.items %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
-        {% endfor %}
-        </p>
+        {% endfor %}</p>
     </div>
 
-    <form id="entry-form-search" class="form-horizontal" method="GET" action=".">
     <div class="row">
-        <div class="col-xs-5 has-feedback">
-            <input type="text" class="form-control input-sm" name="q" autofocus="on" 
-                   id="search-text" placeholder="Search"
-                   {% if q %}value="{{ q }}"{% endif %} />
-            <span style="cursor: pointer;" id="clear-search-text"
-                  class="glyphicon glyphicon-remove form-control-feedback"></span>
-        </div>
-        <div class="col-xs-5 has-feedback">
-            <input type="date" class="form-control input-sm datepicker" name="when"
-                   id="search-date" placeholder="When"
-                   {% if when %}value="{{ when }}"{% endif %} />
-            <span style="cursor: pointer;" id="clear-search-date"
-                  class="glyphicon glyphicon-remove form-control-feedback"></span>
-          </div>
-        <div class="col-xs-2">
-            <button class="btn btn-sm btn-default" type="submit">
-                <span class="glyphicon glyphicon-search"></span>
-            </button>
-        </div>
-    </div>
-    </form>
-
-    <div class="btn-group btn-group-sm row-vspace-10">
-        <a href="{% url 'add-entry' book.slug %}{% qurl . when=when %}" class="btn btn-primary">
-            New entry</a>
-        <a href="{% url 'account-transfer' book.slug %}" class="btn btn-default">
-            Account transfer</a>
-        <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
-            Load from file</a>
+        <form id="entry-form-search" class="form-horizontal" method="GET" action=".">
+            <div class="col-xs-5 has-feedback">
+                <input type="text" class="form-control input-sm" name="q" autofocus="on" 
+                       id="search-text" placeholder="Search"
+                       {% if q %}value="{{ q }}"{% endif %} />
+                <span style="cursor: pointer;" id="clear-search-text"
+                      class="glyphicon glyphicon-remove form-control-feedback"></span>
+            </div>
+            <div class="col-xs-5 has-feedback">
+                <input type="date" class="form-control input-sm datepicker" name="when"
+                       id="search-date" placeholder="When"
+                       {% if when %}value="{{ when }}"{% endif %} />
+                <span style="cursor: pointer;" id="clear-search-date"
+                      class="glyphicon glyphicon-remove form-control-feedback"></span>
+              </div>
+            <div class="col-xs-2">
+                <button class="btn btn-sm btn-default" type="submit">
+                    <span class="glyphicon glyphicon-search"></span>
+                </button>
+            </div>
+        </form>
     </div>
 
-    {% for account in accounts %}
-    <div class="row-vspace-10">
-        <a href="{% url 'balance' book.slug account %}">Balance for {{ account }}</a>
+    <div class="row">
+        <h3>Balances</h3>
+        <form id="account-balance" action="{% url 'balance' book.slug %}" method="POST" class="form-horizontal" role="form">
+            {% csrf_token %}
+            {% if balance_form.non_field_errors %}
+            <div class="alert alert-danger">{{ balance_form.non_field_errors }}</div>
+            {% endif %}
+            {% include 'gemcore/_form_field.html' with field=balance_form.account sronly=True extra_class="col-xs-5" %}
+            {% include 'gemcore/_form_field.html' with field=balance_form.start sronly=True extra_class="col-xs-4" %}
+            {% include 'gemcore/_form_field.html' with field=balance_form.end sronly=True extra_class="col-xs-4" %}
+                <button type="submit" class="btn btn-sm btn-default">Get</button>
+        </form>
     </div>
-    {% endfor %}
+
+    <div class="row">
+        <div class="btn-group btn-group-sm vspace-10">
+            <a href="{% url 'add-entry' book.slug %}{% qurl . when=when %}" class="btn btn-primary">
+                New entry</a>
+            <a href="{% url 'account-transfer' book.slug %}" class="btn btn-default">
+                Account transfer</a>
+            <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
+                Load from file</a>
+        </div>
+    </div>
 
   </div>
+
+<!---------------------------------------------------------------------------->
+
   <div class="col-md-8">
 
     <div class="text-center">

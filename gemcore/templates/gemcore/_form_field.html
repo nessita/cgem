@@ -1,4 +1,4 @@
-    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %}">
+    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %} {{ extra_class }}">
         <label for="{{ field.auto_id }}"{% if sronly %} class="sr-only"{% endif %}>
         {{ field.label }}
         </label>

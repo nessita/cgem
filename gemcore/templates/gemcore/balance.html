@@ -1,4 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+{% endblock head-extra %}
 
 {% block content %}
 
@@ -6,14 +12,31 @@
 
 <div class="row">
     <div class="col-md-4">
+    <form action="." method="POST" class="form-inline" role="form">
+        {% csrf_token %}
 
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% include 'gemcore/_form_field.html' with field=form.account %}
+        {% include 'gemcore/_form_field.html' with field=form.start %}
+        {% include 'gemcore/_form_field.html' with field=form.end %}
+
+        <button type="submit" class="btn btn-primary">Calculate</button>
+    </form>
+    </div>
+
+    {% if balance %}
+    <div class="col-md-8">
+    <p>From {{ balance.start }} to {{ balance.end }}</p>
     <dl class="dl-horizontal">
         <dt>Income</dt><dd class="balance">{{ balance.income }}</dd>
         <dt>Expense</dt><dd class="balance expense">-{{ balance.expense }}</dd>
         <dt>Total</dt><dd class="balance {% if balance.result < 0 %}expense{% endif %}">{{ balance.result }}</dd>
     </dl>
-
     </div>
+    {% endif %}
 </div>
 
 {% endblock content %}

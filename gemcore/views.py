@@ -4,6 +4,7 @@ from collections import OrderedDict
 from datetime import date
 from functools import reduce
 from io import StringIO, TextIOWrapper
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -14,8 +15,9 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
 from gemcore.forms import (
-    BookForm,
     AccountTransferForm,
+    BalanceForm,
+    BookForm,
     CSVExpenseForm,
     EntryForm,
 )
@@ -172,8 +174,9 @@ def entries(request, book_slug):
         country=country, account=account, years=years, months=months,
         users=users, countries=countries, accounts=accounts, tags=tags,
         q=q, when=when, used_tags=used_tags,
-        page_range=page_range, start=start, end=end)
-
+        page_range=page_range, start=start, end=end,
+        balance_form=BalanceForm(),
+    )
     return render(request, 'gemcore/entries.html', context)
 
 
@@ -336,13 +339,39 @@ def account_transfer(request, book_slug):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def balance(request, book_slug, account_slug):
+def balance(request, book_slug, account_slug=None, start=None, end=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    account = get_object_or_404(Account, slug=account_slug)
 
+    if request.method == 'POST':
+        form = BalanceForm(request.POST)
+        if form.is_valid():
+            account = form.cleaned_data['account']
+            url = reverse(
+                'balance',
+                kwargs=dict(book_slug=book.slug, account_slug=account.slug))
+            start = form.cleaned_data['start']
+            end = form.cleaned_data['end']
+            qs = {}
+            if start:
+                qs['start'] = start
+            if end:
+                qs['end'] = end
+            if qs:
+                url += '?' + urlencode(qs)
+            return HttpResponseRedirect(url)
+
+    account = None
+    balance = None
+    if account_slug:
+        account = get_object_or_404(Account, slug=account_slug)
+        start = request.GET.get('start')
+        end = request.GET.get('end')
+        balance = account.balance(book, start, end)
+
+    form = BalanceForm(initial=dict(account=account, start=start, end=end))
     context = {
-        'account': account,
-        'balance': account.balance(book),
+        'balance': balance,
         'book': book,
+        'form': form,
     }
     return render(request, 'gemcore/balance.html', context)
