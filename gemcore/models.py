@@ -35,6 +35,8 @@ TAGS = [  # order is IMPORTANT, do not re-order
 
 
 def month_year_iter(start, end):
+    # Adapted from:
+    # http://stackoverflow.com/questions/5734438/how-to-create-a-month-iterator
     ym_start = 12 * start.year + start.month - 1
     ym_end = 12 * end.year + end.month
     for ym in range(ym_start, ym_end):
