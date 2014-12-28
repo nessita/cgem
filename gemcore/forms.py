@@ -6,6 +6,24 @@ from django_countries import countries
 from gemcore.models import Account, Book, Entry
 
 
+class BalanceForm(forms.Form):
+
+    account = forms.ModelChoiceField(
+        label='From', queryset=Account.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control input-sm',
+                                   'autofocus': 'true'}))
+    start = forms.DateField(
+        widget=forms.DateInput(
+            attrs={'class': 'form-control input-sm datepicker',
+                   'placeholder': 'Start'}),
+        required=False)
+    end = forms.DateField(
+        widget=forms.DateInput(
+            attrs={'class': 'form-control input-sm datepicker',
+                   'placeholder': 'End'}),
+        required=False)
+
+
 class BookForm(forms.ModelForm):
 
     class Meta:

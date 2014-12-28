@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict, OrderedDict
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from bitfield import BitField
@@ -32,6 +32,44 @@ TAGS = [  # order is IMPORTANT, do not re-order
     'withdraw',  # 8192
     'imported',  # 16384
 ]
+
+
+def month_year_iter(start, end):
+    # Adapted from:
+    # http://stackoverflow.com/questions/5734438/how-to-create-a-month-iterator
+    ym_start = 12 * start.year + start.month - 1
+    ym_end = 12 * end.year + end.month
+    for ym in range(ym_start, ym_end):
+        y, m = divmod(ym, 12)
+        yield date(y, m + 1, 1)
+
+
+class Balance(object):
+
+    def __init__(self, entries, start, end):
+        super(Balance, self).__init__()
+        assert entries.count() > 0
+        assert start <= end, start
+        self.start = start
+        self.end = end
+        self.entries = entries.filter(when__range=(start, end))
+
+    def balance(self):
+        totals = self.entries.values('is_income').annotate(
+            models.Sum('amount'))
+        assert len(totals) <= 2, totals
+
+        result = {
+            'start': self.start, 'end': self.end,
+            'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
+        }
+        for item in totals:
+            if item['is_income']:
+                result['income'] = item['amount__sum']
+            else:
+                result['expense'] = item['amount__sum']
+        result['result'] = result['income'] - result['expense']
+        return result
 
 
 class Book(models.Model):
@@ -101,6 +139,16 @@ class Book(models.Model):
         result = OrderedDict(cursor.fetchall())
         return result
 
+    def accounts(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        if not entries:
+            return []
+
+        return entries.order_by('account').values_list(
+            'account__slug', flat=True).distinct()
+
     def who(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
@@ -133,6 +181,39 @@ class Account(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         return super(Account, self).save(*args, **kwargs)
+
+    def balance(self, book, start=None, end=None):
+        # Range test (inclusive).
+        entries = book.entry_set.filter(account=self)
+        if not entries:
+            return
+
+        if not start:
+            start = entries.earliest('when').when
+        if not end:
+            end = entries.latest('when').when
+
+        assert start < end
+        complete = Balance(entries, start, end).balance()
+
+        months = []
+        last_month = None
+        sanity_check = Decimal(0)
+        for next_month in month_year_iter(start, end):
+            if last_month is not None:
+                end_of_month = next_month - timedelta(days=1)
+                balance = Balance(entries, last_month, end_of_month).balance()
+                sanity_check += balance['result']
+                months.append(balance)
+            last_month = next_month
+
+        balance = Balance(entries, last_month, end).balance()
+        sanity_check += balance['result']
+        months.append(balance)
+
+        assert sanity_check == complete['result']
+
+        return {'complete': complete, 'months': months}
 
 
 class Entry(models.Model):
