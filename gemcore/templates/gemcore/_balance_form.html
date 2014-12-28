@@ -1,0 +1,10 @@
+        <form id="account-balance" action="{% url 'balance' book.slug %}" method="POST" class="form-horizontal" role="form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+            {% include 'gemcore/_form_field.html' with field=form.account sronly=True extra_class="col-xs-5" %}
+            {% include 'gemcore/_form_field.html' with field=form.start sronly=True extra_class="col-xs-4" %}
+            {% include 'gemcore/_form_field.html' with field=form.end sronly=True extra_class="col-xs-4" %}
+            <button type="submit" class="btn btn-sm {{ btnclass }}">Get</button>
+        </form>

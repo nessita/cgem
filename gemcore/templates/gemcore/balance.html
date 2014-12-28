@@ -4,39 +4,56 @@
 {% block head-extra %}
     <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
     <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
 {% endblock head-extra %}
 
 {% block content %}
 
-<h1>{{ book }}: Balance for {{ account }}</h1>
+<h1>Balances for {{ book }}</h1>
 
 <div class="row">
-    <div class="col-md-4">
-    <form action="." method="POST" class="form-inline" role="form">
-        {% csrf_token %}
+    <div class="col-md-7">
+        <h3></h3>
+        {% include 'gemcore/_balance_form.html' with btnclass='btn-primary' %}
+    </div>
+</div>
 
-        {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+<div class="row">
+    <div class="col-md-7">
+        {% if account and not balance %}
+        <h3>No entries for {{ account }}.</h3>
         {% endif %}
 
-        {% include 'gemcore/_form_field.html' with field=form.account %}
-        {% include 'gemcore/_form_field.html' with field=form.start %}
-        {% include 'gemcore/_form_field.html' with field=form.end %}
+        {% if balance %}
+        <h3>From {{ balance.complete.start }} to {{ balance.complete.end }}</h3>
 
-        <button type="submit" class="btn btn-primary">Calculate</button>
-    </form>
+        <table class="table table-condensed">
+            <thead>
+            <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+            {% for item in balance.months %}
+            <tr>
+                <td class="">{{ item.start|date:"Y M" }}</td>
+                <td class="balance">{{ item.income }}</td>
+                <td class="balance expense">-{{ item.expense }}</td>
+                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            {% with item=balance.complete %}
+            <tr>
+                <td class="text-left">Total</td>
+                <td class="balance">{{ item.income }}</td>
+                <td class="balance expense">-{{ item.expense }}</td>
+                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
+            </tr>
+            {% endwith %}
+            </tfoot>
+        </table>
+        {% endif %}
     </div>
-
-    {% if balance %}
-    <div class="col-md-8">
-    <p>From {{ balance.start }} to {{ balance.end }}</p>
-    <dl class="dl-horizontal">
-        <dt>Income</dt><dd class="balance">{{ balance.income }}</dd>
-        <dt>Expense</dt><dd class="balance expense">-{{ balance.expense }}</dd>
-        <dt>Total</dt><dd class="balance {% if balance.result < 0 %}expense{% endif %}">{{ balance.result }}</dd>
-    </dl>
-    </div>
-    {% endif %}
 </div>
 
 {% endblock content %}

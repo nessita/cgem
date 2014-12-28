@@ -1,7 +1,7 @@
 import operator
 
 from collections import OrderedDict
-from datetime import date
+from datetime import date, datetime
 from functools import reduce
 from io import StringIO, TextIOWrapper
 from urllib.parse import urlencode
@@ -366,10 +366,15 @@ def balance(request, book_slug, account_slug=None, start=None, end=None):
         account = get_object_or_404(Account, slug=account_slug)
         start = request.GET.get('start')
         end = request.GET.get('end')
+        if start:
+            start = datetime.strptime(start, '%Y-%m-%d').date()
+        if end:
+            end = datetime.strptime(end, '%Y-%m-%d').date()
         balance = account.balance(book, start, end)
 
     form = BalanceForm(initial=dict(account=account, start=start, end=end))
     context = {
+        'account': account,
         'balance': balance,
         'book': book,
         'form': form,

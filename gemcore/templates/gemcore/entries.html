@@ -101,7 +101,7 @@
                        {% if when %}value="{{ when }}"{% endif %} />
                 <span style="cursor: pointer;" id="clear-search-date"
                       class="glyphicon glyphicon-remove form-control-feedback"></span>
-              </div>
+            </div>
             <div class="col-xs-2">
                 <button class="btn btn-sm btn-default" type="submit">
                     <span class="glyphicon glyphicon-search"></span>
@@ -112,16 +112,7 @@
 
     <div class="row">
         <h3>Balances</h3>
-        <form id="account-balance" action="{% url 'balance' book.slug %}" method="POST" class="form-horizontal" role="form">
-            {% csrf_token %}
-            {% if balance_form.non_field_errors %}
-            <div class="alert alert-danger">{{ balance_form.non_field_errors }}</div>
-            {% endif %}
-            {% include 'gemcore/_form_field.html' with field=balance_form.account sronly=True extra_class="col-xs-5" %}
-            {% include 'gemcore/_form_field.html' with field=balance_form.start sronly=True extra_class="col-xs-4" %}
-            {% include 'gemcore/_form_field.html' with field=balance_form.end sronly=True extra_class="col-xs-4" %}
-                <button type="submit" class="btn btn-sm btn-default">Get</button>
-        </form>
+        {% include 'gemcore/_balance_form.html' with form=balance_form btnclass='btn-default' %}
     </div>
 
     <div class="row">

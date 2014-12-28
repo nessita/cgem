@@ -10,15 +10,17 @@ class BalanceForm(forms.Form):
 
     account = forms.ModelChoiceField(
         label='From', queryset=Account.objects.all(),
-        widget=forms.Select(attrs={'class': 'form-control input-sm', 'autofocus': 'true'}),
-    )
+        widget=forms.Select(attrs={'class': 'form-control input-sm',
+                                   'autofocus': 'true'}))
     start = forms.DateField(
-        widget=forms.DateInput(attrs={'class': 'form-control input-sm datepicker',
-                                      'placeholder': 'Start'}),
+        widget=forms.DateInput(
+            attrs={'class': 'form-control input-sm datepicker',
+                   'placeholder': 'Start'}),
         required=False)
     end = forms.DateField(
-        widget=forms.DateInput(attrs={'class': 'form-control input-sm datepicker',
-                                      'placeholder': 'End'}),
+        widget=forms.DateInput(
+            attrs={'class': 'form-control input-sm datepicker',
+                   'placeholder': 'End'}),
         required=False)
 
 
