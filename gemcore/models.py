@@ -13,7 +13,7 @@ from django_countries import countries
 
 
 CURRENCIES = [
-    'ARS', 'EUR', 'USD', 'UYU', 'GBP',
+    'ARS', 'EUR', 'USD', 'UYU', 'GBP', 'CNY',
 ]
 TAGS = [  # order is IMPORTANT, do not re-order
     'bureaucracy',  # 1
