@@ -8,7 +8,11 @@ from gemcore.models import Account, Book, Entry
 
 class AccountAdmin(admin.ModelAdmin):
 
+    list_display = ('name', 'slug', 'currency_code', 'people')
     prepopulated_fields = {'slug': ('name',)}
+
+    def people(self, instance):
+        return ', '.join(u.username for u in instance.users.all())
 
 
 class BookAdmin(admin.ModelAdmin):
