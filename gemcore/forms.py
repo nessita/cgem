@@ -117,15 +117,15 @@ class AccountTransferForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
 
-    def __init__(self, user, *args, **kwargs):
+    def __init__(self, user, book, *args, **kwargs):
         super(AccountTransferForm, self).__init__(*args, **kwargs)
+        accounts = Account.objects.filter(users__book=book).distinct()
         self.fields['source_account'] = forms.ModelChoiceField(
-            label='From', queryset=Account.objects.all(),
-            widget=forms.Select(
+            label='From', queryset=accounts, widget=forms.Select(
                 attrs={'class': 'form-control', 'autofocus': 'true'}),
         )
         self.fields['target_account'] = forms.ModelChoiceField(
-            label='To', queryset=Account.objects.all(),
+            label='To', queryset=accounts,
             widget=forms.Select(attrs={'class': 'form-control'}),
         )
 

@@ -304,7 +304,7 @@ def account_transfer(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
-        form = AccountTransferForm(request.user, request.POST)
+        form = AccountTransferForm(request.user, book, request.POST)
         if form.is_valid():
             source_account = form.cleaned_data.get('source_account')
             source_amount = form.cleaned_data.get('source_amount')
@@ -331,7 +331,7 @@ def account_transfer(request, book_slug):
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))
     else:
-        form = AccountTransferForm(request.user)
+        form = AccountTransferForm(request.user, book)
 
     context = dict(form=form)
     return render(request, 'gemcore/transfer.html', context)
