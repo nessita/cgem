@@ -25,7 +25,7 @@ from gemcore.models import Account, Book, Entry
 from gemcore.parse import BankCSVParser, ExpenseCSVParser
 
 
-ENTRIES_PER_PAGE = 15
+ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
 MONTHS = OrderedDict(
     [(date(2000, i, 1).strftime('%b'), i) for i in range(1, 13)])
