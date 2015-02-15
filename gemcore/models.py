@@ -27,10 +27,11 @@ TAGS = [  # order is IMPORTANT, do not re-order
     'other',  # 256
     'rent',  # 512
     'taxes',  # 1024
-    'travel',  # 2048
+    'travel (transport)',  # 2048
     'utilities',  # 4096
     'work(ish)',  # 8192
     'imported',  # 16384
+    'trips',  # 32768
 ]
 
 
