@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -22,7 +22,7 @@ from gemcore.forms import (
     EntryForm,
 )
 from gemcore.models import Account, Book, Entry
-from gemcore.parse import BankCSVParser, ExpenseCSVParser
+from gemcore.parse import BankCSVParser, ExpenseCSVParser, TripCSVParser
 
 
 ENTRIES_PER_PAGE = 25
@@ -175,7 +175,7 @@ def entries(request, book_slug):
         users=users, countries=countries, accounts=accounts, tags=tags,
         q=q, when=when, used_tags=used_tags,
         page_range=page_range, start=start, end=end,
-        balance_form=BalanceForm(),
+        balance_form=BalanceForm(book),
     )
     return render(request, 'gemcore/entries.html', context)
 
@@ -264,6 +264,8 @@ def load_from_file(request, book_slug):
             source = form.cleaned_data['source']
             if source == 'bank':
                 result = BankCSVParser(book).parse(csv_file)
+            elif source == 'trips':
+                result = TripCSVParser(book).parse(csv_file)
             else:
                 assert source == 'expense'
                 result = ExpenseCSVParser(book).parse(csv_file)
@@ -343,7 +345,7 @@ def balance(request, book_slug, account_slug=None, start=None, end=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
-        form = BalanceForm(request.POST)
+        form = BalanceForm(book, data=request.POST)
         if form.is_valid():
             account = form.cleaned_data['account']
             url = reverse(
@@ -364,6 +366,8 @@ def balance(request, book_slug, account_slug=None, start=None, end=None):
     balance = None
     if account_slug:
         account = get_object_or_404(Account, slug=account_slug)
+        if book.id not in account.users.all().values_list('book', flat=True):
+            raise Http404
         start = request.GET.get('start')
         end = request.GET.get('end')
         if start:
@@ -372,7 +376,8 @@ def balance(request, book_slug, account_slug=None, start=None, end=None):
             end = datetime.strptime(end, '%Y-%m-%d').date()
         balance = account.balance(book, start, end)
 
-    form = BalanceForm(initial=dict(account=account, start=start, end=end))
+    form = BalanceForm(
+        book=book, initial=dict(account=account, start=start, end=end))
     context = {
         'account': account,
         'balance': balance,

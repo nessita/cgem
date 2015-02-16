@@ -9,7 +9,7 @@ from gemcore.models import Account, Book, Entry
 class BalanceForm(forms.Form):
 
     account = forms.ModelChoiceField(
-        label='From', queryset=Account.objects.all(),
+        label='From', queryset=None,
         widget=forms.Select(attrs={'class': 'form-control input-sm',
                                    'autofocus': 'true'}))
     start = forms.DateField(
@@ -22,6 +22,14 @@ class BalanceForm(forms.Form):
             attrs={'class': 'form-control input-sm datepicker',
                    'placeholder': 'End'}),
         required=False)
+
+    def __init__(self, book, *args, **kwargs):
+        super(BalanceForm, self).__init__(*args, **kwargs)
+        accounts = Account.objects.filter(users__book=book).distinct()
+        self.fields['account'] = forms.ModelChoiceField(
+            label='From', queryset=accounts,
+            widget=forms.Select(attrs={'class': 'form-control input-sm',
+                                       'autofocus': 'true'}))
 
 
 class BookForm(forms.ModelForm):
@@ -72,7 +80,7 @@ class EntryForm(forms.ModelForm):
 class CSVExpenseForm(forms.Form):
 
     source = forms.ChoiceField(
-        choices=(('bank', 'Bank'), ('expense', 'Expense')),
+        choices=(('bank', 'Bank'), ('expense', 'Expense'), ('trips', 'Trips')),
         widget=forms.Select(
             attrs={'class': 'form-control', 'autofocus': 'true'})
     )

@@ -194,7 +194,7 @@ class Account(models.Model):
         if not end:
             end = entries.latest('when').when
 
-        assert start < end
+        assert start <= end
         complete = Balance(entries, start, end).balance()
 
         months = []
