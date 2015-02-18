@@ -201,6 +201,14 @@ class TripCSVParser(CSVParser):
                         user=self.nessita,
                         account=Account.objects.get(slug='cash-ars-shared')),
             },
+            'BRL': {
+                'M': UserData(
+                        user=self.matiasb,
+                        account=Account.objects.get(slug='cash-brl-shared')),
+                'N': UserData(
+                        user=self.nessita,
+                        account=Account.objects.get(slug='cash-brl-shared')),
+            },
             'UYU': {
                 'X': UserData(
                         user=self.nessita,
