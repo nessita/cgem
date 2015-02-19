@@ -259,7 +259,7 @@ def load_from_file(request, book_slug):
             else:
                 csv_content = form.cleaned_data.get('csv_content')
                 csv_file = StringIO(csv_content)
-                csv_file.name = 'test.csv'
+                csv_file.name = ''
 
             source = form.cleaned_data['source']
             if source == 'bank':
@@ -275,7 +275,7 @@ def load_from_file(request, book_slug):
             if not error:
                 messages.success(
                     request, 'File %s successfully parsed (%s entries added).'
-                    % (success, csv_file.name))
+                    % (csv_file.name, success))
             elif success:
                 messages.warning(
                     request,
