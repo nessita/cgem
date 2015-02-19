@@ -175,7 +175,7 @@ class Account(models.Model):
             result = '%s %s %s' % (
                 self.currency_code, self.users.get().username, self.name)
         else:
-            result = '%s shared %s' % (self.currency_code, self.name)
+            result = '%s %s' % (self.currency_code, self.name)
         return result
 
     def save(self, *args, **kwargs):

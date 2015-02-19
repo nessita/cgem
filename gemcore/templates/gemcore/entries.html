@@ -148,7 +148,9 @@
         <tbody>
             {% for entry in entries %}
             <tr>
-                <td>{{ entry.when|date:"d-b" }}</td>
+                <td>
+                    <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date:"d-b-y" }}</a>
+                </td>
                 <td>{{ entry.who.username|slice:"3" }}</td>
                 <td>
                     <a href="{% url 'entry' book.slug entry.id %}">{{ entry.what }}</a>
