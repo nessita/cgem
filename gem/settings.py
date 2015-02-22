@@ -110,6 +110,7 @@ AUTHENTICATION_BACKENDS = (
 )
 
 DATE_FORMAT = 'Y-m-d'
+# DATE_FORMAT = 'd-b-y'
 PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 SITE_ID = 1

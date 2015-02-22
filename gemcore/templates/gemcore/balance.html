@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load qurl %}
 
 {% block head-extra %}
     <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
@@ -25,7 +26,7 @@
         {% endif %}
 
         {% if balance %}
-        <h3>From {{ balance.complete.start }} to {{ balance.complete.end }}</h3>
+        <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
 
         <table class="table table-condensed">
             <thead>
@@ -34,7 +35,11 @@
             <tbody>
             {% for item in balance.months %}
             <tr>
-                <td class="">{{ item.start|date:"Y M" }}</td>
+                <td class="">
+                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=account %}">
+                        {{ item.start|date:"Y M" }}
+                    </a>
+                </td>
                 <td class="balance">{{ item.income }}</td>
                 <td class="balance expense">-{{ item.expense }}</td>
                 <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>

@@ -29,7 +29,7 @@
     {% endif %}
     {% if month %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path month-=month %}">{{ month }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path month-=month %}">{{ month_label }} &times;</a>
     </div>
     {% endif %}
     {% if who %}
@@ -60,10 +60,10 @@
                 {{ tag }} <span class="badge">{{ i }}</span>
             </a>
         {% endfor %}</p>
-        <p>{% for k in months %}
+        <p>{% for k, label in months.items %}
             {% ifnotequal k month %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
-                {{ k }}
+                {{ label }}
             </a>
             {% endifnotequal %}
         {% endfor %}</p>
@@ -149,7 +149,7 @@
             {% for entry in entries %}
             <tr>
                 <td>
-                    <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date:"d-b-y" }}</a>
+                    <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date }}</a>
                 </td>
                 <td>{{ entry.who.username|slice:"3" }}</td>
                 <td>

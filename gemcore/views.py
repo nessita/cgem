@@ -27,8 +27,6 @@ from gemcore.parse import BankCSVParser, ExpenseCSVParser, TripCSVParser
 
 ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
-MONTHS = OrderedDict(
-    [(date(2000, i, 1).strftime('%b'), i) for i in range(1, 13)])
 
 
 def remove_thing(request, thing):
@@ -109,11 +107,12 @@ def entries(request, book_slug):
     else:
         entries = entries.filter(when__year=year)
 
-    month = request.GET.get('month')
     try:
-        entries = entries.filter(when__month=MONTHS[month])
-    except (KeyError, ValueError, TypeError):
+        month = int(request.GET.get('month'))
+    except (ValueError, TypeError):
         month = None
+    else:
+        entries = entries.filter(when__month=int(month))
 
     who = request.GET.get('who')
     if who:
@@ -136,13 +135,11 @@ def entries(request, book_slug):
 
     entries = entries.order_by('-when', 'who')
 
-    years = [] if year else book.years(entries)
-    months = [] if month else [
-        d.strftime('%b') for d in sorted(
-            {date(2000, d.month, 1)
-             for d in entries.values_list('when', flat=True)}
-        )
-    ]
+    years = book.years(entries)
+    months = OrderedDict(sorted({
+        (d.month, d.strftime('%b'))
+        for d in entries.values_list('when', flat=True)
+    }))
     countries = [] if country else book.countries(entries)
     accounts = [] if account else book.accounts(entries)
     users = [] if who else book.who(entries)
@@ -179,9 +176,11 @@ def entries(request, book_slug):
 
     page_range = range(start, end + 1)
     context = dict(
-        entries=entries, book=book, year=year, month=month, who=who,
-        country=country, account=account, years=years, months=months,
-        users=users, countries=countries, accounts=accounts,
+        entries=entries, book=book, who=who, users=users,
+        country=country, countries=countries,
+        account=account, accounts=accounts,
+        year=year, years=years,
+        month=month, month_label=months[month], months=months,
         q=q, tags=tags, used_tags=used_tags,
         when=when, when_prev=when_prev, when_next=when_next,
         page_range=page_range, start=start, end=end,
