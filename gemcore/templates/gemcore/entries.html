@@ -19,7 +19,7 @@
     {% endfor %}
     {% if when %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=when %}">{{ when }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=when %}">{{ when|date }} &times;</a>
     </div>
     {% endif %}
     {% if year %}
@@ -98,7 +98,7 @@
             <div class="col-xs-5 has-feedback">
                 <input type="date" class="form-control input-sm datepicker" name="when"
                        id="search-date" placeholder="When"
-                       {% if when %}value="{{ when }}"{% endif %} />
+                       {% if when %}value="{{ when|date }}"{% endif %} />
                 <span style="cursor: pointer;" id="clear-search-date"
                       class="glyphicon glyphicon-remove form-control-feedback"></span>
             </div>
@@ -131,8 +131,8 @@
 <!---------------------------------------------------------------------------->
 
   <div class="col-md-8">
-    {% if entries %}
     {% include 'gemcore/_entries_paginator.html' %}
+    {% if entries %}
     <table id="entries-list" class="table table-condensed table-hover table-striped">
         <thead>
             <tr>

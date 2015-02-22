@@ -109,6 +109,7 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
+DATE_FORMAT = 'Y-m-d'
 PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 SITE_ID = 1

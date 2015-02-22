@@ -1,7 +1,7 @@
 import operator
 
 from collections import OrderedDict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import reduce
 from io import StringIO, TextIOWrapper
 from urllib.parse import urlencode
@@ -91,8 +91,15 @@ def entries(request, book_slug):
     else:
         entries = book.entry_set.all()
 
-    when = request.GET.get('when')
-    if when:
+    try:
+        when = datetime.strptime(request.GET.get('when'), '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        when = None
+        when_next = None
+        when_prev = None
+    else:
+        when_next = when + timedelta(days=1)
+        when_prev = when - timedelta(days=1)
         entries = book.entry_set.filter(when=when)
 
     try:
@@ -174,8 +181,9 @@ def entries(request, book_slug):
     context = dict(
         entries=entries, book=book, year=year, month=month, who=who,
         country=country, account=account, years=years, months=months,
-        users=users, countries=countries, accounts=accounts, tags=tags,
-        q=q, when=when, used_tags=used_tags,
+        users=users, countries=countries, accounts=accounts,
+        q=q, tags=tags, used_tags=used_tags,
+        when=when, when_prev=when_prev, when_next=when_next,
         page_range=page_range, start=start, end=end,
         balance_form=BalanceForm(book),
     )
@@ -200,7 +208,8 @@ def entry(request, book_slug, entry_id=None):
             if 'save-and-new' in request.POST:
                 url = reverse('add-entry', kwargs=kwargs)
             elif 'save-and-new-same-date' in request.POST:
-                url = reverse('add-entry', kwargs=kwargs) + '?when=' + entry.when.isoformat()
+                url = reverse('add-entry', kwargs=kwargs)
+                url += '?when=' + entry.when.isoformat()
             elif 'save-and-edit' in request.POST:
                 kwargs['entry_id'] = entry.id
                 url = reverse('entry', kwargs=kwargs)
