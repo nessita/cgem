@@ -1,0 +1,7 @@
+            <button type="submit" class="btn btn-primary" name="save-and-new">Save and new</button>
+            <button type="submit" class="btn btn-default" name="save-and-new-same-date">Save and new on same date</button>
+            <button type="submit" class="btn btn-default" name="save-and-edit">Save and edit</button>
+            <button type="submit" class="btn btn-default" name="save-and-go-back">Save and go back</button>
+            {% if entry %}
+            <a href="{% url 'remove-entry' book.slug entry.id %}" class="btn btn-default">Remove</a>
+            {% endif %}

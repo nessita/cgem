@@ -35,6 +35,8 @@ def remove_thing(request, thing):
     if request.method == 'POST':
         if 'yes' in request.POST:
             thing.delete()
+        messages.success(
+            request, '%s %s removed.' % (thing.__class__.__name__, thing))
         return HttpResponseRedirect(reverse(home))
 
     return render(request, 'gemcore/remove.html', dict(thing=thing))
@@ -190,14 +192,25 @@ def entry(request, book_slug, entry_id=None):
 
     context = dict(book=book, entry=entry)
     if request.method == 'POST':
-        form = EntryForm(instance=entry, data=request.POST)
+        form = EntryForm(instance=entry, book=book, data=request.POST)
         if form.is_valid():
-            redirect_url = 'add-entry' if entry is None else 'entries'
             entry = form.save(book=book)
+            # decide where to redirecr next
+            kwargs = dict(book_slug=book_slug)
+            if 'save-and-new' in request.POST:
+                url = reverse('add-entry', kwargs=kwargs)
+            elif 'save-and-new-same-date' in request.POST:
+                url = reverse('add-entry', kwargs=kwargs) + '?when=' + entry.when.isoformat()
+            elif 'save-and-edit' in request.POST:
+                kwargs['entry_id'] = entry.id
+                url = reverse('entry', kwargs=kwargs)
+            elif 'save-and-go-back' in request.POST:
+                url = reverse('entries', kwargs=kwargs)
+            else:  # could be a remove
+                url = reverse('entries', kwargs=kwargs)
             messages.success(
                 request, 'Entry "%s" successfully processed.' % entry)
-            return HttpResponseRedirect(
-                reverse(redirect_url, kwargs=dict(book_slug=book_slug)))
+            return HttpResponseRedirect(url)
     else:
         currency = None
         who = request.user
@@ -216,7 +229,7 @@ def entry(request, book_slug, entry_id=None):
         if when:
             initial['when'] = when
 
-        form = EntryForm(instance=entry, initial=initial)
+        form = EntryForm(instance=entry, book=book, initial=initial)
         if entry:
             try:
                 context['entry_prev'] = entry.get_previous_by_when()

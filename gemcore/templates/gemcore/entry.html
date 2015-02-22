@@ -36,13 +36,11 @@
             <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
         </div>
         {% endif %}
-        <div class="btn-group">
-            {% if entry %}
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'remove-entry' book.slug entry.id %}" class="btn btn-default">Remove</a>
-            {% else %}
-            <button type="submit" class="btn btn-primary">Add</button>
-            {% endif %}
+        <div class="btn-group hidden-xs" role="group">
+            {% include 'gemcore/_entry_save_buttons.html' %}
+        </div>
+        <div class="btn-group-vertical visible-xs" role="group">
+            {% include 'gemcore/_entry_save_buttons.html' %}
         </div>
         {% if entry_next %}
         <div class="entry-navigation">

@@ -25,11 +25,7 @@ class BalanceForm(forms.Form):
 
     def __init__(self, book, *args, **kwargs):
         super(BalanceForm, self).__init__(*args, **kwargs)
-        accounts = Account.objects.filter(users__book=book).distinct()
-        self.fields['account'] = forms.ModelChoiceField(
-            label='From', queryset=accounts,
-            widget=forms.Select(attrs={'class': 'form-control input-sm',
-                                       'autofocus': 'true'}))
+        self.fields['account'].queryset = Account.objects.by_book(book)
 
 
 class BookForm(forms.ModelForm):
@@ -43,6 +39,10 @@ class BookForm(forms.ModelForm):
 
 
 class EntryForm(forms.ModelForm):
+
+    def __init__(self, book, *args, **kwargs):
+        super(EntryForm, self).__init__(*args, **kwargs)
+        self.fields['account'].queryset = Account.objects.by_book(book)
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
@@ -102,12 +102,19 @@ class CSVExpenseForm(forms.Form):
 
 class AccountTransferForm(forms.Form):
 
-    source_account = forms.CharField()
+    source_account = forms.ModelChoiceField(
+        label='From', queryset=Account.objects.none(),
+        widget=forms.Select(
+            attrs={'class': 'form-control', 'autofocus': 'true'}),
+    )
     source_amount = forms.DecimalField(
         label='$', min_value=0.1, decimal_places=2,
         widget=forms.NumberInput(attrs={'class': 'form-control'}),
     )
-    target_account = forms.CharField()
+    target_account = forms.ModelChoiceField(
+        label='To', queryset=Account.objects.none(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
     target_amount = forms.DecimalField(
         label='$', min_value=0.1, decimal_places=2,
         widget=forms.NumberInput(attrs={'class': 'form-control'}),
@@ -127,15 +134,9 @@ class AccountTransferForm(forms.Form):
 
     def __init__(self, user, book, *args, **kwargs):
         super(AccountTransferForm, self).__init__(*args, **kwargs)
-        accounts = Account.objects.filter(users__book=book).distinct()
-        self.fields['source_account'] = forms.ModelChoiceField(
-            label='From', queryset=accounts, widget=forms.Select(
-                attrs={'class': 'form-control', 'autofocus': 'true'}),
-        )
-        self.fields['target_account'] = forms.ModelChoiceField(
-            label='To', queryset=accounts,
-            widget=forms.Select(attrs={'class': 'form-control'}),
-        )
+        accounts = Account.objects.by_book(book)
+        self.fields['source_account'].queryset = accounts
+        self.fields['target_account'].queryset = accounts
 
     def clean(self):
         cleaned_data = super(AccountTransferForm, self).clean()

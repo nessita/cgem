@@ -159,6 +159,12 @@ class Book(models.Model):
         return dict(result)
 
 
+class AccountManager(models.Manager):
+
+    def by_book(self, book):
+        return self.filter(users__book=book).distinct()
+
+
 class Account(models.Model):
 
     name = models.CharField(max_length=256)
@@ -166,6 +172,8 @@ class Account(models.Model):
     users = models.ManyToManyField(User)
     currency_code = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
+
+    objects = AccountManager()
 
     class Meta:
         ordering = ('currency_code', 'name')
