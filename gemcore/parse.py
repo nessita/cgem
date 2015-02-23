@@ -61,7 +61,7 @@ class CSVParser(object):
         return {}
 
     def process_data(self, data):
-        form = EntryForm(data=data)
+        form = EntryForm(book=self.book, data=data)
         if not form.is_valid():
             raise ValueError(form.errors)
         return form.save(book=self.book)
@@ -212,6 +212,12 @@ class TripCSVParser(CSVParser):
             'UYU': {
                 'X': UserData(
                     user=self.nessita,
+                    account=Account.objects.get(slug='cash-uyu-shared')),
+                'N': UserData(
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-uyu-shared')),
+                'M': UserData(
+                    user=self.matiasb,
                     account=Account.objects.get(slug='cash-uyu-shared')),
             },
             'USD': {
