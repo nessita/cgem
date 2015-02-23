@@ -1,7 +1,7 @@
 import operator
 
 from collections import OrderedDict
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import reduce
 from io import StringIO, TextIOWrapper
 from urllib.parse import urlencode
@@ -180,7 +180,7 @@ def entries(request, book_slug):
         country=country, countries=countries,
         account=account, accounts=accounts,
         year=year, years=years,
-        month=month, month_label=months[month], months=months,
+        month=month, month_label=months.get(month), months=months,
         q=q, tags=tags, used_tags=used_tags,
         when=when, when_prev=when_prev, when_next=when_next,
         page_range=page_range, start=start, end=end,

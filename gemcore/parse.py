@@ -192,49 +192,49 @@ class TripCSVParser(CSVParser):
         self.users = {
             'ARS': {
                 'M': UserData(
-                        user=self.matiasb,
-                        account=Account.objects.get(slug='cash-ars-matiasb')),
+                    user=self.matiasb,
+                    account=Account.objects.get(slug='cash-ars-matiasb')),
                 'N': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-ars-nessita')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-ars-nessita')),
                 'X': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-ars-shared')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-ars-shared')),
             },
             'BRL': {
                 'M': UserData(
-                        user=self.matiasb,
-                        account=Account.objects.get(slug='cash-brl-shared')),
+                    user=self.matiasb,
+                    account=Account.objects.get(slug='cash-brl-shared')),
                 'N': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-brl-shared')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-brl-shared')),
             },
             'UYU': {
                 'X': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-uyu-shared')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-uyu-shared')),
             },
-            'USD':{
+            'USD': {
                 'M': UserData(
-                        user=self.matiasb,
-                        account=Account.objects.get(slug='cash-usd-matiasb')),
+                    user=self.matiasb,
+                    account=Account.objects.get(slug='cash-usd-matiasb')),
                 'N': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-usd-nessita')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-usd-nessita')),
                 'X': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-usd-shared')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-usd-shared')),
             },
-            'EUR':{
+            'EUR': {
                 'M': UserData(
-                        user=self.matiasb,
-                        account=Account.objects.get(slug='cash-eur-matiasb')),
+                    user=self.matiasb,
+                    account=Account.objects.get(slug='cash-eur-matiasb')),
                 'N': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-eur-nessita')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-eur-nessita')),
                 'X': UserData(
-                        user=self.nessita,
-                        account=Account.objects.get(slug='cash-eur-shared')),
+                    user=self.nessita,
+                    account=Account.objects.get(slug='cash-eur-shared')),
             },
         }
 
