@@ -140,13 +140,13 @@ class DISCBankCSVParser(CSVParser):
     HEADER = [WHEN, WHO, WHY, AMOUNT, 'Total', WHAT, KIND]
 
     def __init__(self, *args, **kwargs):
-        super(BankCSVParser, self).__init__(*args, **kwargs)
-        self.account = Account.objects.get(slug='disc-usd-shared')
+        super(DISCBankCSVParser, self).__init__(*args, **kwargs)
+        self.account = Account.objects.get(slug='discdim-usd-shared')
         self.extra = defaultdict(dict)
 
     def process_data(self, data):
         if data:
-            return super(BankCSVParser, self).process_data(data)
+            return super(DISCBankCSVParser, self).process_data(data)
 
     def process_row(self, row):
         amount = row[AMOUNT]

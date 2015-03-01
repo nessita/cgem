@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='account',
             name='currency_code',
-            field=models.CharField(choices=[('ARS', 'ARS'), ('BRL', 'BRL'), ('CNY', 'CNY'), ('EUR', 'EUR'), ('GBP', 'GBP'), ('USD', 'USD'), ('UYU', 'UYU')], max_length=3),
+            field=models.CharField(max_length=3, choices=[('ARS', 'ARS'), ('BRL', 'BRL'), ('CNY', 'CNY'), ('EUR', 'EUR'), ('GBP', 'GBP'), ('USD', 'USD'), ('UYU', 'UYU')]),
         ),
         migrations.AlterField(
             model_name='entry',
@@ -24,6 +24,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterUniqueTogether(
             name='entry',
-            unique_together=set([('book', 'when', 'what', 'amount')]),
+            unique_together=set([('book', 'when', 'what', 'amount', 'account')]),
         ),
     ]
