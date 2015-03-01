@@ -39,6 +39,10 @@ WHY = 'Why'
 WHAT = 'What'
 
 
+class RowToBeProcessesError(Exception):
+    """This row will be processed later."""
+
+
 class CSVParser(object):
 
     HEADER = []
@@ -131,7 +135,7 @@ class ExpenseCSVParser(CSVParser):
         return data
 
 
-class BankCSVParser(CSVParser):
+class DISCBankCSVParser(CSVParser):
 
     HEADER = [WHEN, WHO, WHY, AMOUNT, 'Total', WHAT, KIND]
 
@@ -178,6 +182,53 @@ class BankCSVParser(CSVParser):
             amount=amount, is_income=is_income,
             country='UY', tags=['imported'],
         )
+        return data
+
+
+class WFGBankCSVParser(CSVParser):
+
+    HEADER = [WHEN, AMOUNT, WHAT]
+    EXTRA_FEES = (
+        'INTERNATIONAL PURCHASE TRANSACTION FEE',
+        'NON-WELLS FARGO ATM TRANSACTION FEE',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(WFGBankCSVParser, self).__init__(*args, **kwargs)
+        self.matiasb = UserData(
+            user=self.matiasb,
+            account=Account.objects.get(slug='wfg-usd-matiasb'))
+        self.last_extra_fee = None
+
+    def process_row(self, row):
+        amount = row[AMOUNT].strip('$').replace(',', '')
+        if amount[0] == '-':
+            is_income = False
+            amount = amount.lstrip('-')
+        else:
+            is_income = True
+        what = row[WHAT]
+        when = datetime.strptime(row[WHEN], '%Y-%m-%d')
+        data = dict(
+            who=self.matiasb.user.id, when=when, what=what,
+            account=self.matiasb.account.id,
+            amount=Decimal(amount), is_income=is_income,
+            country='US', tags=['imported'],
+        )
+        if what in self.EXTRA_FEES:
+            assert self.last_extra_fee is None
+            self.last_extra_fee = data
+            raise RowToBeProcessesError()
+
+        if self.last_extra_fee is not None:
+            assert self.last_extra_fee['is_income'] == data['is_income']
+            assert self.last_extra_fee['when'] == data['when']
+            amount = self.last_extra_fee['amount']
+            data['notes'] = '%s + %s %s' % (
+                data['amount'], self.last_extra_fee['what'], amount)
+            data['amount'] += amount
+            self.last_extra_fee = None
+
         return data
 
 
@@ -274,6 +325,14 @@ class TripCSVParser(CSVParser):
             tags=['trips'],
         )
         return data
+
+
+PARSER_MAPPING = {
+    'disc-bank': DISCBankCSVParser,
+    'wfg-bank': WFGBankCSVParser,
+    'trips': TripCSVParser,
+    'expense': ExpenseCSVParser,
+}
 
 
 if __name__ == '__main__':

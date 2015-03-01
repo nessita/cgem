@@ -80,7 +80,12 @@ class EntryForm(forms.ModelForm):
 class CSVExpenseForm(forms.Form):
 
     source = forms.ChoiceField(
-        choices=(('bank', 'Bank'), ('expense', 'Expense'), ('trips', 'Trips')),
+        choices=(
+            ('disc-bank', 'DISC Bank'),
+            ('wfg-bank', 'WFG Bank'),
+            ('trips', 'Trips'),
+            ('expense', 'Expense'),
+        ),
         widget=forms.Select(
             attrs={'class': 'form-control', 'autofocus': 'true'})
     )

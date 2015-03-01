@@ -22,7 +22,7 @@ from gemcore.forms import (
     EntryForm,
 )
 from gemcore.models import Account, Book, Entry
-from gemcore.parse import BankCSVParser, ExpenseCSVParser, TripCSVParser
+from gemcore.parse import PARSER_MAPPING
 
 
 ENTRIES_PER_PAGE = 25
@@ -283,14 +283,8 @@ def load_from_file(request, book_slug):
                 csv_file.name = ''
 
             source = form.cleaned_data['source']
-            if source == 'bank':
-                result = BankCSVParser(book).parse(csv_file)
-            elif source == 'trips':
-                result = TripCSVParser(book).parse(csv_file)
-            else:
-                assert source == 'expense'
-                result = ExpenseCSVParser(book).parse(csv_file)
-
+            csv_parser = PARSER_MAPPING[source]
+            result = csv_parser(book).parse(csv_file)
             success = len([e for e in result['entries'] if e])
             error = sum(len(i) for i in result['errors'].values())
             if not error:

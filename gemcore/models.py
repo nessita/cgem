@@ -241,7 +241,7 @@ class Entry(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ('book', 'who', 'when', 'what', 'amount')
+        unique_together = ('book', 'when', 'what', 'amount')
         verbose_name_plural = 'Entries'
 
     def __str__(self):

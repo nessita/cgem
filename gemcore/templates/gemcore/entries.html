@@ -116,14 +116,7 @@
     </div>
 
     <div class="row">
-        <div class="btn-group btn-group-sm vspace-10">
-            <a href="{% url 'add-entry' book.slug %}{% qurl . when=when %}" class="btn btn-primary">
-                New entry</a>
-            <a href="{% url 'account-transfer' book.slug %}" class="btn btn-default">
-                Account transfer</a>
-            <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
-                Load from file</a>
-        </div>
+        {% include 'gemcore/_book_actions.html' %}
     </div>
 
   </div>
