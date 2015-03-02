@@ -90,6 +90,10 @@ class Book(models.Model):
     def latest_entries(self):
         return self.entry_set.all().order_by('-when')[:5]
 
+    def by_text(self, text):
+        return self.entry_set.filter(
+            models.Q(what__icontains=text) | models.Q(notes__icontains=text))
+
     def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()

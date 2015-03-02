@@ -85,7 +85,7 @@ def entries(request, book_slug):
 
     q = request.GET.get('q')
     if q:
-        entries = book.entry_set.filter(what__icontains=q)
+        entries = book.by_text(q)
     else:
         entries = book.entry_set.all()
 
