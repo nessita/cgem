@@ -109,13 +109,6 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
-ADMINS = (('', 'naninessa@yahoo.com.ar'),)
-DATE_FORMAT = 'Y-m-d'
-PYFLAKES_IGNORE_FILE = os.path.join(
-    BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
-SITE_ID = 1
-LOGIN_REDIRECT_URL = '/'
-
 # Parse database configuration from $DATABASE_URL
 import dj_database_url
 DATABASES['default'] = dj_database_url.config()
@@ -123,6 +116,12 @@ DATABASES['default'] = dj_database_url.config()
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+ADMINS = (('Owner', 'naninessa@yahoo.com.ar'),)
+SITE_ID = 1
+DATE_FORMAT = 'Y-m-d'
+PYFLAKES_IGNORE_FILE = os.path.join(
+    BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
+LOGIN_REDIRECT_URL = '/'
 MIGRATION_MODULES = {
     'taggit': 'gemcore.taggit_migrations',
 }
