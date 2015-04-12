@@ -1,1 +1,1 @@
-web: gunicorn gem.wsgi
+web: gunicorn gem.wsgi  --log-file -
