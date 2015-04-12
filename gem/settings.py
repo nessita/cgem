@@ -23,7 +23,7 @@ DEBUG = False
 
 TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['cgem.herokuapp.com']
+ALLOWED_HOSTS = ['cgem.herokuapp.com', 'cgem-old.herokuapp.com']
 
 DATABASES = {
     'default': {
