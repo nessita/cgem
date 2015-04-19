@@ -1,25 +1,16 @@
-Django==1.7.5
+Django==1.8
 dj-database-url==0.3.0
 dj-static==0.0.6
-django-allauth==0.18.0
-django-countries==2.1.2
+django-allauth==0.19.1
+-e git+https://github.com/greyside/django-bitfield.git#egg=django-bitfield
+django-countries==3.3
 -e git+https://github.com/sophilabs/django-qurl-templatetag.git#egg=django-qurl-templatetag
--e git+https://github.com/nessita/django-bitfield.git#egg=django-bitfield
-django-taggit==0.12.1
+django-taggit==0.13.0
 django-templatetag-sugar==1.0
 django-toolbelt==0.0.1
-flake8==2.2.0
-gunicorn==19.1.1
-ipython==2.2.0
-mccabe==0.2.1
-oauthlib==0.6.3
-pep8==1.5.7
-psycopg2==2.5.3
-pyflakes==0.8.1
-pystache==0.5.4
-python3-openid==3.0.4
-requests==2.3.0
-requests-oauthlib==0.4.1
-six==1.8.0
-static==1.0.2
+flake8==2.4.0
+gunicorn==19.3.0
+ipython==3.1.0
+psycopg2==2.6
+requests-oauthlib==0.4.2
 static3==0.5.1

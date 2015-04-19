@@ -123,7 +123,8 @@ PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 LOGIN_REDIRECT_URL = '/'
 MIGRATION_MODULES = {
-    'taggit': 'gemcore.taggit_migrations',
+    'taggit': 'other_migrations.taggit',
+    'account': 'other_migrations.account',
 }
 
 from django.contrib.messages import constants as message_constants
