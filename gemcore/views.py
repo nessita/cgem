@@ -220,23 +220,20 @@ def entry(request, book_slug, entry_id=None):
                 request, 'Entry "%s" successfully processed.' % entry)
             return HttpResponseRedirect(url)
     else:
-        currency = None
-        who = request.user
+        initial = {}
         if entry is None:
             try:
                 last_entry = Entry.objects.filter(
                     who=request.user, book=book).latest('when')
-                currency = last_entry.currency
+                account = last_entry.account
             except Entry.DoesNotExist:
-                pass
-        else:
-            who = entry.who
+                account = None
 
-        q = request.GET.get('q', '')
-        initial = dict(who=who, currency=currency, what=q)
-        when = request.GET.get('when')
-        if when:
-            initial['when'] = when
+            q = request.GET.get('q', '')
+            initial = dict(who=request.user, account=account, what=q)
+            when = request.GET.get('when')
+            if when:
+                initial['when'] = when
 
         form = EntryForm(instance=entry, book=book, initial=initial)
         if entry:
