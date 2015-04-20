@@ -232,7 +232,8 @@ def entry(request, book_slug, entry_id=None):
         else:
             who = entry.who
 
-        initial = dict(who=who, currency=currency)
+        q = request.GET.get('q', '')
+        initial = dict(who=who, currency=currency, what=q)
         when = request.GET.get('when')
         if when:
             initial['when'] = when
@@ -348,7 +349,11 @@ def account_transfer(request, book_slug):
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))
     else:
-        form = AccountTransferForm(request.user, book)
+        initial = {}
+        when = request.GET.get('when')
+        if when:
+            initial['when'] = when
+        form = AccountTransferForm(request.user, book, initial=initial)
 
     context = dict(form=form)
     return render(request, 'gemcore/transfer.html', context)

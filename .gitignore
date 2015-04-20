@@ -4,4 +4,5 @@ gemcore/__pycache__/
 gemcore/management/__pycache__/
 gemcore/migrations/__pycache__/
 gemcore/tests/__pycache__/
-db.sqlite3
+other_migrations/__pycache__/
+other_migrations/*/__pycache__/
