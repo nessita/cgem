@@ -33,9 +33,14 @@ $(document).ready(function() {
         return false;
     });
 
-    $('#id_account').change(function() {
-        var country = currency_mapping[$(this).val()];
+    function update_country_from_account(account_field) {
+        var country = currency_mapping[account_field.val()];
         $('#id_country').val(country);
-    });
+    }
+
+    $('#id_account').change(
+        function() {update_country_from_account($(this))});
+
+    update_country_from_account($('#id_account'));
 
 });
