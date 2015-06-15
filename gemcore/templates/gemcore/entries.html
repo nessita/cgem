@@ -112,7 +112,10 @@
 
     <div class="row">
         <h3>Balances</h3>
-        {% include 'gemcore/_balance_form.html' with form=balance_form btnclass='btn-default' %}
+        <div class="col-md-12">
+        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-default' %}
+        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
+        </div>
     </div>
 
     <div class="row">

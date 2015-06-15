@@ -15,18 +15,19 @@
 <div class="row">
     <div class="col-md-7">
         <h3></h3>
-        {% include 'gemcore/_balance_form.html' with btnclass='btn-primary' %}
+        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-primary' %}
+        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-7">
-        {% if account and not balance %}
-        <h3>No entries for {{ account }}.</h3>
+        {% if source and not balance %}
+        <h3>No entries for {{ source }}.</h3>
         {% endif %}
 
         {% if balance %}
-        <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
+        <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }} ({{ source }})</h3>
 
         <table class="table table-condensed">
             <thead>
@@ -36,7 +37,7 @@
             {% for item in balance.months %}
             <tr>
                 <td class="">
-                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=account.slug %}">
+                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=source.slug %}">
                         {{ item.start|date:"Y M" }}
                     </a>
                 </td>

@@ -162,6 +162,43 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
+    def balance(self, accounts=None, start=None, end=None):
+        if accounts:
+            entries = self.entry_set.filter(account=accounts)
+        else:
+            entries = self.entry_set.all()
+
+        if not entries:
+            return
+
+        if not start:
+            start = entries.earliest('when').when
+        if not end:
+            end = entries.latest('when').when
+
+        # Range test (inclusive).
+        assert start <= end
+        complete = Balance(entries, start, end).balance()
+
+        months = []
+        last_month = None
+        sanity_check = Decimal(0)
+        for next_month in month_year_iter(start, end):
+            if last_month is not None:
+                end_of_month = next_month - timedelta(days=1)
+                balance = Balance(entries, last_month, end_of_month).balance()
+                sanity_check += balance['result']
+                months.append(balance)
+            last_month = next_month
+
+        balance = Balance(entries, last_month, end).balance()
+        sanity_check += balance['result']
+        months.append(balance)
+
+        assert sanity_check == complete['result']
+
+        return {'complete': complete, 'months': months}
+
 
 class AccountManager(models.Manager):
 
@@ -194,39 +231,6 @@ class Account(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         return super(Account, self).save(*args, **kwargs)
-
-    def balance(self, book, start=None, end=None):
-        # Range test (inclusive).
-        entries = book.entry_set.filter(account=self)
-        if not entries:
-            return
-
-        if not start:
-            start = entries.earliest('when').when
-        if not end:
-            end = entries.latest('when').when
-
-        assert start <= end
-        complete = Balance(entries, start, end).balance()
-
-        months = []
-        last_month = None
-        sanity_check = Decimal(0)
-        for next_month in month_year_iter(start, end):
-            if last_month is not None:
-                end_of_month = next_month - timedelta(days=1)
-                balance = Balance(entries, last_month, end_of_month).balance()
-                sanity_check += balance['result']
-                months.append(balance)
-            last_month = next_month
-
-        balance = Balance(entries, last_month, end).balance()
-        sanity_check += balance['result']
-        months.append(balance)
-
-        assert sanity_check == complete['result']
-
-        return {'complete': complete, 'months': months}
 
 
 class Entry(models.Model):

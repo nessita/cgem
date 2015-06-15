@@ -6,3 +6,4 @@ gemcore/migrations/__pycache__/
 gemcore/tests/__pycache__/
 other_migrations/__pycache__/
 other_migrations/*/__pycache__/
+env/

@@ -8,10 +8,6 @@ from gemcore.models import Account, Book, Entry
 
 class BalanceForm(forms.Form):
 
-    account = forms.ModelChoiceField(
-        label='From', queryset=None,
-        widget=forms.Select(attrs={'class': 'form-control input-sm',
-                                   'autofocus': 'true'}))
     start = forms.DateField(
         widget=forms.DateInput(
             attrs={'class': 'form-control input-sm datepicker',
@@ -23,9 +19,33 @@ class BalanceForm(forms.Form):
                    'placeholder': 'End'}),
         required=False)
 
+
+class AccountBalanceForm(BalanceForm):
+
+    source = forms.ModelChoiceField(
+        label='Account', queryset=None,
+        widget=forms.Select(attrs={'class': 'form-control input-sm',
+                                   'autofocus': 'true'}))
+
     def __init__(self, book, *args, **kwargs):
         super(BalanceForm, self).__init__(*args, **kwargs)
-        self.fields['account'].queryset = Account.objects.by_book(book)
+        self.fields['source'].queryset = Account.objects.by_book(book)
+
+
+class CurrencyBalanceForm(BalanceForm):
+
+    source = forms.ChoiceField(
+        label='Currency',
+        widget=forms.Select(attrs={'class': 'form-control input-sm',
+                                   'autofocus': 'true'}))
+
+    def __init__(self, book, *args, **kwargs):
+        super(BalanceForm, self).__init__(*args, **kwargs)
+        accounts = Account.objects.by_book(book)
+        self.fields['source'].choices = [
+            (i, i) for i in
+            sorted(set(accounts.values_list('currency_code', flat=True)))]
+        self.fields['source'].initial = kwargs.get('initial', {}).get('source')
 
 
 class BookForm(forms.ModelForm):

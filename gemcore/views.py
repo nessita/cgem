@@ -15,10 +15,11 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
 from gemcore.forms import (
+    AccountBalanceForm,
     AccountTransferForm,
-    BalanceForm,
     BookForm,
     CSVExpenseForm,
+    CurrencyBalanceForm,
     EntryForm,
 )
 from gemcore.models import Account, Book, Entry
@@ -184,7 +185,8 @@ def entries(request, book_slug):
         q=q, tags=tags, used_tags=used_tags,
         when=when, when_prev=when_prev, when_next=when_next,
         page_range=page_range, start=start, end=end,
-        balance_form=BalanceForm(book),
+        account_balance_form=AccountBalanceForm(book),
+        currency_balance_form=CurrencyBalanceForm(book),
     )
     return render(request, 'gemcore/entries.html', context)
 
@@ -358,16 +360,27 @@ def account_transfer(request, book_slug):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def balance(request, book_slug, account_slug=None, start=None, end=None):
+def balance(
+        request, book_slug, account_slug=None, currency_code=None,
+        start=None, end=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
-        form = BalanceForm(book, data=request.POST)
+        if 'get-account-balance' in request.POST:
+            form = AccountBalanceForm(book, data=request.POST)
+        elif 'get-currency-balance' in request.POST:
+            form = CurrencyBalanceForm(book, data=request.POST)
+        else:
+            raise Http404()
+
         if form.is_valid():
-            account = form.cleaned_data['account']
-            url = reverse(
-                'balance',
-                kwargs=dict(book_slug=book.slug, account_slug=account.slug))
+            source = form.cleaned_data['source']
+            kwargs = dict(book_slug=book.slug)
+            if isinstance(source, Account):
+                kwargs['account_slug'] = source.slug
+            else:
+                kwargs['currency_code'] = source
+            url = reverse('balance', kwargs=kwargs)
             start = form.cleaned_data['start']
             end = form.cleaned_data['end']
             qs = {}
@@ -379,26 +392,35 @@ def balance(request, book_slug, account_slug=None, start=None, end=None):
                 url += '?' + urlencode(qs)
             return HttpResponseRedirect(url)
 
-    account = None
-    balance = None
+    balance = source = accounts = None
     if account_slug:
-        account = get_object_or_404(Account, slug=account_slug)
-        if book.id not in account.users.all().values_list('book', flat=True):
-            raise Http404
+        source = account_slug
+        accounts = get_object_or_404(Account, slug=account_slug)
+
+    if currency_code:
+        source = currency_code
+        accounts = Account.objects.filter(currency_code=currency_code)
+
+    if source:
         start = request.GET.get('start')
         end = request.GET.get('end')
         if start:
             start = datetime.strptime(start, '%Y-%m-%d').date()
         if end:
             end = datetime.strptime(end, '%Y-%m-%d').date()
-        balance = account.balance(book, start, end)
+        # book.balance will only return entries for the book, which we ensured
+        # request.user has access to
+        balance = book.balance(accounts, start, end)
 
-    form = BalanceForm(
-        book=book, initial=dict(account=account, start=start, end=end))
+    account_balance_form = AccountBalanceForm(
+        book=book, initial=dict(source=source, start=start, end=end))
+    currency_balance_form = CurrencyBalanceForm(
+        book=book, initial=dict(source=source, start=start, end=end))
     context = {
-        'account': account,
+        'source': source,
         'balance': balance,
         'book': book,
-        'form': form,
+        'account_balance_form': account_balance_form,
+        'currency_balance_form': currency_balance_form,
     }
     return render(request, 'gemcore/balance.html', context)

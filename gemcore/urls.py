@@ -21,6 +21,8 @@ urlpatterns = patterns(
     url(r'^(?P<book_slug>[\w-]+)/entry/(?P<entry_id>\d+)/remove/$',
         'entry_remove', name='remove-entry'),
     url(r'^(?P<book_slug>[\w-]+)/balance/$', 'balance', name='balance'),
+    url(r'^(?P<book_slug>[\w-]+)/balance/(?P<currency_code>[A-Z]{3})/$',
+        'balance', name='balance'),
     url(r'^(?P<book_slug>[\w-]+)/balance/(?P<account_slug>[\w-]+)/$',
         'balance', name='balance'),
 )
