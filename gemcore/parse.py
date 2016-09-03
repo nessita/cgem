@@ -1,13 +1,9 @@
 # /usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import csv
 import os
 import sys
-
-if __name__ == '__main__':
-    import django
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gem.settings')
-    django.setup()
 
 from collections import defaultdict
 from datetime import datetime
@@ -45,6 +41,7 @@ class RowToBeProcessesError(Exception):
 
 class CSVParser(object):
 
+    DATE_FORMAT = '%Y-%m-%d'
     HEADER = []
     IGNORE_ROWS = 0
 
@@ -61,8 +58,20 @@ class CSVParser(object):
         assert self.HEADER == row, (
             'The header %s is not the expected %s' % (row, self.HEADER))
 
+    def process_when(self, value):
+        if self.DATE_FORMAT:
+            value = datetime.strptime(value, self.DATE_FORMAT)
+        return value
+
+    def process_amount(self, value):
+        return value.strip('$').replace(',', '')
+
     def process_row(self, row):
-        return {}
+        if WHEN in row:
+            row[WHEN] = self.process_when(row[WHEN])
+        if AMOUNT in row:
+            row[AMOUNT] = Decimal(self.process_amount(row[AMOUNT]))
+        return row
 
     def process_data(self, data):
         form = EntryForm(book=self.book, data=data)
@@ -120,14 +129,14 @@ class ExpenseCSVParser(CSVParser):
         self.users = {'M': matiasb, 'N': nessita}
 
     def process_row(self, row):
+        row = super(ExpenseCSVParser, self).process_row(row)
         userdata = self.users[row[WHO]]
-        amount = row[AMOUNT].strip('$').replace(',', '')
         data = dict(
             who=userdata.user.id,
-            when=datetime.strptime(row[WHEN], '%Y-%m-%d'),
+            when=row[WHEN],
             what=row[WHY],
             account=userdata.account.id,
-            amount=Decimal(amount),
+            amount=row[AMOUNT],
             is_income=False,
             country='AR',
             tags=TAGS_MAPPING[row[WHAT]],
@@ -135,23 +144,28 @@ class ExpenseCSVParser(CSVParser):
         return data
 
 
-class DISCBankCSVParser(CSVParser):
+class ScoBankCSVParser(CSVParser):
 
-    HEADER = [WHEN, WHO, WHY, AMOUNT, 'Total', WHAT, KIND]
+    # HEADER = ['Suc', WHEN, 'Fecha Valor', WHO, WHY, AMOUNT, 'Total', WHAT, KIND]
+    HEADER = ['﻿"Suc."', "Fecha", "Fecha Valor", "Descripción", "Comprobante",
+              "Débito", "Crédito", "Saldo"]
 
     def __init__(self, *args, **kwargs):
-        super(DISCBankCSVParser, self).__init__(*args, **kwargs)
-        self.account = Account.objects.get(slug='discdim-usd-shared')
+        super(ScoBankCSVParser, self).__init__(*args, **kwargs)
+        self.account = Account.objects.get(slug='sco-dim-usd-shared')
         self.extra = defaultdict(dict)
 
     def process_data(self, data):
         if data:
-            return super(DISCBankCSVParser, self).process_data(data)
+            return super(ScoBankCSVParser, self).process_data(data)
 
     def process_row(self, row):
+        row = super(ScoBankCSVParser, self).process_row(row)
+        import pdb; pdb.set_trace()
+        return
         amount = row[AMOUNT]
         what = row[WHY]
-        when = datetime.strptime(row[WHEN], '%Y-%m-%d')
+        when = row[WHEN]
         bank_id = row[WHO]
 
         if row[KIND] == 'U$B':
@@ -170,7 +184,6 @@ class DISCBankCSVParser(CSVParser):
         else:
             notes = bank_id
 
-        amount = Decimal(amount.replace('$', ''))
         if amount < 0:
             is_income = False
             amount = amount * -1
@@ -201,19 +214,11 @@ class WFGBankCSVParser(CSVParser):
         self.last_extra_fee = None
 
     def process_row(self, row):
-        amount = row[AMOUNT].strip('$').replace(',', '')
-        if amount[0] == '-':
-            is_income = False
-            amount = amount.lstrip('-')
-        else:
-            is_income = True
-        what = row[WHAT]
-        when = datetime.strptime(row[WHEN], '%Y-%m-%d')
+        row = super(WFGBankCSVParser, self).process_row(row)
         data = dict(
-            who=self.matiasb.user.id, when=when, what=what,
-            account=self.matiasb.account.id,
-            amount=Decimal(amount), is_income=is_income,
-            country='US', tags=['imported'],
+            who=self.matiasb.user.id, when=row[WHEN], what=row[WHAT],
+            account=self.matiasb.account.id, amount=row[AMOUNT],
+            is_income=row[AMOUNT] > 0, country='US', tags=['imported'],
         )
         if what in self.EXTRA_FEES:
             assert self.last_extra_fee is None
@@ -302,11 +307,12 @@ class TripCSVParser(CSVParser):
         self.currencies = row[header_len:]
 
     def process_row(self, row):
+        row = super(TripCSVParser, self).process_row(row)
         amount = None
         currency = None
         for c in self.currencies:
             if row[c]:
-                amount = row[c].strip('$').replace(',', '')
+                amount = self.process_amount(row[c])
                 currency = c
                 break
 
@@ -315,7 +321,7 @@ class TripCSVParser(CSVParser):
         userdata = self.users[currency][row[WHO]]
         data = dict(
             who=userdata.user.id,
-            when=datetime.strptime(row[WHEN], '%Y-%m-%d'),
+            when=row[WHEN],
             what=row[WHAT],
             notes=self.name,
             account=userdata.account.id,
@@ -328,20 +334,8 @@ class TripCSVParser(CSVParser):
 
 
 PARSER_MAPPING = {
-    'disc-bank': DISCBankCSVParser,
+    'sco-bank': ScoBankCSVParser,
     'wfg-bank': WFGBankCSVParser,
     'trips': TripCSVParser,
     'expense': ExpenseCSVParser,
 }
-
-
-if __name__ == '__main__':
-    parser = TripCSVParser()
-    filename = sys.argv[1]
-    print(filename)
-    with open(filename) as f:
-        result = parser.parse(fileobj=f)
-    for error, traceback in result['errors'].items():
-        print('=== ERROR ===', error)
-        print(traceback)
-        print('\n\n')
