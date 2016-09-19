@@ -3,6 +3,7 @@
 
 import csv
 import os
+import re
 import sys
 
 from collections import defaultdict
@@ -14,25 +15,8 @@ from django.contrib.auth.models import User
 from gemcore.forms import EntryForm
 from gemcore.models import Account, Book
 
-UserData = namedtuple('UserData', ['user', 'account'])
 
-TAGS_MAPPING = {
-    'Comida/super': ['food'],
-    'Gastos fijos': ['taxes', 'utilities'],
-    'Mantenimiento': ['maintainance'],
-    'Otros': ['other'],
-    'Recreacion': ['fun'],
-    'Salud': ['health'],
-    'Transporte': ['travel (transport)'],
-    'Auto': ['car'],
-}
-AMOUNT = 'How much'
-COUNTRY = 'Country'
-KIND = 'Kind'
-WHEN = 'When'
-WHO = 'Who'
-WHY = 'Why'
-WHAT = 'What'
+UserData = namedtuple('UserData', ['user', 'account'])
 
 
 class RowToBeProcessesError(Exception):
@@ -42,46 +26,75 @@ class RowToBeProcessesError(Exception):
 class CSVParser(object):
 
     DATE_FORMAT = '%Y-%m-%d'
+    AMOUNT_FIELDS = []
+    WHEN = None
+    WHAT = None
     HEADER = []
     IGNORE_ROWS = 0
 
-    def __init__(self, book=None):
+    def __init__(self, book, users):
         super(CSVParser, self).__init__()
-        if book is None:
-            book = Book.objects.get(slug='our-expenses')
         self.book = book
+        self.users = users
         self.name = None
-        self.matiasb = User.objects.get(username='matiasb')
-        self.nessita = User.objects.get(username='nessita')
+        self.header = None
 
-    def check_header(self, row):
+    def find_header(self, row):
         assert self.HEADER == row, (
             'The header %s is not the expected %s' % (row, self.HEADER))
+        return row
+
+    def find_amount(self, row):
+        amount = None
+        for field in self.AMOUNT_FIELDS:
+            amount = row.get(field, '')
+            if amount:
+                amount = re.sub(r'[^\d\-.]', '', self.process_amount(amount))
+                break
+        return amount
+
+    def process_amount(self, value):
+        """Implement on child."""
+        return value
 
     def process_when(self, value):
         if self.DATE_FORMAT:
             value = datetime.strptime(value, self.DATE_FORMAT)
         return value
 
-    def process_amount(self, value):
-        return value.strip('$').replace(',', '')
-
     def process_row(self, row):
-        if WHEN in row:
-            row[WHEN] = self.process_when(row[WHEN])
-        if AMOUNT in row:
-            row[AMOUNT] = Decimal(self.process_amount(row[AMOUNT]))
-        return row
+        assert row, 'The given row is empty'
+        when = None
+        if self.WHEN in row:
+            when = self.process_when(row[self.WHEN])
 
-    def process_data(self, data):
+        amount = self.find_amount(row)
+        assert amount, ('Amount not found: %r' % row)
+
+        amount = Decimal(amount)
+        return dict(
+            when=when,
+            what=row[self.WHAT],
+            amount=abs(amount),
+            is_income=amount > 0,
+        )
+
+    def process_data(self, data, dry_run=False):
+        if not data:
+            return None
         form = EntryForm(book=self.book, data=data)
         if not form.is_valid():
-            raise ValueError(form.errors)
-        return form.save(book=self.book)
+            msg = ' | '.join(
+                '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items())
+            raise ValueError(msg)
+        entry = None
+        if not dry_run:
+            entry = form.save(book=self.book)
 
-    def parse(self, fileobj):
+        return entry
+
+    def parse(self, fileobj, dry_run=False):
         self.name = fileobj.name
-        header = None
         result = dict(entries=[], errors=defaultdict(list))
 
         reader = csv.reader(fileobj)
@@ -96,15 +109,19 @@ class CSVParser(object):
             while row and not row[-1]:
                 row.pop()
 
-            if header is None:
-                self.check_header(row)
-                header = row
+            if self.header is None:
+                self.header = self.find_header(row)
                 continue
 
-            row = {h: d for h, d in zip(header, row)}
+            row = {h: d for h, d in zip(self.header, row)}
+            if not row:
+                continue
+
             try:
                 data = self.process_row(row)
-                entry = self.process_data(data)
+                entry = self.process_data(data, dry_run=dry_run)
+            except RowToBeProcessesError:
+                continue
             except Exception as e:
                 result['errors'][e.__class__.__name__].append((e, row))
             else:
@@ -115,112 +132,117 @@ class CSVParser(object):
 
 class ExpenseCSVParser(CSVParser):
 
+    AMOUNT_FIELDS = ['How much']
+    WHAT = 'Why'
+    WHEN = 'When'
+    WHO = 'Who'
+    TAG = 'What'
     HEADER = [
-        WHEN, WHO, WHY, WHAT, AMOUNT, 'Summary category', 'Summary amount']
+        WHEN, WHO, WHAT, TAG, 'How much', 'Summary category', 'Summary amount']
+    TAGS_MAPPING = {
+        'Comida/super': ['food'],
+        'Gastos fijos': ['taxes', 'utilities'],
+        'Mantenimiento': ['maintainance'],
+        'Otros': ['other'],
+        'Recreacion': ['fun'],
+        'Salud': ['health'],
+        'Transporte': ['travel (transport)'],
+        'Auto': ['car'],
+    }
 
-    def __init__(self, *args, **kwargs):
-        super(ExpenseCSVParser, self).__init__(*args, **kwargs)
-        matiasb = UserData(
-            user=self.matiasb,
-            account=Account.objects.get(slug='cash-ars-matiasb'))
-        nessita = UserData(
-            user=self.nessita,
-            account=Account.objects.get(slug='cash-ars-nessita'))
-        self.users = {'M': matiasb, 'N': nessita}
+    def __init__(self, book, users=None):
+        if users is None:
+            matiasb = UserData(
+                user=User.objects.get(username='matiasb'),
+                account=Account.objects.get(slug='cash-ars-matiasb'))
+            nessita = UserData(
+                user=User.objects.get(username='nessita'),
+                account=Account.objects.get(slug='cash-ars-nessita'))
+            users = {'M': matiasb, 'N': nessita}
+        super(ExpenseCSVParser, self).__init__(book=book, users=users)
 
     def process_row(self, row):
         row = super(ExpenseCSVParser, self).process_row(row)
-        userdata = self.users[row[WHO]]
+        userdata = self.users[row[self.WHO]]
         data = dict(
             who=userdata.user.id,
-            when=row[WHEN],
-            what=row[WHY],
             account=userdata.account.id,
-            amount=row[AMOUNT],
-            is_income=False,
             country='AR',
-            tags=TAGS_MAPPING[row[WHAT]],
+            tags=self.TAGS_MAPPING[row[self.WHAT]],
         )
         return data
 
 
 class ScoBankCSVParser(CSVParser):
 
-    # HEADER = ['Suc', WHEN, 'Fecha Valor', WHO, WHY, AMOUNT, 'Total', WHAT, KIND]
+    AMOUNT_FIELDS = ['Débito', 'Crédito']
+    COMMENTS = ['﻿"Suc."', "Fecha Valor", "Comprobante", "Saldo"]
+    DATE_FORMAT = '%d/%m/%Y'
+    WHAT = 'Descripción'
+    WHEN = 'Fecha'
     HEADER = ['﻿"Suc."', "Fecha", "Fecha Valor", "Descripción", "Comprobante",
               "Débito", "Crédito", "Saldo"]
 
-    def __init__(self, *args, **kwargs):
-        super(ScoBankCSVParser, self).__init__(*args, **kwargs)
-        self.account = Account.objects.get(slug='sco-dim-usd-shared')
+    def __init__(self, book, users=None):
+        if users is None:
+            user = User.objects.get(username='nessita')
+            account = Account.objects.get(slug='sco-dim-usd-shared')
+            users = UserData(user=user, account=account)
+        super(ScoBankCSVParser, self).__init__(book=book, users=users)
         self.extra = defaultdict(dict)
 
-    def process_data(self, data):
-        if data:
-            return super(ScoBankCSVParser, self).process_data(data)
+    def process_amount(self, value):
+        return value.replace('.', '').replace(',', '.')
 
     def process_row(self, row):
-        row = super(ScoBankCSVParser, self).process_row(row)
-        import pdb; pdb.set_trace()
-        return
-        amount = row[AMOUNT]
-        what = row[WHY]
-        when = row[WHEN]
-        bank_id = row[WHO]
-
-        if row[KIND] == 'U$B':
-            assert bank_id not in self.extra[when]
-            self.extra[when][bank_id] = ' '.join((what, amount))
-            return None
-
-        assert row[KIND] == 'U$T'  # real entry
-
-        extra = self.extra[when]
-        if extra:
-            notes = []
-            for bid, info in extra.items():
-                notes.append('%s: %s' % (bid, info))
-            notes = '\n'.join(notes)
-        else:
-            notes = bank_id
-
-        if amount < 0:
-            is_income = False
-            amount = amount * -1
-        else:
-            is_income = True
-        data = dict(
-            who=self.nessita.id, when=when, what='%s: %s' % (bank_id, what),
-            notes=notes, account=self.account.id,
-            amount=amount, is_income=is_income,
-            country='UY', tags=['imported'],
-        )
+        data = super(ScoBankCSVParser, self).process_row(row)
+        notes = ' | '.join('%s: %s' % (k.strip('\ufeff').strip('"'), row[k])
+                           for k in self.COMMENTS)
+        data.update(dict(
+            who=self.users.user.id,
+            notes=notes,
+            account=self.users.account.id,
+            country='UY',
+            tags=['imported'],
+        ))
         return data
 
 
 class WFGBankCSVParser(CSVParser):
 
-    HEADER = [WHEN, AMOUNT, WHAT]
+    AMOUNT_FIELDS = ['How Much']
+    DATE_FORMAT = '%m/%d/%Y'
+    WHEN = 0
+    WHAT = 4
+    HEADER = None
     EXTRA_FEES = (
         'INTERNATIONAL PURCHASE TRANSACTION FEE',
         'NON-WELLS FARGO ATM TRANSACTION FEE',
     )
 
-    def __init__(self, *args, **kwargs):
-        super(WFGBankCSVParser, self).__init__(*args, **kwargs)
-        self.matiasb = UserData(
-            user=self.matiasb,
-            account=Account.objects.get(slug='wfg-usd-matiasb'))
+    def __init__(self, book, users=None):
+        if users is None:
+            user = User.objects.get(username='matiasb')
+            account = Account.objects.get(slug='wfg-usd-matiasb')
+            users = UserData(user=user, account=account)
+        super(WFGBankCSVParser, self).__init__(book=book, users=users)
         self.last_extra_fee = None
+        self.header = [
+            self.WHEN, self.AMOUNT_FIELDS[0], 'i-1', 'i-2', self.WHAT]
+
+    def find_header(self, row):
+        # csv comes with no header, fake one
+        raise NotImplementedEror()
 
     def process_row(self, row):
-        row = super(WFGBankCSVParser, self).process_row(row)
-        data = dict(
-            who=self.matiasb.user.id, when=row[WHEN], what=row[WHAT],
-            account=self.matiasb.account.id, amount=row[AMOUNT],
-            is_income=row[AMOUNT] > 0, country='US', tags=['imported'],
-        )
-        if what in self.EXTRA_FEES:
+        data = super(WFGBankCSVParser, self).process_row(row)
+        data.update(dict(
+            who=self.users.user.id,
+            account=self.users.account.id,
+            country='US',
+            tags=['imported'],
+        ))
+        if data['what'] in self.EXTRA_FEES:
             assert self.last_extra_fee is None
             self.last_extra_fee = data
             raise RowToBeProcessesError()
@@ -239,97 +261,101 @@ class WFGBankCSVParser(CSVParser):
 
 class TripCSVParser(CSVParser):
 
+    COUNTRY = 'Country'
+    WHAT = 'What'
+    WHEN = 'When'
+    WHO = 'Who'
     HEADER = [WHEN, WHO, WHAT, COUNTRY]
     IGNORE_ROWS = 4
 
-    def __init__(self, *args, **kwargs):
-        super(TripCSVParser, self).__init__(*args, **kwargs)
-        self.currencies = None
-        self.users = {
+    def __init__(self, book, users=None):
+        matiasb = User.objects.get(username='matiasb')
+        nessita = User.objects.get(username='nessita')
+        users = {
             'ARS': {
                 'M': UserData(
-                    user=self.matiasb,
+                    user=matiasb,
                     account=Account.objects.get(slug='cash-ars-matiasb')),
                 'N': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-ars-nessita')),
                 'X': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-ars-shared')),
             },
             'BRL': {
                 'M': UserData(
-                    user=self.matiasb,
+                    user=matiasb,
                     account=Account.objects.get(slug='cash-brl-shared')),
                 'N': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-brl-shared')),
             },
             'UYU': {
                 'X': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-uyu-shared')),
                 'N': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-uyu-shared')),
                 'M': UserData(
-                    user=self.matiasb,
+                    user=matiasb,
                     account=Account.objects.get(slug='cash-uyu-shared')),
             },
             'USD': {
                 'M': UserData(
-                    user=self.matiasb,
+                    user=matiasb,
                     account=Account.objects.get(slug='cash-usd-matiasb')),
                 'N': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-usd-nessita')),
                 'X': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-usd-shared')),
             },
             'EUR': {
                 'M': UserData(
-                    user=self.matiasb,
+                    user=matiasb,
                     account=Account.objects.get(slug='cash-eur-matiasb')),
                 'N': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-eur-nessita')),
                 'X': UserData(
-                    user=self.nessita,
+                    user=nessita,
                     account=Account.objects.get(slug='cash-eur-shared')),
             },
         }
+        super(TripCSVParser, self).__init__(book=book, users=users)
+        self.currencies = None
 
-    def check_header(self, row):
+    def find_header(self, row):
         header_len = len(self.HEADER)
         assert self.HEADER == row[:header_len], (
             'The header %s is not the expected %s' % (row, self.HEADER))
         self.currencies = row[header_len:]
+        return row
 
     def process_row(self, row):
-        row = super(TripCSVParser, self).process_row(row)
+        data = super(TripCSVParser, self).process_row(row)
         amount = None
         currency = None
         for c in self.currencies:
             if row[c]:
-                amount = self.process_amount(row[c])
+                amount = Decimal(self.process_amount(row[c]))
                 currency = c
                 break
 
         assert amount is not None
 
-        userdata = self.users[currency][row[WHO]]
-        data = dict(
+        userdata = self.users[currency][row[self.WHO]]
+        data.update(dict(
+            amount=amount,
             who=userdata.user.id,
-            when=row[WHEN],
-            what=row[WHAT],
             notes=self.name,
             account=userdata.account.id,
-            amount=Decimal(amount),
-            is_income=False,
-            country=row[COUNTRY],
+            country=row[self.COUNTRY],
             tags=['trips'],
-        )
+        ))
         return data
 
 

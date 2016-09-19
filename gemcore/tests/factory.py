@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 
 from gemcore.models import Account, Book, Entry
+from gemcore.parse import UserData
 
 
 User = get_user_model()
@@ -73,3 +74,8 @@ class Factory(object):
         return Entry.objects.create(
             book=book, account=account, who=who, what=what, amount=amount,
             **kwargs)
+
+    def make_user_data(self):
+        user = self.make_user()
+        account = self.make_account(users=[user])
+        return UserData(user=user, account=account)
