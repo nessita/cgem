@@ -32,6 +32,7 @@ TAGS = [  # order is IMPORTANT, do not re-order
     'work(ish)',  # 8192
     'imported',  # 16384
     'trips',  # 32768
+    'investments',  # 65536
 ]
 
 
@@ -202,8 +203,8 @@ class Book(models.Model):
 
 class AccountManager(models.Manager):
 
-    def by_book(self, book):
-        return self.filter(users__book=book).distinct()
+    def by_book(self, book, **kwargs):
+        return self.filter(users__book=book, **kwargs).distinct()
 
 
 class Account(models.Model):
@@ -213,6 +214,7 @@ class Account(models.Model):
     users = models.ManyToManyField(User)
     currency_code = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
+    parser = models.CharField(max_length=256, blank=True, default='')
 
     objects = AccountManager()
 

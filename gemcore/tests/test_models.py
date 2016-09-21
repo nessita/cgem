@@ -3,16 +3,12 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.test import TestCase
 from django.utils.timezone import now
 
-from gemcore.tests.factory import Factory
+from gemcore.tests.helpers import BaseTestCase
 
 
-class BookTestCase(TestCase):
-
-    factory = Factory()
-    maxDiff = None
+class BookTestCase(BaseTestCase):
 
     def setUp(self):
         super(BookTestCase, self).setUp()
