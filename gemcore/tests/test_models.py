@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.utils.timezone import now
 
-from gemcore.tests.helpers import BaseTestcase
+from gemcore.tests.helpers import BaseTestCase
 
 
 class BookTestCase(BaseTestCase):

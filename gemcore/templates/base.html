@@ -39,11 +39,10 @@
         <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
             <ul class="nav navbar-nav navbar-right">
                 {% if user.is_authenticated %}
-                <li><a href="{% url 'account_email' %}"><span class="glyphicon glyphicon-user"></span> {{ user }}</a></li>
-                <li><a href="{% url 'account_logout' %}">{% trans "Logout" %}</a></li>
+                <li><a href="#"><span class="glyphicon glyphicon-user"></span> {{ user }}</a></li>
+                <li><a href="{% url 'logout' %}">{% trans "Logout" %}</a></li>
                 {% else %}
-                <li><a href="{% url 'account_login' %}">{% trans "Sign In" %}</a></li>
-                <li><a href="{% url 'account_signup' %}">{% trans "Sign Up" %}</a></li>
+                <li><a href="{% url 'login' %}">{% trans "Login" %}</a></li>
                 {% endif %}
             </ul>
         </div><!-- /.navbar-collapse -->

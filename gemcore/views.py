@@ -266,7 +266,8 @@ def load_from_file(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
-        form = CSVExpenseForm(request.POST, request.FILES)
+        form = CSVExpenseForm(
+            book=book, data=request.POST, files=request.FILES)
         if form.is_valid():
             csv_file = form.cleaned_data.get('csv_file')
             if csv_file:
@@ -274,7 +275,6 @@ def load_from_file(request, book_slug):
                 # (did you open the file in text mode?)"
                 csv_file.readable = lambda: True
                 csv_file.writable = lambda: False
-                csv_file.seekable = lambda: True
                 csv_file = TextIOWrapper(csv_file, encoding='utf-8')
                 # end hack
             else:
@@ -282,9 +282,10 @@ def load_from_file(request, book_slug):
                 csv_file = StringIO(csv_content)
                 csv_file.name = ''
 
-            source = form.cleaned_data['source']
-            csv_parser = PARSER_MAPPING[source]
-            result = csv_parser(book).parse(csv_file)
+            account = form.cleaned_data['account']
+            csv_parser = PARSER_MAPPING[account.parser]
+            result = csv_parser().parse(
+                csv_file, book=book, user=request.user, account=account)
             success = len([e for e in result['entries'] if e])
             error = sum(len(i) for i in result['errors'].values())
             if not error:
@@ -309,7 +310,7 @@ def load_from_file(request, book_slug):
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))
     else:
-        form = CSVExpenseForm()
+        form = CSVExpenseForm(book=book)
 
     context = dict(form=form)
     return render(request, 'gemcore/load.html', context)
@@ -321,7 +322,7 @@ def account_transfer(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
 
     if request.method == 'POST':
-        form = AccountTransferForm(request.user, book, request.POST)
+        form = AccountTransferForm(book, request.POST)
         if form.is_valid():
             source_account = form.cleaned_data.get('source_account')
             source_amount = form.cleaned_data.get('source_amount')
@@ -352,7 +353,7 @@ def account_transfer(request, book_slug):
         when = request.GET.get('when')
         if when:
             initial['when'] = when
-        form = AccountTransferForm(request.user, book, initial=initial)
+        form = AccountTransferForm(book, initial=initial)
 
     context = dict(form=form)
     return render(request, 'gemcore/transfer.html', context)

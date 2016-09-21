@@ -99,21 +99,22 @@ class EntryForm(forms.ModelForm):
 
 class CSVExpenseForm(forms.Form):
 
-    source = forms.ChoiceField(
-        choices=(
-            ('disc-bank', 'DISC Bank'),
-            ('wfg-bank', 'WFG Bank'),
-            ('trips', 'Trips'),
-            ('expense', 'Expense'),
-        ),
+    account = forms.ModelChoiceField(
+        label='Account', queryset=Account.objects.none(),
         widget=forms.Select(
-            attrs={'class': 'form-control', 'autofocus': 'true'})
+            attrs={'class': 'form-control', 'autofocus': 'true'}),
     )
     csv_file = forms.FileField(required=False)
     csv_content = forms.CharField(
         required=False,
         label='CSV content (optional, only used if not file given)',
         widget=forms.Textarea(attrs={'class': 'form-control'}))
+
+    def __init__(self, book, *args, **kwargs):
+        super(CSVExpenseForm, self).__init__(*args, **kwargs)
+        accounts = Account.objects.by_book(book).exclude(parser='')
+        for i in accounts: print(repr(i.parser))
+        self.fields['account'].queryset = accounts
 
     def clean(self):
         cleaned_data = super(CSVExpenseForm, self).clean()
@@ -157,7 +158,7 @@ class AccountTransferForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
 
-    def __init__(self, user, book, *args, **kwargs):
+    def __init__(self, book, *args, **kwargs):
         super(AccountTransferForm, self).__init__(*args, **kwargs)
         accounts = Account.objects.by_book(book)
         self.fields['source_account'].queryset = accounts

@@ -10,14 +10,17 @@ from gemcore.tests.helpers import BaseTestCase
 
 class ParseBaseTestCase(BaseTestCase):
 
-    def create_parser(self, parser_class, csv_name):
-        user_data = self.factory.make_user_data()
-        book = self.factory.make_book(users=[user_data.user])
-        parser = parser_class(book, users=user_data)
+    def do_parse(self, parser, csv_name, account=None, book=None):
+        user = self.factory.make_user()
+        if account is None:
+            account = self.factory.make_account(
+                users=[user], parser=parser.__class__.__name__)
+        if book is None:
+            book = self.factory.make_book(users=[user])
 
         fname = self.data_file(csv_name)
         with open(fname) as f:
-            result = parser.parse(f)
+            result = parser.parse(f, book=book, user=user, account=account)
             f.seek(0)
             reader = csv.reader(f)
             rows = [i for i in reader if filter(None, i)]
@@ -28,7 +31,7 @@ class ParseBaseTestCase(BaseTestCase):
 class ParseScoTestCase(ParseBaseTestCase):
 
     def test_parse_real_file(self):
-        result, rows = self.create_parser(ScoBankCSVParser, 'sco.csv')
+        result, rows = self.do_parse(ScoBankCSVParser(), 'sco.csv')
 
         self.assertEqual(result['errors'], {})
         self.assertEqual(len(result['entries']), 78)
@@ -52,7 +55,7 @@ class ParseScoTestCase(ParseBaseTestCase):
 class ParseWFGTestCase(ParseBaseTestCase):
 
     def test_parse_real_file(self):
-        result, rows = self.create_parser(WFGBankCSVParser, 'wfg.csv')
+        result, rows = self.do_parse(WFGBankCSVParser(), 'wfg.csv')
 
         self.assertEqual(result['errors'], {})
         self.assertEqual(len(result['entries']), 55)

@@ -2,7 +2,6 @@ Django<1.10
 defusedxml
 dj-database-url
 dj-static
-django-allauth
 -e git+https://github.com/greyside/django-bitfield.git#egg=django-bitfield
 django-countries
 -e git+https://github.com/sophilabs/django-qurl-templatetag.git#egg=django-qurl-templatetag
