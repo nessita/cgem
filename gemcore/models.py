@@ -165,7 +165,7 @@ class Book(models.Model):
 
     def balance(self, accounts=None, start=None, end=None):
         if accounts:
-            entries = self.entry_set.filter(account=accounts)
+            entries = self.entry_set.filter(account__in=accounts)
         else:
             entries = self.entry_set.all()
 
@@ -215,6 +215,7 @@ class Account(models.Model):
     currency_code = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
     parser = models.CharField(max_length=256, blank=True, default='')
+    active = models.BooleanField(default=True)
 
     objects = AccountManager()
 

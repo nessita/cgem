@@ -127,6 +127,10 @@ def entries(request, book_slug):
     if account:
         entries = entries.filter(account__slug=account)
 
+    currency_code = request.GET.get('currency_code')
+    if currency_code:
+        entries = entries.filter(account__currency_code=currency_code)
+
     used_tags = set(request.GET.getlist('tag', []))
     if used_tags:
         tags = reduce(
@@ -393,16 +397,14 @@ def balance(
                 url += '?' + urlencode(qs)
             return HttpResponseRedirect(url)
 
-    balance = source = accounts = None
+    accounts = None
     if account_slug:
-        source = account_slug
-        accounts = get_object_or_404(Account, slug=account_slug)
-
-    if currency_code:
-        source = currency_code
+        accounts = [get_object_or_404(Account, slug=account_slug)]
+    elif currency_code:
         accounts = Account.objects.filter(currency_code=currency_code)
 
-    if source:
+    balance = None
+    if accounts:
         start = request.GET.get('start')
         end = request.GET.get('end')
         if start:
@@ -414,13 +416,14 @@ def balance(
         balance = book.balance(accounts, start, end)
 
     account_balance_form = AccountBalanceForm(
-        book=book, initial=dict(source=source, start=start, end=end))
+        book=book, initial=dict(source=account_slug, start=start, end=end))
     currency_balance_form = CurrencyBalanceForm(
-        book=book, initial=dict(source=source, start=start, end=end))
+        book=book, initial=dict(source=currency_code, start=start, end=end))
     context = {
-        'source': source,
         'balance': balance,
         'book': book,
+        'account_slug': account_slug,
+        'currency_code': currency_code,
         'account_balance_form': account_balance_form,
         'currency_balance_form': currency_balance_form,
     }

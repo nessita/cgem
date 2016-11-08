@@ -22,12 +22,8 @@
 
 <div class="row">
     <div class="col-md-7">
-        {% if source and not balance %}
-        <h3>No entries for {{ source }}.</h3>
-        {% endif %}
-
         {% if balance %}
-        <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }} ({{ source }})</h3>
+        <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
 
         <table class="table table-condensed">
             <thead>
@@ -37,7 +33,7 @@
             {% for item in balance.months %}
             <tr>
                 <td class="">
-                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=source %}">
+                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=account_slug currency_code=currency_code %}">
                         {{ item.start|date:"Y M" }}
                     </a>
                 </td>
@@ -58,6 +54,9 @@
             {% endwith %}
             </tfoot>
         </table>
+
+        {% else %}
+        <h3>No entries.</h3>
         {% endif %}
     </div>
 </div>

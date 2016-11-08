@@ -28,8 +28,11 @@ class AccountBalanceForm(BalanceForm):
                                    'autofocus': 'true'}))
 
     def __init__(self, book, *args, **kwargs):
-        super(BalanceForm, self).__init__(*args, **kwargs)
-        self.fields['source'].queryset = Account.objects.by_book(book)
+        super(AccountBalanceForm, self).__init__(*args, **kwargs)
+        self.fields['source'].queryset = source = Account.objects.by_book(book)
+        initial = kwargs.get('initial', {}).get('source')
+        if initial:
+            self.fields['source'].initial = source.get(slug=initial).pk
 
 
 class CurrencyBalanceForm(BalanceForm):
@@ -40,7 +43,7 @@ class CurrencyBalanceForm(BalanceForm):
                                    'autofocus': 'true'}))
 
     def __init__(self, book, *args, **kwargs):
-        super(BalanceForm, self).__init__(*args, **kwargs)
+        super(CurrencyBalanceForm, self).__init__(*args, **kwargs)
         accounts = Account.objects.by_book(book)
         self.fields['source'].choices = [
             (i, i) for i in
