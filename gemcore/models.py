@@ -204,7 +204,7 @@ class Book(models.Model):
 class AccountManager(models.Manager):
 
     def by_book(self, book, **kwargs):
-        return self.filter(users__book=book, **kwargs).distinct()
+        return self.filter(users__book=book, active=True, **kwargs).distinct()
 
 
 class Account(models.Model):
