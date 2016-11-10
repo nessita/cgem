@@ -69,14 +69,16 @@ class CSVParser(object):
         assert amount, ('Amount not found: %r' % row)
 
         amount = Decimal(amount)
+        what = row[self.WHAT]
+        tags = account.tags_for(what) or ['imported']
         return dict(
             account=account.id,
             who=user.id,
             when=when,
-            what=row[self.WHAT],
+            what=what,
             amount=abs(amount),
             is_income=amount > 0,
-            tags=['imported'],
+            tags=tags,
         )
 
     def process_data(self, data, book, dry_run=False):

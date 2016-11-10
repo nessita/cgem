@@ -116,7 +116,6 @@ class CSVExpenseForm(forms.Form):
     def __init__(self, book, *args, **kwargs):
         super(CSVExpenseForm, self).__init__(*args, **kwargs)
         accounts = Account.objects.by_book(book).exclude(parser='')
-        for i in accounts: print(repr(i.parser))
         self.fields['account'].queryset = accounts
 
     def clean(self):

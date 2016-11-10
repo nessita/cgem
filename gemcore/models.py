@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import re
+
 from collections import defaultdict, OrderedDict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -234,6 +236,24 @@ class Account(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         return super(Account, self).save(*args, **kwargs)
+
+    def tags_for(self, value):
+        tags = []
+        for i in self.tagregex_set.all():
+            pattern = re.compile(i.regex)
+            if pattern.match(value):
+                tags.append(i.tag)
+        return tags
+
+
+class TagRegex(models.Model):
+
+    account = models.ForeignKey(Account)
+    regex = models.TextField()
+    tag = models.CharField(max_length=256, choices=((t, t) for t in TAGS))
+
+    class Meta:
+        unique_together = ('account', 'regex', 'tag')
 
 
 class Entry(models.Model):

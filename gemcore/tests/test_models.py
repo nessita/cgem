@@ -22,7 +22,7 @@ class BookTestCase(BaseTestCase):
             account = self.factory.make_account()
 
         # no entries
-        balance = self.book.balance(account)
+        balance = self.book.balance([account])
         self.assertIsNone(balance)
 
         # add some entries, $1 each, all but one the same day
@@ -36,7 +36,7 @@ class BookTestCase(BaseTestCase):
             book=self.book, account=account, when=other_when)
 
         other_first_of_month = date(other_when.year, other_when.month, 1)
-        balance = self.book.balance(account)
+        balance = self.book.balance([account])
         expected = {
             'complete': {
                 'expense': Decimal('3.00'),
@@ -102,3 +102,28 @@ class BookTestCase(BaseTestCase):
             }]
         }
         self.assertEqual(balance, expected)
+
+
+class AccountTestCase(BaseTestCase):
+
+    def test_tags_for(self):
+        account = self.factory.make_account()
+        self.factory.make_tag_regex(
+            regex='\d{2}', tag='house', account=account)
+        self.factory.make_tag_regex(
+            regex='^[a-zA-Z ]+$', tag='food', account=account)
+        self.factory.make_tag_regex(
+            regex='\d{2}[a-z]', tag='fun', account=account)
+        self.factory.make_tag_regex(
+            regex='HOLA MANOLA', tag='trips', account=account)
+
+        self.assertCountEqual(account.tags_for(''), [])
+        self.assertCountEqual(account.tags_for('HOLA'), ['food'])
+        self.assertCountEqual(account.tags_for('HOLA '), ['food'])
+        self.assertCountEqual(
+            account.tags_for('HOLA MANOLA'), ['food', 'trips'])
+        self.assertCountEqual(account.tags_for('HOLA MANOLA ---'), ['trips'])
+        self.assertCountEqual(account.tags_for('HOLA MAN'), ['food'])
+        self.assertCountEqual(account.tags_for('foo'), ['food'])
+        self.assertCountEqual(account.tags_for('12x'), ['fun', 'house'])
+        self.assertCountEqual(account.tags_for('y12x'), [])

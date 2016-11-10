@@ -3,13 +3,21 @@ from bitfield.admin import BitFieldListFilter
 from bitfield.forms import BitFieldCheckboxSelectMultiple
 from django.contrib import admin
 
-from gemcore.models import Account, Book, Entry
+from gemcore.models import Account, Book, Entry, TagRegex
+
+
+class TagRegexInline(admin.StackedInline):
+
+    model = TagRegex
+    extra = 1
 
 
 class AccountAdmin(admin.ModelAdmin):
 
-    list_display = ('name', 'slug', 'currency_code', 'active',  'people', 'parser')
+    list_display = (
+        'name', 'slug', 'currency_code', 'active',  'people', 'parser')
     prepopulated_fields = {'slug': ('name',)}
+    inlines = (TagRegexInline,)
 
     def people(self, instance):
         return ', '.join(u.username for u in instance.users.all())
@@ -32,6 +40,12 @@ class EntryAdmin(admin.ModelAdmin):
     }
 
 
+class TagRegexAdmin(admin.ModelAdmin):
+
+    list_display = ('regex', 'tag', 'account')
+
+
 admin.site.register(Account, AccountAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Entry, EntryAdmin)
+admin.site.register(TagRegex, TagRegexAdmin)

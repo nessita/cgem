@@ -58,6 +58,11 @@ class Factory(object):
 
         return account
 
+    def make_tag_regex(self, regex, tag, account=None):
+        if account is None:
+            account = self.make_account()
+        return account.tagregex_set.create(regex=regex, tag=tag)
+
     def make_entry(
             self, book=None, account=None, who=None, amount=Decimal('1.0'),
             what=None, **kwargs):
