@@ -54,7 +54,7 @@ INSTALLED_APPS = (
     'gemcore',
     'taggit',
     'django_countries',
-    'qurltemplatetag',
+    'qurl_templatetag',
 )
 
 MIDDLEWARE_CLASSES = (
