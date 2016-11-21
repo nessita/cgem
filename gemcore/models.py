@@ -238,11 +238,11 @@ class Account(models.Model):
         return super(Account, self).save(*args, **kwargs)
 
     def tags_for(self, value):
-        tags = []
+        tags = {}
         for i in self.tagregex_set.all():
             pattern = re.compile(i.regex)
             if pattern.match(value):
-                tags.append(i.tag)
+                tags[i.tag] = i.transfer
         return tags
 
 
@@ -251,6 +251,8 @@ class TagRegex(models.Model):
     account = models.ForeignKey(Account)
     regex = models.TextField()
     tag = models.CharField(max_length=256, choices=((t, t) for t in TAGS))
+    transfer = models.ForeignKey(
+        Account, related_name='transfers', null=True, blank=True)
 
     class Meta:
         unique_together = ('account', 'regex', 'tag')

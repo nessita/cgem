@@ -70,7 +70,7 @@ class CSVParser(object):
 
         amount = Decimal(amount)
         what = row[self.WHAT]
-        tags = account.tags_for(what) or ['imported']
+        tags = account.tags_for(what).keys() or ['imported']
         return dict(
             account=account.id,
             who=user.id,
@@ -94,6 +94,17 @@ class CSVParser(object):
             entry = form.save(book=book)
 
         return entry
+
+    def make_entry(self, result, data, book, dry_run=False):
+        error = None
+        try:
+            entry = self.process_data(data, book=book, dry_run=dry_run)
+        except Exception as e:
+            error = e
+            result['errors'][e.__class__.__name__].append((e, data))
+        else:
+            result['entries'].append(entry)
+        return error
 
     def parse(self, fileobj, book, user, account, dry_run=False):
         self.name = fileobj.name
@@ -128,12 +139,14 @@ class CSVParser(object):
             except RowToBeProcessesError:
                 continue
 
-            try:
-                entry = self.process_data(data, book=book, dry_run=dry_run)
-            except Exception as e:
-                result['errors'][e.__class__.__name__].append((e, row))
-            else:
-                result['entries'].append(entry)
+            error = self.make_entry(result, data, book=book, dry_run=dry_run)
+            if error is None:
+                tags = account.tags_for(data['what'])
+                for transfer in filter(None, tags.values()):
+                    data['is_income'] = not data['is_income']
+                    data['account'] = transfer.id
+                    # Needs a transfer?
+                    self.make_entry(result, data, book, dry_run=dry_run)
 
         return result
 

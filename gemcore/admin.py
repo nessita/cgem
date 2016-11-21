@@ -10,6 +10,7 @@ class TagRegexInline(admin.StackedInline):
 
     model = TagRegex
     extra = 1
+    fk_name = 'account'
 
 
 class AccountAdmin(admin.ModelAdmin):
