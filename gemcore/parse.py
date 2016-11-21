@@ -89,10 +89,10 @@ class CSVParser(object):
             msg = ' | '.join(
                 '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items())
             raise ValueError(msg)
-        entry = None
-        if not dry_run:
+        if dry_run:
+            entry = data
+        else:
             entry = form.save(book=book)
-
         return entry
 
     def make_entry(self, result, data, book, dry_run=False):
@@ -242,6 +242,30 @@ class WFGBankCSVParser(CSVParser):
         return data
 
 
+class BrouBankParser(CSVParser):
+
+    DATE_FORMAT = '%d/%m/%Y'
+    AMOUNT_FIELDS = ['Débito', 'Crédito']
+    COMMENTS = ['Número Documento', 'Num. Dep.', 'Asunto']
+    WHEN = 'Fecha'
+    WHAT = 'Descripción'
+    HEADER = [
+        '', 'Fecha', '', 'Descripción', 'Número Documento', 'Num. Dep.',
+        'Asunto', '', 'Débito', 'Crédito']
+    IGNORE_ROWS = 5
+
+    def process_row(self, row, **kwargs):
+        data = super(BrouBankParser, self).process_row(row, **kwargs)
+        is_income = False if row['Débito'] else True
+        notes = ' | '.join('%s: %s' % (k, row[k]) for k in self.COMMENTS)
+        data.update(dict(
+            notes=notes,
+            country='UY',
+            is_income=is_income,
+        ))
+        return data
+
+
 class TripCSVParser(CSVParser):
 
     COUNTRY = 'Country'
@@ -283,4 +307,5 @@ class TripCSVParser(CSVParser):
 
 
 PARSER_MAPPING = {i.__name__: i for i in (
-    ExpenseCSVParser, ScoBankCSVParser, WFGBankCSVParser, TripCSVParser)}
+    ExpenseCSVParser, ScoBankCSVParser, WFGBankCSVParser, BrouBankParser,
+    TripCSVParser)}
