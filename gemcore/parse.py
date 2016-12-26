@@ -2,18 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import csv
-import os
 import re
-import sys
 
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
 from collections import namedtuple
-from django.contrib.auth.models import User
 from gemcore.forms import EntryForm
-from gemcore.models import Account, Book
 
 
 UserData = namedtuple('UserData', ['user', 'account'])
@@ -25,10 +21,13 @@ class RowToBeProcessesError(Exception):
 
 class CSVParser(object):
 
-    DATE_FORMAT = '%Y-%m-%d'
-    AMOUNT_FIELDS = []
+    AMOUNTS = []
+    NOTES = []
     WHEN = None
     WHAT = None
+
+    COUNTRY = None
+    DATE_FORMAT = '%Y-%m-%d'
     HEADER = []
     IGNORE_ROWS = 0
 
@@ -42,13 +41,31 @@ class CSVParser(object):
         return row
 
     def find_amount(self, row):
-        amount = None
-        for field in self.AMOUNT_FIELDS:
-            amount = row.get(field, '')
-            if amount:
-                amount = re.sub(r'[^\d\-.]', '', self.process_amount(amount))
+        result = None
+        for field in self.AMOUNTS:
+            result = row.get(field, '')
+            if result:
+                result = re.sub(r'[^\d\-.]', '', self.process_amount(result))
                 break
-        return amount
+        assert result, ('Amount not found (tried %r): %r' % (self.AMOUNTS, row))
+        return Decimal(result)
+
+    def find_notes(self, row):
+        notes = ' | '.join(
+            '%s: %s' % (k.strip('\ufeff').strip('"'), row[k])
+            for k in self.NOTES)
+        return notes
+
+    def find_tags(self, row, account):
+        tags = account.tags_for(row[self.WHAT]).keys() or ['imported']
+        return tags
+
+    def find_when(self, row):
+        when = None
+        if self.WHEN in row:
+            when = self.process_when(row[self.WHEN])
+        assert when, ('When not found (tried %r): %r' % (self.WHEN, row))
+        return when
 
     def process_amount(self, value):
         """Implement on child."""
@@ -61,25 +78,12 @@ class CSVParser(object):
 
     def process_row(self, row, user, account, unprocessed_rows=None):
         assert row, 'The given row is empty'
-        when = None
-        if self.WHEN in row:
-            when = self.process_when(row[self.WHEN])
-
         amount = self.find_amount(row)
-        assert amount, ('Amount not found: %r' % row)
-
-        amount = Decimal(amount)
-        what = row[self.WHAT]
-        tags = account.tags_for(what).keys() or ['imported']
         return dict(
-            account=account.id,
-            who=user.id,
-            when=when,
-            what=what,
-            amount=abs(amount),
-            is_income=amount > 0,
-            tags=tags,
-        )
+            account=account.id, amount=abs(amount), country=self.COUNTRY,
+            is_income=amount > 0, notes=self.find_notes(row),
+            tags=self.find_tags(row, account), what=row[self.WHAT],
+            when=self.find_when(row), who=user.id)
 
     def process_data(self, data, book, dry_run=False):
         if not data:
@@ -141,11 +145,11 @@ class CSVParser(object):
 
             error = self.make_entry(result, data, book=book, dry_run=dry_run)
             if error is None:
+                # Needs a transfer?
                 tags = account.tags_for(data['what'])
                 for transfer in filter(None, tags.values()):
                     data['is_income'] = not data['is_income']
                     data['account'] = transfer.id
-                    # Needs a transfer?
                     self.make_entry(result, data, book, dry_run=dry_run)
 
         return result
@@ -153,13 +157,12 @@ class CSVParser(object):
 
 class ExpenseCSVParser(CSVParser):
 
-    AMOUNT_FIELDS = ['How much']
+    AMOUNTS = ['How much']
+    NOTES = ['Summary category', 'Summary amount']
     WHAT = 'Why'
     WHEN = 'When'
     WHO = 'Who'
     TAG = 'What'
-    HEADER = [
-        WHEN, WHO, WHAT, TAG, 'How much', 'Summary category', 'Summary amount']
     TAGS_MAPPING = {
         'Comida/super': ['food'],
         'Gastos fijos': ['taxes', 'utilities'],
@@ -171,60 +174,52 @@ class ExpenseCSVParser(CSVParser):
         'Auto': ['car'],
     }
 
-    def process_row(self, row, **kwargs):
-        data = super(ExpenseCSVParser, self).process_row(row, **kwargs)
-        data['country'] = 'AR'
-        data['tags'].append(self.TAGS_MAPPING[row[self.WHAT]])
-        return data
+    COUNTRY = 'AR'
+    HEADER = [WHEN, WHO, WHAT, TAG] + AMOUNTS + NOTES
+
+    def find_tags(self, row, account):
+        return self.TAGS_MAPPING[row[self.WHAT]]
 
 
 class ScoBankCSVParser(CSVParser):
 
-    AMOUNT_FIELDS = ['Débito', 'Crédito']
-    COMMENTS = ['﻿"Suc."', "Fecha Valor", "Comprobante", "Saldo"]
-    DATE_FORMAT = '%d/%m/%Y'
+    AMOUNTS = ['Débito', 'Crédito']
+    NOTES = ['﻿"Suc."', "Fecha Valor", "Comprobante", "Saldo"]
     WHAT = 'Descripción'
     WHEN = 'Fecha'
+
+    COUNTRY = 'UY'
+    DATE_FORMAT = '%d/%m/%Y'
     HEADER = ['﻿"Suc."', "Fecha", "Fecha Valor", "Descripción", "Comprobante",
               "Débito", "Crédito", "Saldo"]
 
     def process_amount(self, value):
         return value.replace('.', '').replace(',', '.')
 
-    def process_row(self, row, **kwargs):
-        data = super(ScoBankCSVParser, self).process_row(row, **kwargs)
-        notes = ' | '.join('%s: %s' % (k.strip('\ufeff').strip('"'), row[k])
-                           for k in self.COMMENTS)
-        data.update(dict(
-            notes=notes,
-            country='UY',
-        ))
-        return data
-
 
 class WFGBankCSVParser(CSVParser):
 
-    AMOUNT_FIELDS = ['How Much']
-    DATE_FORMAT = '%m/%d/%Y'
+    AMOUNTS = ['How Much']
     WHEN = 0
     WHAT = 4
-    HEADER = None
+
+    COUNTRY = 'US'
+    DATE_FORMAT = '%m/%d/%Y'
     EXTRA_FEES = (
         'INTERNATIONAL PURCHASE TRANSACTION FEE',
-        'NON-WELLS FARGO ATM TRANSACTION FEE',
-    )
+        'NON-WELLS FARGO ATM TRANSACTION FEE')
+    HEADER = None
 
     @property
     def header(self):
-        return [self.WHEN, self.AMOUNT_FIELDS[0], 'i-1', 'i-2', self.WHAT]
+        return [self.WHEN, self.AMOUNTS[0], 'i-1', 'i-2', self.WHAT]
 
     def find_header(self, row):
         # csv comes with no header, fake one
-        raise NotImplementedEror()
+        raise NotImplementedError()
 
     def process_row(self, row, unprocessed_rows, **kwargs):
         data = super(WFGBankCSVParser, self).process_row(row, **kwargs)
-        data['country'] = 'US'
         if data['what'] in self.EXTRA_FEES:
             assert len(unprocessed_rows) == 0
             unprocessed_rows.append(data)
@@ -244,26 +239,32 @@ class WFGBankCSVParser(CSVParser):
 
 class BrouBankParser(CSVParser):
 
-    DATE_FORMAT = '%d/%m/%Y'
-    AMOUNT_FIELDS = ['Débito', 'Crédito']
-    COMMENTS = ['Número Documento', 'Num. Dep.', 'Asunto']
+    AMOUNTS = ['Débito', 'Crédito']
+    NOTES = ['Número Documento', 'Num. Dep.', 'Asunto']
     WHEN = 'Fecha'
     WHAT = 'Descripción'
-    HEADER = [
-        '', 'Fecha', '', 'Descripción', 'Número Documento', 'Num. Dep.',
-        'Asunto', '', 'Débito', 'Crédito']
+
+    COUNTRY = 'UY'
+    DATE_FORMAT = '%d/%m/%Y'
+    HEADER = ['', WHEN, '', WHAT] + NOTES + [''] + AMOUNTS
     IGNORE_ROWS = 5
 
     def process_row(self, row, **kwargs):
         data = super(BrouBankParser, self).process_row(row, **kwargs)
-        is_income = False if row['Débito'] else True
-        notes = ' | '.join('%s: %s' % (k, row[k]) for k in self.COMMENTS)
-        data.update(dict(
-            notes=notes,
-            country='UY',
-            is_income=is_income,
-        ))
+        data['is_income'] = False if row['Débito'] else True
         return data
+
+
+class BNABankParser(CSVParser):
+
+    AMOUNTS = ['Importe']
+    NOTES = ['Comentarios', 'Saldo Parcial']
+    WHEN = 'Fecha / Hora Mov.'
+    WHAT = 'Concepto'
+
+    DATE_FORMAT = '%d/%m/%Y'
+    COUNTRY = 'AR'
+    HEADER = [WHEN, WHAT] + AMOUNTS + NOTES
 
 
 class TripCSVParser(CSVParser):
@@ -289,23 +290,16 @@ class TripCSVParser(CSVParser):
     def process_row(self, row, **kwargs):
         data = super(TripCSVParser, self).process_row(row, **kwargs)
         amount = None
-        currency = None
         for c in self.currencies:
             if row[c]:
                 amount = Decimal(self.process_amount(row[c]))
-                currency = c
                 break
 
         assert amount is not None
 
-        data['amount'] =  amount
+        data['amount'] = amount
         data['notes'] = self.name
         data['country'] = row[self.COUNTRY]
         data['tags'].append('trips')
 
         return data
-
-
-PARSER_MAPPING = {i.__name__: i for i in (
-    ExpenseCSVParser, ScoBankCSVParser, WFGBankCSVParser, BrouBankParser,
-    TripCSVParser)}

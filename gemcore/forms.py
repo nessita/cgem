@@ -119,13 +119,11 @@ class CSVExpenseForm(forms.Form):
         self.fields['account'].queryset = accounts
 
     def clean(self):
-        cleaned_data = super(CSVExpenseForm, self).clean()
-        if (not cleaned_data.get('csv_file')
-                and not cleaned_data.get('csv_content')):
+        data = super(CSVExpenseForm, self).clean()
+        if not (data.get('csv_file') or data.get('csv_content')):
             raise forms.ValidationError(
                 'Either the CSV file or the CSV content should be set.')
-
-        return cleaned_data
+        return data
 
 
 class AccountTransferForm(forms.Form):
