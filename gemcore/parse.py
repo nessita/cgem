@@ -47,7 +47,8 @@ class CSVParser(object):
             if result:
                 result = re.sub(r'[^\d\-.]', '', self.process_amount(result))
                 break
-        assert result, ('Amount not found (tried %r): %r' % (self.AMOUNTS, row))
+        assert result, (
+            'Amount not found (tried %r): %r' % (self.AMOUNTS, row))
         return Decimal(result)
 
     def find_notes(self, row):
