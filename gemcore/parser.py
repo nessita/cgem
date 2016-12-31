@@ -67,10 +67,9 @@ class CSVParser(object):
         return Decimal(result)
 
     def find_notes(self, row):
-        notes = ' | '.join(
-            '%s: %s' % (k.strip('\ufeff').strip('"'), row[k])
-            for k in self.NOTES)
-        return notes
+        notes = ['%s: %s' % (k.strip('\ufeff').strip('"'), row[k])
+                 for k in self.NOTES] + ['source: %r' % self.name]
+        return ' | '.join(notes)
 
     def find_tags(self, row, account):
         tags = account.tags_for(row[self.WHAT]).keys() or ['imported']
@@ -126,7 +125,8 @@ class CSVParser(object):
         if not dry_run:
             existing.update(
                 amount=amount*2,
-                notes=Concat(F('notes'), Value('Merging with data %s' % data)))
+                notes=Concat(F('notes'), Value(' Merging with data %s' % data))
+            )
 
     def parse(self, fileobj, book, user, account, dry_run=False):
         self.name = fileobj.name
