@@ -14,7 +14,7 @@ from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-import gemcore.parse
+import gemcore.parser
 from gemcore.forms import (
     AccountBalanceForm,
     AccountTransferForm,
@@ -287,7 +287,7 @@ def load_from_file(request, book_slug):
                 csv_file.name = ''
 
             account = form.cleaned_data['account']
-            csv_parser = getattr(gemcore.parse, account.parser)
+            csv_parser = getattr(gemcore.parser, account.parser)
             result = csv_parser().parse(
                 csv_file, book=book, user=request.user, account=account)
             success = len([e for e in result['entries'] if e])

@@ -4,19 +4,31 @@
 import csv
 import re
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from datetime import datetime
 from decimal import Decimal
 
-from collections import namedtuple
+from django.db import IntegrityError, transaction
+from django.db.models import F, Value
+from django.db.models.functions import Concat
+
 from gemcore.forms import EntryForm
+from gemcore.models import Entry
 
 
 UserData = namedtuple('UserData', ['user', 'account'])
 
 
-class RowToBeProcessesError(Exception):
+class DataToBeProcessedError(Exception):
     """This row will be processed later."""
+
+    def __init__(self, data, *args, **kwargs):
+        self.data = data
+        super(DataToBeProcessedError, self).__init__(*args, **kwargs)
+
+
+class DataMergedError(Exception):
+    """This row will needs to be merged with an existing one."""
 
 
 class CSVParser(object):
@@ -30,6 +42,9 @@ class CSVParser(object):
     DATE_FORMAT = '%Y-%m-%d'
     HEADER = []
     IGNORE_ROWS = 0
+    MERGE_ERRORS = [
+        'duplicate key value violates unique constraint "gemcore_entry_book_',
+        'DETAIL:  Key (book_id, account_id, "when", what, amount, is_income)']
 
     @property
     def header(self):
@@ -77,16 +92,17 @@ class CSVParser(object):
             value = datetime.strptime(value, self.DATE_FORMAT)
         return value
 
-    def process_row(self, row, user, account, unprocessed_rows=None):
+    def make_data(self, row, user, account, unprocessed=None):
         assert row, 'The given row is empty'
         amount = self.find_amount(row)
         return dict(
             account=account.id, amount=abs(amount), country=self.COUNTRY,
             is_income=amount > 0, notes=self.find_notes(row),
-            tags=self.find_tags(row, account), what=row[self.WHAT],
+            tags=self.find_tags(row, account), what=row[self.WHAT].strip(),
             when=self.find_when(row), who=user.id)
 
-    def process_data(self, data, book, dry_run=False):
+    @transaction.atomic
+    def make_entry(self, data, book, dry_run=False):
         if not data:
             return None
         form = EntryForm(book=book, data=data)
@@ -100,16 +116,17 @@ class CSVParser(object):
             entry = form.save(book=book)
         return entry
 
-    def make_entry(self, result, data, book, dry_run=False):
-        error = None
-        try:
-            entry = self.process_data(data, book=book, dry_run=dry_run)
-        except Exception as e:
-            error = e
-            result['errors'][e.__class__.__name__].append((e, data))
-        else:
-            result['entries'].append(entry)
-        return error
+    def merge_entries(self, data, book, dry_run=False):
+        amount = data['amount']
+        existing = Entry.objects.filter(
+            book=book, amount=amount, account__id=data['account'],
+            is_income=data['is_income'], when=data['when'], what=data['what'])
+        assert existing.count() == 1, (
+            'Data needs merging and %s entries exist' % existing.count())
+        if not dry_run:
+            existing.update(
+                amount=amount*2,
+                notes=Concat(F('notes'), Value('Merging with data %s' % data)))
 
     def parse(self, fileobj, book, user, account, dry_run=False):
         self.name = fileobj.name
@@ -118,7 +135,7 @@ class CSVParser(object):
         reader = csv.reader(fileobj)
         ignored = 0
         header = self.header
-        unprocessed_rows = []
+        unprocessed = None
         for row in reader:
             # ignore initial rows
             if ignored < self.IGNORE_ROWS:
@@ -138,25 +155,44 @@ class CSVParser(object):
                 continue
 
             try:
-                data = self.process_row(
-                    row=row, unprocessed_rows=unprocessed_rows,
-                    user=user, account=account)
-            except RowToBeProcessesError:
+                data = self.make_data(row=row, user=user, account=account,
+                                      unprocessed=unprocessed)
+            except DataToBeProcessedError as e:
+                assert unprocessed is None, 'Unprocessed data should be None'
+                unprocessed = e.data
                 continue
 
-            error = self.make_entry(result, data, book=book, dry_run=dry_run)
-            if error is None:
+            unprocessed = None
+            error = None
+            try:
+                entry = self.make_entry(data, book=book, dry_run=dry_run)
+            except IntegrityError as e:
+                if all(i in str(e) for i in self.MERGE_ERRORS):
+                    self.merge_entries(data, book=book, dry_run=dry_run)
+                    error = DataMergedError()
+                else:
+                    error = e
+            except Exception as e:
+                error = e
+
+            if error is not None:
+                result['errors'][error.__class__.__name__].append(
+                    (error, data))
+            else:
+                assert entry is not None, 'Entry should not be None'
+                result['entries'].append(entry)
                 # Needs a transfer?
                 tags = account.tags_for(data['what'])
                 for transfer in filter(None, tags.values()):
                     data['is_income'] = not data['is_income']
                     data['account'] = transfer.id
-                    self.make_entry(result, data, book, dry_run=dry_run)
+                    entry = self.make_entry(data, book, dry_run=dry_run)
+                    result['entries'].append(entry)
 
         return result
 
 
-class ExpenseCSVParser(CSVParser):
+class ExpenseParser(CSVParser):
 
     AMOUNTS = ['How much']
     NOTES = ['Summary category', 'Summary amount']
@@ -182,7 +218,7 @@ class ExpenseCSVParser(CSVParser):
         return self.TAGS_MAPPING[row[self.WHAT]]
 
 
-class ScoBankCSVParser(CSVParser):
+class ScoBankParser(CSVParser):
 
     AMOUNTS = ['Débito', 'Crédito']
     NOTES = ['﻿"Suc."', "Fecha Valor", "Comprobante", "Saldo"]
@@ -198,7 +234,7 @@ class ScoBankCSVParser(CSVParser):
         return value.replace('.', '').replace(',', '.')
 
 
-class WFGBankCSVParser(CSVParser):
+class WFGBankParser(CSVParser):
 
     AMOUNTS = ['How Much']
     WHEN = 0
@@ -219,20 +255,19 @@ class WFGBankCSVParser(CSVParser):
         # csv comes with no header, fake one
         raise NotImplementedError()
 
-    def process_row(self, row, unprocessed_rows, **kwargs):
-        data = super(WFGBankCSVParser, self).process_row(row, **kwargs)
-        if data['what'] in self.EXTRA_FEES:
-            assert len(unprocessed_rows) == 0
-            unprocessed_rows.append(data)
-            raise RowToBeProcessesError()
+    def make_data(self, row, user, account, unprocessed=None):
+        data = super(WFGBankParser, self).make_data(
+            row=row, user=user, account=account)
 
-        if unprocessed_rows:
-            last_row = unprocessed_rows.pop()
-            assert last_row['is_income'] == data['is_income']
-            assert last_row['when'] == data['when']
-            amount = last_row['amount']
+        if data['what'] in self.EXTRA_FEES:
+            raise DataToBeProcessedError(data)
+
+        if unprocessed:
+            assert unprocessed['is_income'] == data['is_income']
+            assert unprocessed['when'] == data['when']
+            amount = unprocessed['amount']
             data['notes'] = '%s + %s %s' % (
-                data['amount'], last_row['what'], amount)
+                data['amount'], unprocessed['what'], amount)
             data['amount'] += amount
 
         return data
@@ -250,8 +285,8 @@ class BrouBankParser(CSVParser):
     HEADER = ['', WHEN, '', WHAT] + NOTES + [''] + AMOUNTS
     IGNORE_ROWS = 5
 
-    def process_row(self, row, **kwargs):
-        data = super(BrouBankParser, self).process_row(row, **kwargs)
+    def make_data(self, row, **kwargs):
+        data = super(BrouBankParser, self).make_data(row, **kwargs)
         data['is_income'] = False if row['Débito'] else True
         return data
 
@@ -268,7 +303,7 @@ class BNABankParser(CSVParser):
     HEADER = [WHEN, WHAT] + AMOUNTS + NOTES
 
 
-class TripCSVParser(CSVParser):
+class TripParser(CSVParser):
 
     COUNTRY = 'Country'
     WHAT = 'What'
@@ -278,7 +313,7 @@ class TripCSVParser(CSVParser):
     IGNORE_ROWS = 4
 
     def __init__(self):
-        super(TripCSVParser, self).__init__()
+        super(TripParser, self).__init__()
         self.currencies = None
 
     def find_header(self, row):
@@ -288,8 +323,8 @@ class TripCSVParser(CSVParser):
         self.currencies = row[header_len:]
         return row
 
-    def process_row(self, row, **kwargs):
-        data = super(TripCSVParser, self).process_row(row, **kwargs)
+    def make_data(self, row, **kwargs):
+        data = super(TripParser, self).make_data(row, **kwargs)
         amount = None
         for c in self.currencies:
             if row[c]:

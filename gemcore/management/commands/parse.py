@@ -3,7 +3,7 @@ import argparse
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-import gemcore.parse
+import gemcore.parser
 from gemcore.models import Account, Book
 
 
@@ -36,7 +36,7 @@ class Command(BaseCommand):
         dry_run = options['dry-run']
         self.stdout.write('Parsing (dry run %s) %s for %s' %
                           (dry_run, csv_file.name, account))
-        csv_parser = getattr(gemcore.parse, account.parser)
+        csv_parser = getattr(gemcore.parser, account.parser)
         result = csv_parser().parse(
             csv_file, book=book, user=user, account=account, dry_run=dry_run)
         for error, traceback in result['errors'].items():
