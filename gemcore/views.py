@@ -20,6 +20,7 @@ from gemcore.forms import (
     AccountTransferForm,
     BookForm,
     CSVExpenseForm,
+    ChooseForm,
     CurrencyBalanceForm,
     EntryForm,
 )
@@ -30,15 +31,82 @@ ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
 
 
-def remove_thing(request, thing):
-    if request.method == 'POST':
-        if 'yes' in request.POST:
-            thing.delete()
-        messages.success(
-            request, '%s %s removed.' % (thing.__class__.__name__, thing))
-        return HttpResponseRedirect(reverse(home))
+def filter_entries(request, book_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    params = request.GET
+    q = params.get('q')
+    if q:
+        entries = book.by_text(q)
+    else:
+        entries = book.entry_set.all()
 
-    return render(request, 'gemcore/remove.html', dict(thing=thing))
+    try:
+        when = datetime.strptime(params.get('when'), '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        when = None
+        when_next = None
+        when_prev = None
+    else:
+        when_next = when + timedelta(days=1)
+        when_prev = when - timedelta(days=1)
+        entries = book.entry_set.filter(when=when)
+
+    try:
+        year = int(params.get('year'))
+    except (ValueError, TypeError):
+        year = None
+    else:
+        entries = entries.filter(when__year=year)
+
+    try:
+        month = int(params.get('month'))
+    except (ValueError, TypeError):
+        month = None
+    else:
+        entries = entries.filter(when__month=int(month))
+
+    who = params.get('who')
+    if who:
+        entries = entries.filter(who__username=who)
+
+    country = params.get('country')
+    if country:
+        entries = entries.filter(country=country)
+
+    account = params.get('account')
+    if account:
+        entries = entries.filter(account__slug=account)
+
+    currency_code = params.get('currency_code')
+    if currency_code:
+        entries = entries.filter(account__currency_code=currency_code)
+
+    used_tags = set(params.getlist('tag', []))
+    if used_tags:
+        tags = reduce(
+            operator.or_,
+            [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
+        entries = entries.filter(tags=tags)
+
+    years = book.years(entries)
+    months = OrderedDict(sorted({
+        (d.month, d.strftime('%b'))
+        for d in entries.values_list('when', flat=True)
+    }))
+    countries = [] if country else book.countries(entries)
+    accounts = [] if account else book.accounts(entries)
+    users = [] if who else book.who(entries)
+    tags = book.tags(entries)
+
+    context = dict(
+        book=book, who=who, users=users, q=q, qs=urlencode(params),
+        when=when, when_next=when_next, when_prev=when_prev,
+        month=month, months=months, month_label=months.get(month),
+        year=year, years=years, tags=tags, used_tags=used_tags,
+        country=country, countries=countries,
+        account=account, accounts=accounts, currency_code=currency_code,
+    )
+    return entries, context
 
 
 @require_GET
@@ -72,83 +140,70 @@ def book(request, book_slug=None):
     return render(request, 'gemcore/book.html', dict(form=form, book=book))
 
 
+def _process_post_on_entries(request, entries, edit_account_form, context):
+    assert request.method == 'POST', 'HTTP method should be POST'
+    here = request.get_full_path()
+
+    ids = [int(i) for i in request.POST.getlist('edit-entry')]
+    if len(ids) == 0:
+        messages.error(request, 'Invalid request, no entries selected.')
+        return HttpResponseRedirect(here)
+
+    entries = entries.filter(id__in=ids)
+    if entries.count() != len(ids):
+        messages.error(
+            request, 'Invalid request, invalid choices for entries.')
+        return HttpResponseRedirect(here)
+
+    if 'change-account' in request.POST:
+        if edit_account_form.is_valid():
+            target = edit_account_form.cleaned_data['target']
+            if not target:
+                messages.error(
+                    request, 'Invalid request, the target account is empty.')
+            else:
+                entries.update(account=target)
+                msg = (', '.join(str(e) for e in entries), target)
+                messages.success(
+                    request, 'Entries "%s" changed to account %s.' % msg)
+        else:
+            messages.error(
+                request, 'Invalid request for changing the account: %s' %
+                         edit_account_form.errors)
+        return HttpResponseRedirect(here)
+
+    elif 'change-tags' in request.POST:
+        template = 'gemcore/change-tags.html'
+        raise NotImplementedError()
+
+    elif 'merge-selected' in request.POST:
+        template = 'gemcore/merge-entries.html'
+        raise NotImplementedError()
+
+    elif 'remove-selected' in request.POST:
+        template = 'gemcore/remove-entries.html'
+
+    else:
+        raise Http404()
+
+    context['entries'] = entries
+    return render(request, template, context)
+
+
 @require_http_methods(['GET', 'POST'])
 @login_required
-def book_remove(request, book_slug):
-    book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    return remove_thing(request, book)
-
-
-@require_GET
-@login_required
 def entries(request, book_slug):
-    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    entries, context = filter_entries(request, book_slug)
+    book = context['book']
+    accounts = Account.objects.by_book(book)
+    currencies = sorted(set(accounts.values_list('currency_code', flat=True)))
 
-    q = request.GET.get('q')
-    if q:
-        entries = book.by_text(q)
-    else:
-        entries = book.entry_set.all()
-
-    try:
-        when = datetime.strptime(request.GET.get('when'), '%Y-%m-%d').date()
-    except (ValueError, TypeError):
-        when = None
-        when_next = None
-        when_prev = None
-    else:
-        when_next = when + timedelta(days=1)
-        when_prev = when - timedelta(days=1)
-        entries = book.entry_set.filter(when=when)
-
-    try:
-        year = int(request.GET.get('year'))
-    except (ValueError, TypeError):
-        year = None
-    else:
-        entries = entries.filter(when__year=year)
-
-    try:
-        month = int(request.GET.get('month'))
-    except (ValueError, TypeError):
-        month = None
-    else:
-        entries = entries.filter(when__month=int(month))
-
-    who = request.GET.get('who')
-    if who:
-        entries = entries.filter(who__username=who)
-
-    country = request.GET.get('country')
-    if country:
-        entries = entries.filter(country=country)
-
-    account = request.GET.get('account')
-    if account:
-        entries = entries.filter(account__slug=account)
-
-    currency_code = request.GET.get('currency_code')
-    if currency_code:
-        entries = entries.filter(account__currency_code=currency_code)
-
-    used_tags = set(request.GET.getlist('tag', []))
-    if used_tags:
-        tags = reduce(
-            operator.or_,
-            [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
-        entries = entries.filter(tags=tags)
+    edit_account_form = ChooseForm(queryset=accounts)
+    if request.method == 'POST':
+        edit_account_form = ChooseForm(queryset=accounts, data=request.POST)
+        return _process_post_on_entries(request, entries, edit_account_form, context)
 
     entries = entries.order_by('-when', 'what', 'id')
-
-    years = book.years(entries)
-    months = OrderedDict(sorted({
-        (d.month, d.strftime('%b'))
-        for d in entries.values_list('when', flat=True)
-    }))
-    countries = [] if country else book.countries(entries)
-    accounts = [] if account else book.accounts(entries)
-    users = [] if who else book.who(entries)
-    tags = book.tags(entries)
 
     paginator = Paginator(entries, ENTRIES_PER_PAGE)
     page = request.GET.get('page')
@@ -180,18 +235,12 @@ def entries(request, book_slug):
             end = paginator.num_pages
 
     page_range = range(start, end + 1)
-    context = dict(
-        entries=entries, book=book, who=who, users=users,
-        country=country, countries=countries,
-        account=account, accounts=accounts,
-        year=year, years=years,
-        month=month, month_label=months.get(month), months=months,
-        q=q, tags=tags, used_tags=used_tags,
-        when=when, when_prev=when_prev, when_next=when_next,
-        page_range=page_range, start=start, end=end,
-        account_balance_form=AccountBalanceForm(book),
-        currency_balance_form=CurrencyBalanceForm(book),
-    )
+    context.update(dict(
+        entries=entries, page_range=page_range, start=start, end=end,
+        edit_account_form=edit_account_form,
+        account_balance_form=AccountBalanceForm(queryset=accounts),
+        currency_balance_form=CurrencyBalanceForm(choices=currencies),
+    ))
     return render(request, 'gemcore/entries.html', context)
 
 
@@ -258,10 +307,30 @@ def entry(request, book_slug, entry_id=None):
 
 @require_http_methods(['GET', 'POST'])
 @login_required
-def entry_remove(request, book_slug, entry_id):
-    entry = get_object_or_404(
-        Entry, book__slug=book_slug, book__users=request.user, id=entry_id)
-    return remove_thing(request, entry)
+def entry_remove(request, book_slug, entry_id=None):
+    entries, context = filter_entries(request, book_slug)
+    if request.method == 'GET':
+        entries = entries.filter(id=entry_id)
+    elif request.method == 'POST':
+        entries = entries.filter(id__in=request.POST.getlist('entry'))
+    else:
+        entries = Entry.objects.none()
+
+    if not entries:
+        raise Http404()
+
+    if request.method == 'POST':
+        if 'yes' in request.POST:
+            msg = ', '.join(str(e) for e in entries)
+            entries.delete()
+            messages.success(request, 'Entries "%s" removed.' % msg)
+        else:
+            messages.warning(request, 'Removal of entries cancelled.')
+        return HttpResponseRedirect(
+            reverse('entries', args=(book_slug,)) + '?' + context['qs'])
+
+    return render(
+        request, 'gemcore/remove-entries.html', dict(entries=entries))
 
 
 @require_http_methods(['GET', 'POST'])
@@ -369,12 +438,14 @@ def balance(
         request, book_slug, account_slug=None, currency_code=None,
         start=None, end=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    accounts = Account.objects.by_book(book)
+    currencies = sorted(set(accounts.values_list('currency_code', flat=True)))
 
     if request.method == 'POST':
         if 'get-account-balance' in request.POST:
-            form = AccountBalanceForm(book, data=request.POST)
+            form = AccountBalanceForm(queryset=accounts, data=request.POST)
         elif 'get-currency-balance' in request.POST:
-            form = CurrencyBalanceForm(book, data=request.POST)
+            form = CurrencyBalanceForm(choices=currencies, data=request.POST)
         else:
             raise Http404()
 
@@ -416,9 +487,11 @@ def balance(
         balance = book.balance(accounts, start, end)
 
     account_balance_form = AccountBalanceForm(
-        book=book, initial=dict(source=account_slug, start=start, end=end))
+        queryset=accounts,
+        initial=dict(source=account_slug, start=start, end=end))
     currency_balance_form = CurrencyBalanceForm(
-        book=book, initial=dict(source=currency_code, start=start, end=end))
+        choices=currencies,
+        initial=dict(source=currency_code, start=start, end=end))
     context = {
         'balance': balance,
         'book': book,

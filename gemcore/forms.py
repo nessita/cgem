@@ -6,6 +6,17 @@ from django_countries import countries
 from gemcore.models import Account, Book, Entry
 
 
+class ChooseForm(forms.Form):
+
+    target = forms.ModelChoiceField(
+        label='Choices', queryset=None, required=False,
+        widget=forms.Select(attrs={'class': 'form-control input-sm'}))
+
+    def __init__(self, queryset, *args, **kwargs):
+        super(ChooseForm, self).__init__(*args, **kwargs)
+        self.fields['target'].queryset = queryset
+
+
 class BalanceForm(forms.Form):
 
     start = forms.DateField(
@@ -24,30 +35,26 @@ class AccountBalanceForm(BalanceForm):
 
     source = forms.ModelChoiceField(
         label='Account', queryset=None,
-        widget=forms.Select(attrs={'class': 'form-control input-sm',
-                                   'autofocus': 'true'}))
+        widget=forms.Select(attrs={'class': 'form-control input-sm'}))
 
-    def __init__(self, book, *args, **kwargs):
+
+    def __init__(self, queryset, *args, **kwargs):
         super(AccountBalanceForm, self).__init__(*args, **kwargs)
-        self.fields['source'].queryset = source = Account.objects.by_book(book)
+        self.fields['source'].queryset = queryset
         initial = kwargs.get('initial', {}).get('source')
         if initial:
-            self.fields['source'].initial = source.get(slug=initial).pk
+            self.fields['source'].initial = queryset.get(slug=initial).pk
 
 
 class CurrencyBalanceForm(BalanceForm):
 
     source = forms.ChoiceField(
         label='Currency',
-        widget=forms.Select(attrs={'class': 'form-control input-sm',
-                                   'autofocus': 'true'}))
+        widget=forms.Select(attrs={'class': 'form-control input-sm'}))
 
-    def __init__(self, book, *args, **kwargs):
+    def __init__(self, choices, *args, **kwargs):
         super(CurrencyBalanceForm, self).__init__(*args, **kwargs)
-        accounts = Account.objects.by_book(book)
-        self.fields['source'].choices = [
-            (i, i) for i in
-            sorted(set(accounts.values_list('currency_code', flat=True)))]
+        self.fields['source'].choices = [(i, i) for i in choices]
         self.fields['source'].initial = kwargs.get('initial', {}).get('source')
 
 

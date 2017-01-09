@@ -87,7 +87,7 @@
     </div>
 
     <div class="row">
-        <form id="entry-form-search" class="form-horizontal" method="GET" action=".">
+        <form id="entry-form-search" class="form-horizontal" method="GET" action="">
             <div class="col-xs-5 has-feedback">
                 <input type="text" class="form-control input-sm" name="q" autofocus="on" 
                        id="search-text" placeholder="Search"
@@ -129,9 +129,12 @@
   <div class="col-md-8">
     {% include 'gemcore/_entries_paginator.html' %}
     {% if entries %}
+    <form action="" method="POST" class="form-horizontal" role="form">
+    {% csrf_token %}
     <table id="entries-list" class="table table-condensed table-hover table-striped">
         <thead>
             <tr>
+                <th><input type="checkbox" onClick="toggle(this)" /></th>
                 <th>When</th>
                 <th>Who</th>
                 <th>What</th>
@@ -144,6 +147,9 @@
         <tbody>
             {% for entry in entries %}
             <tr>
+                <td>
+                    <input name="edit-entry" type="checkbox" value="{{ entry.id }}" />
+                </td>
                 <td>
                     <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date }}</a>
                 </td>
@@ -167,7 +173,30 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="row">
+        <div class="form-group col-xs-2">
+            {{ edit_account_form.target }}
+        </div>
+        <div class="form-group col-xs-2">
+            <button type="submit" class="btn btn-sm btn-default" name="change-account">Change</button>
+        </div>
+
+        <!--div class="form-group col-xs-2">
+            {{ edit_tags_form.target }}
+        </div>
+        <div class="form-group col-xs-2">
+            <button type="submit" class="btn btn-sm btn-default" name="change-tags">Change</button>
+        </div-->
+
+        <div class="btn-group col-xs-4">
+            <!--button type="submit" class="btn btn-sm btn-default" name="merge-selected">Merge</button-->
+            <button type="submit" class="btn btn-sm btn-default" name="remove-selected">Remove</button>
+        </div>
+    </div>
+
     {% include 'gemcore/_entries_paginator.html' %}
+    </form>
     {% else %}
     <p>No entries in the system.</dp>
     {% endif %}
@@ -184,6 +213,12 @@ $("#clear-search-date").click(function(evt) {
     evt.preventDefault();
     $("#search-date").val("").focus();
 });
+function toggle(source) {
+  checkboxes = document.getElementsByName('edit-entry');
+  for(var i=0, n=checkboxes.length;i<n;i++) {
+    checkboxes[i].checked = source.checked;
+  }
+}
 </script>
 
 {% endblock content %}

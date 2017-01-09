@@ -12,8 +12,6 @@ urlpatterns = [
         name='load-from-file'),
     url(r'^(?P<book_slug>[\w-]+)/transfer/$', gemcore.views.account_transfer,
         name='account-transfer'),
-    url(r'^(?P<book_slug>[\w-]+)/remove/$', gemcore.views.book_remove,
-        name='remove-book'),
     # entries
     url(r'^(?P<book_slug>[\w-]+)/entry/$',
         gemcore.views.entries, name='entries'),
@@ -22,6 +20,8 @@ urlpatterns = [
     url(r'^(?P<book_slug>[\w-]+)/entry/(?P<entry_id>\d+)/$',
         gemcore.views.entry, name='entry'),
     url(r'^(?P<book_slug>[\w-]+)/entry/(?P<entry_id>\d+)/remove/$',
+        gemcore.views.entry_remove, name='remove-entry'),
+    url(r'^(?P<book_slug>[\w-]+)/entry/remove/$',
         gemcore.views.entry_remove, name='remove-entry'),
     url(r'^(?P<book_slug>[\w-]+)/balance/$',
         gemcore.views.balance, name='balance'),

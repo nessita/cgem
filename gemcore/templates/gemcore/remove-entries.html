@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load qurl %}
+
+{% block content %}
+
+<h1>Are you sure you want to remove these entries?</h1>
+
+<form action="{% if book %}{% url 'remove-entry' book.slug %}?{{ qs }}{% endif %}" method="POST">
+    {% csrf_token %}
+    <ul>
+    {% for entry in entries %}
+        <li>{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"/></li>
+    {% endfor %}
+    </ul>
+    <div class="text-center">
+        <button type="submit" class="btn btn-default" name="yes">Yes, remove</button>
+        <button type="submit" class="btn btn-primary" name="no">No!</button>
+    </div>
+</form>
+
+{% endblock content %}
