@@ -225,11 +225,9 @@ class Account(models.Model):
         ordering = ('currency_code', 'name')
 
     def __str__(self):
+        result = '%s %s' % (self.name, self.currency_code)
         if self.users.count() == 1:
-            result = '%s %s %s' % (
-                self.currency_code, self.users.get().username, self.name)
-        else:
-            result = '%s %s' % (self.currency_code, self.name)
+            result += ' %s' % self.users.get().username
         return result
 
     def save(self, *args, **kwargs):

@@ -1,13 +1,16 @@
 var currency_mapping = {
     '1': 'AR',
     '2': 'AR',
-    '3': 'UY',
     '6': 'AR',
     '7': 'AR',
+    '12': 'AR',
+    '3': 'UY',
     '11': 'UY',
     '19': 'UY',
     '20': 'UY',
-    '12': 'AR',
+    '22': 'UY',
+    '23': 'UY',
+    '24': 'UY',
 }
 
 $(document).ready(function() {
