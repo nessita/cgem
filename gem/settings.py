@@ -135,17 +135,21 @@ DATABASES['default'] = dj_database_url.config()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ADMINS = (('Owner', 'naninessa@yahoo.com.ar'),)
-SITE_ID = 1
 DATE_FORMAT = 'Y-m-d'
-PYFLAKES_IGNORE_FILE = os.path.join(
-    BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.setdefault('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
+MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
 MIGRATION_MODULES = {
     'taggit': 'other_migrations.taggit',
 }
-
-MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
+PYFLAKES_IGNORE_FILE = os.path.join(
+    BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
+SITE_ID = 1
 
 try:
     from gem.local_settings import *
