@@ -37,7 +37,6 @@ class AccountBalanceForm(BalanceForm):
         label='Account', queryset=None,
         widget=forms.Select(attrs={'class': 'form-control input-sm'}))
 
-
     def __init__(self, queryset, *args, **kwargs):
         super(AccountBalanceForm, self).__init__(*args, **kwargs)
         self.fields['source'].queryset = queryset

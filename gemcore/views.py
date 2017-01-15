@@ -112,7 +112,12 @@ def filter_entries(request, book_slug):
 @require_GET
 @login_required
 def home(request):
-    return HttpResponseRedirect(reverse(books))
+    books = request.user.book_set.all()
+    if books.count() == 1:
+        url = reverse('entries', args=(books.get().slug,))
+    else:
+        url = reverse('books')
+    return HttpResponseRedirect(url)
 
 
 @require_GET
@@ -468,14 +473,17 @@ def balance(
                 url += '?' + urlencode(qs)
             return HttpResponseRedirect(url)
 
-    accounts = None
+    chosen_accounts = None
     if account_slug:
-        accounts = [get_object_or_404(Account, slug=account_slug)]
+        chosen_accounts = accounts.filter(slug=account_slug)
     elif currency_code:
-        accounts = Account.objects.filter(currency_code=currency_code)
+        chosen_accounts = accounts.filter(currency_code=currency_code)
+
+    if chosen_accounts is not None and not chosen_accounts.exists():
+        raise Http404
 
     balance = None
-    if accounts:
+    if chosen_accounts:
         start = request.GET.get('start')
         end = request.GET.get('end')
         if start:
@@ -484,7 +492,7 @@ def balance(
             end = datetime.strptime(end, '%Y-%m-%d').date()
         # book.balance will only return entries for the book, which we ensured
         # request.user has access to
-        balance = book.balance(accounts, start, end)
+        balance = book.balance(chosen_accounts, start, end)
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,
