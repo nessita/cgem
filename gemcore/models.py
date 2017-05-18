@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 
+import operator
 import re
 
 from collections import defaultdict, OrderedDict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from functools import reduce
 
 from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
-from django.db import connection, models
+from django.db import connection, models, transaction
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
@@ -205,6 +207,47 @@ class Book(models.Model):
 
         return {'complete': complete, 'months': months}
 
+    @transaction.atomic
+    def merge_entries(self, *entries):
+        # validate some minimal consistency on entries
+        if len(entries) < 2:
+            raise ValueError(
+                'Need at least 2 entries to merge (got %s).' % len(entries))
+
+        books = {e.book for e in entries}
+        if len(books) != 1 or books.pop() != self:
+            raise ValueError(
+                'Can not merge entries outside this book (got %s).' %
+                ', '.join(sorted(b.slug for b in books)))
+
+        accounts = {e.account for e in entries}
+        if len(accounts) != 1:
+            raise ValueError(
+                'Can not merge entries for different accounts (got %s).' %
+                ', '.join(sorted(a.slug for a in accounts)))
+
+        countries = {e.country for e in entries}
+        if len(countries) != 1:
+            raise ValueError(
+                'Can not merge entries for different countries (got %s).' %
+                ', '.join(sorted(countries)))
+
+        # prepare data for new Entry
+        what = ', '.join(sorted(set(e.what for e in entries)))
+        amount = sum(Decimal(e.money) for e in entries)
+        tags = reduce(operator.or_, [e.tags for e in entries])
+        notes = '\n'.join(e.notes for e in entries)
+        master = entries[0]
+        kwargs = dict(
+            book=self, who=master.who, when=master.when, what=what,
+            account=accounts.pop(), amount=abs(amount), is_income=amount > 0,
+            tags=tags, country=countries.pop(), notes=notes)
+
+        result = Entry.objects.create(**kwargs)
+        Entry.objects.filter(id__in=[e.id for e in entries]).delete()
+
+        return result
+
 
 class AccountManager(models.Manager):
 
@@ -287,6 +330,10 @@ class Entry(models.Model):
     @property
     def currency(self):
         return self.account.currency_code
+
+    @property
+    def money(self):
+        return str(self.amount if self.is_income else -self.amount)
 
 
 class EntryHistory(models.Model):

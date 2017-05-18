@@ -65,7 +65,7 @@ class Factory(object):
 
     def make_entry(
             self, book=None, account=None, who=None, amount=Decimal('1.0'),
-            what=None, **kwargs):
+            what=None, country='AR', **kwargs):
         i = self.make_integer()
         if book is None:
             book = self.make_book()
@@ -77,4 +77,4 @@ class Factory(object):
             what = 'Description of entry %i' % i
         return Entry.objects.create(
             book=book, account=account, who=who, what=what, amount=amount,
-            **kwargs)
+            country=country, **kwargs)
