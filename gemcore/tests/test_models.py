@@ -2,9 +2,12 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.db import IntegrityError
 from django.utils.timezone import now
 
+from gemcore.models import Entry
 from gemcore.tests.helpers import BaseTestCase
 
 
@@ -102,6 +105,150 @@ class BookTestCase(BaseTestCase):
             }]
         }
         self.assertEqual(balance, expected)
+
+    def assert_merge_entries_value_error(self, *entries, expected_error):
+        with self.assertRaises(ValueError) as ctx:
+            self.book.merge_entries(*entries)
+        self.assertEqual(str(ctx.exception), expected_error)
+
+    def test_merge_entries_validations(self):
+        account1 = self.factory.make_account()
+        entry1 = self.factory.make_entry(book=self.book, account=account1)
+
+        self.assert_merge_entries_value_error(
+            entry1, expected_error='Need at least 2 entries to merge (got 1).')
+
+        other = self.factory.make_entry(
+            book=self.factory.make_book(slug='zzz'), account=account1)
+        assert other.book != entry1.book
+
+        expected = 'Can not merge entries outside this book (got %s, %s).'
+        self.assert_merge_entries_value_error(
+            entry1, other,
+            expected_error=expected % (self.book.slug, other.book.slug))
+
+        othercountry = self.factory.make_entry(
+            book=self.book, account=account1, country='XX')
+        assert othercountry.country != entry1.country
+        expected = 'Can not merge entries for different countries (got %s).'
+        self.assert_merge_entries_value_error(
+            entry1, othercountry, expected_error=expected % 'AR, XX')
+
+        account2 = self.factory.make_account(slug='zzz')
+        entry2 = self.factory.make_entry(book=self.book, account=account2)
+
+        expected = 'Can not merge entries for different accounts (got %s, %s).'
+        self.assert_merge_entries_value_error(
+            entry1, entry2,
+            expected_error=expected % (account1.slug, account2.slug))
+
+    def test_merge_entries(self):
+        account = self.factory.make_account()
+
+        # create many other entries to ensure nothing else is removed
+        must_be_kept = ([
+            self.factory.make_entry(book=self.book, account=account)
+            for i in range(3)] +
+            [self.factory.make_entry(account=account) for i in range(3)] +
+            [self.factory.make_entry(book=self.book) for i in range(3)] +
+            [self.factory.make_entry() for i in range(3)])
+
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=account, amount=Decimal(i), tags=2**i,
+                is_income=False, what='Dummy')
+            for i in range(5)]
+        target = self.factory.make_entry(
+            book=self.book, account=account, amount=Decimal('100.88'),
+            is_income=True, tags=4096)
+        ids = [e.id for e in entries] + [target.id]
+
+        before_count = len(must_be_kept) + len(ids)
+        assert Entry.objects.all().count() == before_count
+
+        result = self.book.merge_entries(target, *entries)
+
+        self.assertEqual(result.book, self.book)
+        self.assertEqual(result.who, target.who)
+        self.assertEqual(result.when, target.when)
+        self.assertEqual(result.what, '%s, %s' % (target.what, 'Dummy'))
+        self.assertEqual(result.account, account)
+        self.assertEqual(result.amount, Decimal('90.88'))
+        self.assertEqual(result.is_income, True)
+        self.assertEqual(
+            result.tags, target.tags + sum(2**i for i in range(5)))
+        self.assertEqual(result.country, target.country)
+        self.assertEqual(Entry.objects.last(), result)
+        self.assertNotIn(result.id, ids)
+
+        self.assertEqual(Entry.objects.all().count(), len(must_be_kept) + 1)
+        for e in must_be_kept:
+            self.assertEqual(Entry.objects.get(id=e.id), e)
+
+    def test_merge_entries_all_expenses(self):
+        account = self.factory.make_account()
+
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=account, amount=Decimal(i),
+                is_income=False)
+            for i in range(1, 50, 3)]
+
+        result = self.book.merge_entries(*entries)
+
+        self.assertEqual(result.account, account)
+        self.assertEqual(result.amount, Decimal(sum(range(1, 50, 3))))
+        self.assertEqual(result.is_income, False)
+
+    def test_merge_entries_all_income(self):
+        account = self.factory.make_account()
+
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=account, amount=Decimal(i),
+                is_income=True)
+            for i in range(1, 50, 3)]
+
+        result = self.book.merge_entries(*entries)
+
+        self.assertEqual(result.account, account)
+        self.assertEqual(result.amount, Decimal(sum(range(1, 50, 3))))
+        self.assertEqual(result.is_income, True)
+
+    def test_merge_entries_atomic(self):
+        account = self.factory.make_account()
+        # create another entry that will make the creation fail
+        initial = self.factory.make_entry(
+            book=self.book, account=account, what='foo', amount=Decimal(10))
+
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=account, what='foo', amount=Decimal(i))
+            for i in range(5)]
+
+        with self.assertRaises(IntegrityError):
+            self.book.merge_entries(*entries)
+
+        self.assertEqual(Entry.objects.all().count(), len(entries) + 1)
+        for e in entries + [initial]:
+            self.assertEqual(Entry.objects.get(id=e.id), e)
+
+    def test_merge_entries_atomic_if_delete_fails(self):
+        account = self.factory.make_account()
+
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=account, what='foo', amount=Decimal(i))
+            for i in range(5)]
+
+        with patch('gemcore.models.Entry.objects.filter',
+                   side_effect=TypeError('foo')):
+            with self.assertRaises(TypeError):
+                self.book.merge_entries(*entries)
+
+        self.assertEqual(Entry.objects.all().count(), len(entries))
+        for e in entries:
+            self.assertEqual(Entry.objects.get(id=e.id), e)
 
 
 class AccountTestCase(BaseTestCase):
