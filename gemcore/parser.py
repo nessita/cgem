@@ -8,6 +8,7 @@ from collections import defaultdict, namedtuple
 from datetime import datetime
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
 from django.db.models.functions import Concat
@@ -167,7 +168,9 @@ class CSVParser(object):
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
             except IntegrityError as e:
-                if all(i in str(e) for i in self.MERGE_ERRORS):
+                # Disable merges on parsing, for now.
+                # if all(i in str(e) for i in self.MERGE_ERRORS):
+                if getattr(settings, 'MERGE_ROWS', False):
                     self.merge_entries(data, book=book, dry_run=dry_run)
                     error = DataMergedError()
                 else:

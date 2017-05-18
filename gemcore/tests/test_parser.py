@@ -3,6 +3,8 @@ import csv
 from datetime import datetime
 from decimal import Decimal
 
+from django.test.utils import override_settings
+
 from gemcore.models import Entry
 from gemcore.parser import BNABankParser, ScoBankParser, WFGBankParser
 from gemcore.tests.helpers import BaseTestCase
@@ -39,6 +41,7 @@ class ParseBaseTestCase(BaseTestCase):
 
 class ParseBNATestCase(ParseBaseTestCase):
 
+    @override_settings(MERGE_ROWS=True)
     def test_merge_works(self):
         result, rows, account = self.do_parse(BNABankParser(), 'bna-merge.csv')
         self.assert_result(result, errors=1, entries=2)

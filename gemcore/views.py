@@ -206,7 +206,8 @@ def entries(request, book_slug):
     edit_account_form = ChooseForm(queryset=accounts)
     if request.method == 'POST':
         edit_account_form = ChooseForm(queryset=accounts, data=request.POST)
-        return _process_post_on_entries(request, entries, edit_account_form, context)
+        return _process_post_on_entries(
+            request, entries, edit_account_form, context)
 
     entries = entries.order_by('-when', 'what', 'id')
 

@@ -10,7 +10,10 @@ from bitfield import BitField
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import connection, models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils.text import slugify
+from django.utils.timezone import now
 from django_countries import countries
 
 
@@ -284,3 +287,46 @@ class Entry(models.Model):
     @property
     def currency(self):
         return self.account.currency_code
+
+
+class EntryHistory(models.Model):
+
+    DELETE = 'delete'
+    MERGE = 'merge'
+
+    book_slug = models.TextField()
+    who_username = models.TextField()
+    when = models.TextField()
+    what = models.TextField()
+    account_slug = models.TextField()
+    amount = models.TextField()
+    is_income = models.BooleanField()
+    tags_label = models.TextField()
+    country_code = models.CharField(max_length=2, choices=countries)
+    notes = models.TextField(blank=True)
+
+    creation_date = models.DateTimeField(default=now)
+    reason = models.CharField(
+        max_length=256, choices=((i, i) for i in (DELETE, MERGE)))
+
+    def __str__(self):
+        return '%s: %s (%s%s %s, by %s on %s, %s)' % (
+            self.book_slug, self.what,
+            '+' if self.is_income else '-', self.amount,
+            self.account_slug, self.who_username, self.when, self.tags_label)
+
+
+@receiver(pre_delete, sender=Entry)
+def record_entry_history(sender, instance, **kwargs):
+    EntryHistory.objects.create(
+        book_slug=instance.book.slug,
+        who_username=instance.who.username,
+        when=instance.when.isoformat(),
+        what=instance.what,
+        account_slug=instance.account.slug,
+        amount=str(instance.amount),
+        is_income=instance.is_income,
+        tags_label=', '.join(i for i, j in instance.tags.items() if j),
+        country_code=instance.country,
+        notes=instance.notes,
+        reason=EntryHistory.DELETE)

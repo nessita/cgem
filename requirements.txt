@@ -2,7 +2,7 @@ decorator==4.0.10
 defusedxml==0.4.1
 dj-database-url==0.4.1
 dj-static==0.0.6
-Django==1.10.4
+Django==1.10.7
 -e git+https://github.com/disqus/django-bitfield.git#egg=django_bitfield
 django-countries==4.0
 -e git+https://github.com/sophilabs/django-qurl-templatetag.git#egg=django_qurl_templatetag
