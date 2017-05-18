@@ -155,7 +155,7 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=i, tags=2**i,
+                book=self.book, account=account, amount=Decimal(i), tags=2**i,
                 is_income=False, what='Dummy')
             for i in range(5)]
         target = self.factory.make_entry(
@@ -190,7 +190,8 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=i, is_income=False)
+                book=self.book, account=account, amount=Decimal(i),
+                is_income=False)
             for i in range(1, 50, 3)]
 
         result = self.book.merge_entries(*entries)
@@ -204,7 +205,8 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=i, is_income=True)
+                book=self.book, account=account, amount=Decimal(i),
+                is_income=True)
             for i in range(1, 50, 3)]
 
         result = self.book.merge_entries(*entries)
@@ -217,11 +219,11 @@ class BookTestCase(BaseTestCase):
         account = self.factory.make_account()
         # create another entry that will make the creation fail
         initial = self.factory.make_entry(
-            book=self.book, account=account, what='foo', amount=sum(range(5)))
+            book=self.book, account=account, what='foo', amount=Decimal(10))
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what='foo', amount=i)
+                book=self.book, account=account, what='foo', amount=Decimal(i))
             for i in range(5)]
 
         with self.assertRaises(IntegrityError):
@@ -236,7 +238,7 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what='foo', amount=i)
+                book=self.book, account=account, what='foo', amount=Decimal(i))
             for i in range(5)]
 
         with patch('gemcore.models.Entry.objects.filter',

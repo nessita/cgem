@@ -234,7 +234,7 @@ class Book(models.Model):
 
         # prepare data for new Entry
         what = ', '.join(sorted(set(e.what for e in entries)))
-        amount = sum(Decimal(e.money) for e in entries)
+        amount = sum(e.money for e in entries)
         tags = reduce(operator.or_, [e.tags for e in entries])
         notes = '\n'.join(e.notes for e in entries)
         master = entries[0]
@@ -333,7 +333,7 @@ class Entry(models.Model):
 
     @property
     def money(self):
-        return str(self.amount if self.is_income else -self.amount)
+        return self.amount if self.is_income else -self.amount
 
 
 class EntryHistory(models.Model):
