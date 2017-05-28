@@ -23,6 +23,8 @@ urlpatterns = [
         gemcore.views.entry_remove, name='remove-entry'),
     url(r'^(?P<book_slug>[\w-]+)/entry/remove/$',
         gemcore.views.entry_remove, name='remove-entry'),
+    url(r'^(?P<book_slug>[\w-]+)/entry/merge/$',
+        gemcore.views.entry_merge, name='merge-entry'),
     url(r'^(?P<book_slug>[\w-]+)/balance/$',
         gemcore.views.balance, name='balance'),
     url(r'^(?P<book_slug>[\w-]+)/balance/(?P<currency_code>[A-Z]{3})/$',

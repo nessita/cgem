@@ -12,7 +12,8 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
-from django.views.decorators.http import require_GET, require_http_methods
+from django.utils.timezone import now
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 import gemcore.parser
 from gemcore.forms import (
@@ -183,7 +184,10 @@ def _process_post_on_entries(request, entries, edit_account_form, context):
 
     elif 'merge-selected' in request.POST:
         template = 'gemcore/merge-entries.html'
-        raise NotImplementedError()
+        book = context['book']
+        merge_dry_run = book.merge_entries(
+            *tuple(entries), dry_run=True, who=request.user, when=now())
+        context['merge_dry_run'] = merge_dry_run
 
     elif 'remove-selected' in request.POST:
         template = 'gemcore/remove-entries.html'
@@ -337,6 +341,35 @@ def entry_remove(request, book_slug, entry_id=None):
 
     return render(
         request, 'gemcore/remove-entries.html', dict(entries=entries))
+
+
+@require_POST
+@login_required
+def entry_merge(request, book_slug):
+    entries, context = filter_entries(request, book_slug)
+    if request.method == 'POST':
+        entries = entries.filter(id__in=request.POST.getlist('entry'))
+    else:
+        entries = Entry.objects.none()
+
+    if not entries:
+        raise Http404()
+
+    if request.method == 'POST':
+        if 'yes' in request.POST:
+            msg = ', '.join(str(e) for e in entries)
+            new_entry = context['book'].merge_entries(
+                *list(entries), dry_run=False, who=request.user, when=now())
+            messages.success(request, 'Entries "%s" merged.' % msg)
+            url = reverse('entry', args=(book_slug, new_entry.id))
+        else:
+            messages.warning(request, 'Merge of entries cancelled.')
+            url = reverse('entries', args=(book_slug,))
+
+        return HttpResponseRedirect(url + '?' + context['qs'])
+
+    return render(
+        request, 'gemcore/merge-entries.html', dict(entries=entries))
 
 
 @require_http_methods(['GET', 'POST'])

@@ -166,6 +166,11 @@ class BookTestCase(BaseTestCase):
         before_count = len(must_be_kept) + len(ids)
         assert Entry.objects.all().count() == before_count
 
+        from_dry_run = self.book.merge_entries(target, *entries, dry_run=True)
+        self.assertEqual(Entry.objects.all().count(), before_count)
+        for e in [target] + entries + must_be_kept:
+            self.assertEqual(Entry.objects.get(id=e.id), e)
+
         result = self.book.merge_entries(target, *entries)
 
         self.assertEqual(result.book, self.book)
@@ -180,6 +185,7 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.country, target.country)
         self.assertEqual(Entry.objects.last(), result)
         self.assertNotIn(result.id, ids)
+        # self.assertEqual(result, from_dry_run)
 
         self.assertEqual(Entry.objects.all().count(), len(must_be_kept) + 1)
         for e in must_be_kept:

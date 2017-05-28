@@ -43,6 +43,10 @@ TAGS = [  # order is IMPORTANT, do not re-order
 ]
 
 
+class DryRunError(Exception):
+    """Dry run requested."""
+
+
 def month_year_iter(start, end):
     # Adapted from:
     # http://stackoverflow.com/questions/5734438/how-to-create-a-month-iterator
@@ -207,8 +211,7 @@ class Book(models.Model):
 
         return {'complete': complete, 'months': months}
 
-    @transaction.atomic
-    def merge_entries(self, *entries):
+    def merge_entries(self, *entries, dry_run=False, when=None, who=None):
         # validate some minimal consistency on entries
         if len(entries) < 2:
             raise ValueError(
@@ -233,18 +236,26 @@ class Book(models.Model):
                 ', '.join(sorted(countries)))
 
         # prepare data for new Entry
+        master = entries[0]
+        who = who if who is not None else master.who
+        when = when if when is not None else master.when
         what = ', '.join(sorted(set(e.what for e in entries)))
         amount = sum(e.money for e in entries)
         tags = reduce(operator.or_, [e.tags for e in entries])
         notes = '\n'.join(e.notes for e in entries)
-        master = entries[0]
         kwargs = dict(
-            book=self, who=master.who, when=master.when, what=what,
-            account=accounts.pop(), amount=abs(amount), is_income=amount > 0,
-            tags=tags, country=countries.pop(), notes=notes)
+            book=self, who=who, when=when, what=what, account=accounts.pop(),
+            amount=abs(amount), is_income=amount > 0, tags=tags,
+            country=countries.pop(), notes=notes)
 
-        result = Entry.objects.create(**kwargs)
-        Entry.objects.filter(id__in=[e.id for e in entries]).delete()
+        try:
+            with transaction.atomic():
+                result = Entry.objects.create(**kwargs)
+                Entry.objects.filter(id__in=[e.id for e in entries]).delete()
+                if dry_run:
+                    raise DryRunError()
+        except DryRunError:
+            pass
 
         return result
 
