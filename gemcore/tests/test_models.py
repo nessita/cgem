@@ -166,7 +166,8 @@ class BookTestCase(BaseTestCase):
         before_count = len(must_be_kept) + len(ids)
         assert Entry.objects.all().count() == before_count
 
-        from_dry_run = self.book.merge_entries(target, *entries, dry_run=True)
+        # from_dry_run =
+        self.book.merge_entries(target, *entries, dry_run=True)
         self.assertEqual(Entry.objects.all().count(), before_count)
         for e in [target] + entries + must_be_kept:
             self.assertEqual(Entry.objects.get(id=e.id), e)

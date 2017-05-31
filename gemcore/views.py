@@ -12,8 +12,11 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
-from django.utils.timezone import now
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.http import (
+    require_GET,
+    require_POST,
+    require_http_methods,
+)
 
 import gemcore.parser
 from gemcore.forms import (
@@ -24,6 +27,7 @@ from gemcore.forms import (
     ChooseForm,
     CurrencyBalanceForm,
     EntryForm,
+    EntryMergeForm,
 )
 from gemcore.models import Account, Book, Entry
 
@@ -32,7 +36,43 @@ ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
 
 
-def filter_entries(request, book_slug):
+@require_GET
+@login_required
+def home(request):
+    books = request.user.book_set.all()
+    if books.count() == 1:
+        url = reverse('entries', args=(books.get().slug,))
+    else:
+        url = reverse('books')
+    return HttpResponseRedirect(url)
+
+
+@require_GET
+@login_required
+def books(request):
+    books = request.user.book_set.all()
+    context = dict(books=books)
+    return render(request, 'gemcore/books.html', context)
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required
+def book(request, book_slug=None):
+    book = None
+    if book_slug:
+        book = get_object_or_404(Book, slug=book_slug, users=request.user)
+
+    if request.method == 'POST':
+        form = BookForm(instance=book, data=request.POST)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(reverse(home))
+    else:
+        form = BookForm(instance=book)
+    return render(request, 'gemcore/book.html', dict(form=form, book=book))
+
+
+def filter_entries(request, book_slug, **kwargs):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     params = request.GET
     q = params.get('q')
@@ -89,6 +129,9 @@ def filter_entries(request, book_slug):
             [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
         entries = entries.filter(tags=tags)
 
+    if kwargs:
+        entries = entries.filter(**kwargs)
+
     years = book.years(entries)
     months = OrderedDict(sorted({
         (d.month, d.strftime('%b'))
@@ -107,112 +150,71 @@ def filter_entries(request, book_slug):
         country=country, countries=countries,
         account=account, accounts=accounts, currency_code=currency_code,
     )
-    return entries, context
-
-
-@require_GET
-@login_required
-def home(request):
-    books = request.user.book_set.all()
-    if books.count() == 1:
-        url = reverse('entries', args=(books.get().slug,))
-    else:
-        url = reverse('books')
-    return HttpResponseRedirect(url)
-
-
-@require_GET
-@login_required
-def books(request):
-    books = request.user.book_set.all()
-    context = dict(books=books)
-    return render(request, 'gemcore/books.html', context)
-
-
-@require_http_methods(['GET', 'POST'])
-@login_required
-def book(request, book_slug=None):
-    book = None
-    if book_slug:
-        book = get_object_or_404(Book, slug=book_slug, users=request.user)
-
-    if request.method == 'POST':
-        form = BookForm(instance=book, data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse(home))
-    else:
-        form = BookForm(instance=book)
-    return render(request, 'gemcore/book.html', dict(form=form, book=book))
-
-
-def _process_post_on_entries(request, entries, edit_account_form, context):
-    assert request.method == 'POST', 'HTTP method should be POST'
-    here = request.get_full_path()
-
-    ids = [int(i) for i in request.POST.getlist('edit-entry')]
-    if len(ids) == 0:
-        messages.error(request, 'Invalid request, no entries selected.')
-        return HttpResponseRedirect(here)
-
-    entries = entries.filter(id__in=ids)
-    if entries.count() != len(ids):
-        messages.error(
-            request, 'Invalid request, invalid choices for entries.')
-        return HttpResponseRedirect(here)
-
-    if 'change-account' in request.POST:
-        if edit_account_form.is_valid():
-            target = edit_account_form.cleaned_data['target']
-            if not target:
-                messages.error(
-                    request, 'Invalid request, the target account is empty.')
-            else:
-                entries.update(account=target)
-                msg = (', '.join(str(e) for e in entries), target)
-                messages.success(
-                    request, 'Entries "%s" changed to account %s.' % msg)
-        else:
-            messages.error(
-                request, 'Invalid request for changing the account: %s' %
-                         edit_account_form.errors)
-        return HttpResponseRedirect(here)
-
-    elif 'change-tags' in request.POST:
-        template = 'gemcore/change-tags.html'
-        raise NotImplementedError()
-
-    elif 'merge-selected' in request.POST:
-        template = 'gemcore/merge-entries.html'
-        book = context['book']
-        merge_dry_run = book.merge_entries(
-            *tuple(entries), dry_run=True, who=request.user, when=now())
-        context['merge_dry_run'] = merge_dry_run
-
-    elif 'remove-selected' in request.POST:
-        template = 'gemcore/remove-entries.html'
-
-    else:
-        raise Http404()
-
-    context['entries'] = entries
-    return render(request, template, context)
+    return book, entries, context
 
 
 @require_http_methods(['GET', 'POST'])
 @login_required
 def entries(request, book_slug):
-    entries, context = filter_entries(request, book_slug)
-    book = context['book']
+    book, entries, context = filter_entries(request, book_slug)
     accounts = Account.objects.by_book(book)
     currencies = sorted(set(accounts.values_list('currency_code', flat=True)))
 
     edit_account_form = ChooseForm(queryset=accounts)
     if request.method == 'POST':
         edit_account_form = ChooseForm(queryset=accounts, data=request.POST)
-        return _process_post_on_entries(
-            request, entries, edit_account_form, context)
+        here = request.get_full_path()
 
+        ids = [int(i) for i in request.POST.getlist('edit-entry')]
+        if len(ids) == 0:
+            messages.error(request, 'Invalid request, no entries selected.')
+            return HttpResponseRedirect(here)
+
+        entries = entries.filter(id__in=ids)
+        if entries.count() != len(ids):
+            messages.error(
+                request, 'Invalid request, invalid choices for entries.')
+            return HttpResponseRedirect(here)
+
+        if 'change-account' in request.POST:
+            if edit_account_form.is_valid():
+                target = edit_account_form.cleaned_data['target']
+                if not target:
+                    messages.error(
+                        request, 'Invalid request, target account is empty.')
+                else:
+                    entries.update(account=target)
+                    msg = (', '.join(str(e) for e in entries), target)
+                    messages.success(
+                        request, 'Entries "%s" changed to account %s.' % msg)
+            else:
+                messages.error(
+                    request, 'Invalid request for changing the account: %s' %
+                             edit_account_form.errors)
+            return HttpResponseRedirect(here)
+
+        elif 'change-tags' in request.POST:
+            template = 'gemcore/change-tags.html'
+            raise NotImplementedError()
+
+        elif 'merge-selected' in request.POST:
+            template = 'gemcore/merge-entries.html'
+            when = sorted(set(entries.values_list('when', flat=True)))[0]
+            merge_dry_run = book.merge_entries(
+                *tuple(entries), dry_run=True, who=request.user, when=when)
+            context['merge_dry_run'] = merge_dry_run
+            context['form'] = EntryMergeForm(initial=dict(when=when))
+
+        elif 'remove-selected' in request.POST:
+            template = 'gemcore/remove-entries.html'
+
+        else:
+            raise Http404()
+
+        context['entries'] = entries
+        return render(request, template, context)
+
+    # Process GET.
     entries = entries.order_by('-when', 'what', 'id')
 
     paginator = Paginator(entries, ENTRIES_PER_PAGE)
@@ -262,7 +264,7 @@ def entry(request, book_slug, entry_id=None):
     if entry_id:
         entry = get_object_or_404(Entry, book=book, id=entry_id)
 
-    context = dict(book=book, entry=entry)
+    context = dict(book=book, entry=entry, qs=urlencode(request.GET))
     if request.method == 'POST':
         form = EntryForm(instance=entry, book=book, data=request.POST)
         if form.is_valid():
@@ -277,10 +279,9 @@ def entry(request, book_slug, entry_id=None):
             elif 'save-and-edit' in request.POST:
                 kwargs['entry_id'] = entry.id
                 url = reverse('entry', kwargs=kwargs)
-            elif 'save-and-go-back' in request.POST:
-                url = reverse('entries', kwargs=kwargs)
-            else:  # could be a remove
-                url = reverse('entries', kwargs=kwargs)
+            else:  # could be a remove or 'save-and-go-back'
+                url = reverse(
+                    'entries', kwargs=kwargs) + '?' + request.POST['qs']
             messages.success(
                 request, 'Entry "%s" successfully processed.' % entry)
             return HttpResponseRedirect(url)
@@ -318,7 +319,7 @@ def entry(request, book_slug, entry_id=None):
 @require_http_methods(['GET', 'POST'])
 @login_required
 def entry_remove(request, book_slug, entry_id=None):
-    entries, context = filter_entries(request, book_slug)
+    book, entries, context = filter_entries(request, book_slug)
     if request.method == 'GET':
         entries = entries.filter(id=entry_id)
     elif request.method == 'POST':
@@ -337,7 +338,7 @@ def entry_remove(request, book_slug, entry_id=None):
         else:
             messages.warning(request, 'Removal of entries cancelled.')
         return HttpResponseRedirect(
-            reverse('entries', args=(book_slug,)) + '?' + context['qs'])
+            reverse('entries', args=(book.slug,)) + '?' + context['qs'])
 
     return render(
         request, 'gemcore/remove-entries.html', dict(entries=entries))
@@ -346,30 +347,30 @@ def entry_remove(request, book_slug, entry_id=None):
 @require_POST
 @login_required
 def entry_merge(request, book_slug):
-    entries, context = filter_entries(request, book_slug)
-    if request.method == 'POST':
-        entries = entries.filter(id__in=request.POST.getlist('entry'))
-    else:
-        entries = Entry.objects.none()
+    assert request.method == 'POST'
+    book, entries, context = filter_entries(
+        request, book_slug, id__in=request.POST.getlist('entry'))
 
     if not entries:
         raise Http404()
 
-    if request.method == 'POST':
-        if 'yes' in request.POST:
+    url = reverse('entries', args=(book_slug,))
+    if 'yes' in request.POST:
+        form = EntryMergeForm(request.POST)
+        if form.is_valid():
             msg = ', '.join(str(e) for e in entries)
-            new_entry = context['book'].merge_entries(
-                *list(entries), dry_run=False, who=request.user, when=now())
+            when = form.cleaned_data['when']
+            assert when is not None
+            new_entry = book.merge_entries(
+                *list(entries), dry_run=False, who=request.user, when=when)
             messages.success(request, 'Entries "%s" merged.' % msg)
             url = reverse('entry', args=(book_slug, new_entry.id))
         else:
-            messages.warning(request, 'Merge of entries cancelled.')
-            url = reverse('entries', args=(book_slug,))
+            messages.warning(request, 'Merge cancelled, form had errors: %r.' % form.errors)
+    else:
+        messages.warning(request, 'Merge of entries cancelled.')
 
-        return HttpResponseRedirect(url + '?' + context['qs'])
-
-    return render(
-        request, 'gemcore/merge-entries.html', dict(entries=entries))
+    return HttpResponseRedirect(url + '?' + context['qs'])
 
 
 @require_http_methods(['GET', 'POST'])

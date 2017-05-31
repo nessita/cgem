@@ -106,6 +106,13 @@ class EntryForm(forms.ModelForm):
         )
 
 
+class EntryMergeForm(forms.Form):
+
+    when = forms.DateField(
+        widget=forms.DateInput(
+            attrs={'class': 'form-control input-sm datepicker'}))
+
+
 class CSVExpenseForm(forms.Form):
 
     account = forms.ModelChoiceField(
