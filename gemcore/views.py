@@ -521,13 +521,14 @@ def balance(
     if chosen_accounts:
         start = request.GET.get('start')
         end = request.GET.get('end')
+        exclude_tags = request.GET.getlist('exclude')
         if start:
             start = datetime.strptime(start, '%Y-%m-%d').date()
         if end:
             end = datetime.strptime(end, '%Y-%m-%d').date()
         # book.balance will only return entries for the book, which we ensured
         # request.user has access to
-        balance = book.balance(chosen_accounts, start, end)
+        balance = book.balance(chosen_accounts, start, end, exclude_tags)
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,

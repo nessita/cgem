@@ -174,11 +174,15 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
-    def balance(self, accounts=None, start=None, end=None):
+    def balance(self, accounts=None, start=None, end=None, exclude_tags=None):
         if accounts:
             entries = self.entry_set.filter(account__in=accounts)
         else:
             entries = self.entry_set.all()
+
+        if exclude_tags:
+            for tag in exclude_tags:
+                entries = entries.exclude(tags=getattr(Entry.tags, tag))
 
         if not entries:
             return
