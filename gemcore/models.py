@@ -215,7 +215,8 @@ class Book(models.Model):
 
         return {'complete': complete, 'months': months}
 
-    def merge_entries(self, *entries, dry_run=False, when=None, who=None):
+    def merge_entries(
+            self, *entries, dry_run=False, when=None, who=None, what=None):
         # validate some minimal consistency on entries
         if len(entries) < 2:
             raise ValueError(
@@ -243,7 +244,10 @@ class Book(models.Model):
         master = entries[0]
         who = who if who is not None else master.who
         when = when if when is not None else master.when
-        what = ', '.join(sorted(set(e.what for e in entries)))
+        if what is None:
+            what = ' | '.join(sorted(set(
+                '%s %s$%s' % (e.what, '+' if e.is_income else '-', e.amount)
+                for e in entries)))
         amount = sum(e.money for e in entries)
         tags = reduce(operator.or_, [e.tags for e in entries])
         notes = '\n'.join(e.notes for e in entries)

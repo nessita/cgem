@@ -160,7 +160,7 @@ class BookTestCase(BaseTestCase):
             for i in range(5)]
         target = self.factory.make_entry(
             book=self.book, account=account, amount=Decimal('100.88'),
-            is_income=True, tags=4096)
+            is_income=True, tags=4096, what='A target entry')
         ids = [e.id for e in entries] + [target.id]
 
         before_count = len(must_be_kept) + len(ids)
@@ -177,7 +177,9 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.book, self.book)
         self.assertEqual(result.who, target.who)
         self.assertEqual(result.when, target.when)
-        self.assertEqual(result.what, '%s, %s' % (target.what, 'Dummy'))
+        expected = ('A target entry +$100.88 | Dummy -$0 | Dummy -$1 | '
+                    'Dummy -$2 | Dummy -$3 | Dummy -$4')
+        self.assertEqual(result.what, expected)
         self.assertEqual(result.account, account)
         self.assertEqual(result.amount, Decimal('90.88'))
         self.assertEqual(result.is_income, True)
@@ -234,7 +236,7 @@ class BookTestCase(BaseTestCase):
             for i in range(5)]
 
         with self.assertRaises(IntegrityError):
-            self.book.merge_entries(*entries)
+            self.book.merge_entries(*entries, what='foo')
 
         self.assertEqual(Entry.objects.all().count(), len(entries) + 1)
         for e in entries + [initial]:
