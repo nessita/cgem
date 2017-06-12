@@ -200,8 +200,13 @@ def entries(request, book_slug):
         elif 'merge-selected' in request.POST:
             template = 'gemcore/merge-entries.html'
             when = sorted(set(entries.values_list('when', flat=True)))[0]
-            merge_dry_run = book.merge_entries(
-                *tuple(entries), dry_run=True, who=request.user, when=when)
+            try:
+                merge_dry_run = book.merge_entries(
+                    *tuple(entries), dry_run=True, who=request.user, when=when)
+            except ValueError as e:
+                messages.error(request, str(e))
+                return HttpResponseRedirect(here)
+
             context['merge_dry_run'] = merge_dry_run
             context['form'] = EntryMergeForm(initial=dict(when=when))
 
@@ -366,7 +371,8 @@ def entry_merge(request, book_slug):
             messages.success(request, 'Entries "%s" merged.' % msg)
             url = reverse('entry', args=(book_slug, new_entry.id))
         else:
-            messages.warning(request, 'Merge cancelled, form had errors: %r.' % form.errors)
+            messages.warning(
+                request, 'Merge cancelled, form had errors: %r.' % form.errors)
     else:
         messages.warning(request, 'Merge of entries cancelled.')
 

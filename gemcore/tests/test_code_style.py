@@ -9,11 +9,10 @@ from django.conf import settings
 from django.test import TestCase
 from pyflakes.scripts.pyflakes import checkPath
 
-import gem
 import gemcore
 
 
-PACKAGES = [gem, gemcore]
+PACKAGES = [gemcore]
 
 
 class Pep8ConformanceTestCase(TestCase):
