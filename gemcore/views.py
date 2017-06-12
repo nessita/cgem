@@ -199,7 +199,7 @@ def entries(request, book_slug):
 
         elif 'merge-selected' in request.POST:
             template = 'gemcore/merge-entries.html'
-            when = sorted(set(entries.values_list('when', flat=True)))[0]
+            when = sorted(set(entries.values_list('when', flat=True)))[-1]
             try:
                 merge_dry_run = book.merge_entries(
                     *tuple(entries), dry_run=True, who=request.user, when=when)
