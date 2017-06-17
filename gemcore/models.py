@@ -22,25 +22,27 @@ from django_countries import countries
 CURRENCIES = [
     'ARS', 'BRL', 'CAD', 'CNY', 'EUR', 'GBP', 'USD', 'UYU',
 ]
-TAGS = [  # order is IMPORTANT, do not re-order
-    'bureaucracy',  # 1
-    'car',  # 2
-    'change',  # 4
-    'food',  # 8
-    'fun',  # 16
-    'health',  # 32
-    'house',  # 64
-    'maintainance',  # 128
-    'other',  # 256
-    'rent',  # 512
-    'taxes',  # 1024
-    'travel (transport)',  # 2048
-    'utilities',  # 4096
-    'work(ish)',  # 8192
-    'imported',  # 16384
-    'trips',  # 32768
-    'investments',  # 65536
-]
+TAGS = OrderedDict([  # order is IMPORTANT, do not re-order
+    ('bureaucracy', 1),
+    ('car', 2),
+    ('change', 4),
+    ('food', 8),
+    ('fun', 16),
+    ('health', 32),
+    ('house', 64),
+    ('maintainance', 128),
+    ('other', 256),
+    ('rent', 512),
+    ('taxes', 1024),
+    ('travel (transport)', 2048),
+    ('utilities', 4096),
+    ('work(ish)', 8192),
+    ('imported', 16384),
+    ('trips', 32768),
+])
+REVERSE_TAGS = {
+    2**i: t for i, t in enumerate(TAGS)
+}
 
 
 class DryRunError(Exception):
@@ -57,32 +59,43 @@ def month_year_iter(start, end):
         yield date(y, m + 1, 1)
 
 
-class Balance(object):
+def calculate_balance(entries, start, end, with_tags=False):
+    assert entries.count() > 0
+    assert start <= end, start
+    entries = entries.filter(when__range=(start, end))
 
-    def __init__(self, entries, start, end):
-        super(Balance, self).__init__()
-        assert entries.count() > 0
-        assert start <= end, start
-        self.start = start
-        self.end = end
-        self.entries = entries.filter(when__range=(start, end))
+    result = {
+        'start': start, 'end': end,
+        'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
+    }
+    tags = defaultdict(lambda: defaultdict(Decimal))
+    totals = entries.values('is_income', 'tags').annotate(
+        models.Sum('amount'), models.Count('tags'))
+    for t in totals:
+        item = tags[t['tags']]
 
-    def balance(self):
-        totals = self.entries.values('is_income').annotate(
-            models.Sum('amount'))
-        assert len(totals) <= 2, totals
+        key = 'income' if t['is_income'] else 'expense'
+        value = t['amount__sum']
+        item[key] = value
 
-        result = {
-            'start': self.start, 'end': self.end,
-            'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
-        }
-        for item in totals:
-            if item['is_income']:
-                result['income'] = item['amount__sum']
-            else:
-                result['expense'] = item['amount__sum']
-        result['result'] = result['income'] - result['expense']
-        return result
+        # grand-local result per type of entry
+        result[key] += value
+        # tag-local result
+        item['result'] = item['income'] - item['expense']
+        item['count'] += t['tags__count']
+
+    result['result'] = result['income'] - result['expense']
+
+    if with_tags:
+        result['tags'] = {}
+        for tag, data in tags.items():
+            try:
+                tag_label = REVERSE_TAGS[tag]
+            except KeyError:
+                tag_label = ', '.join(t for t, i in TAGS.items() if tag & i)
+            result['tags'][tag_label] = dict(data)
+
+    return result
 
 
 class Book(models.Model):
@@ -174,9 +187,9 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
-    def balance(
+    def _balance(
             self, accounts=None, start=None, end=None, tags=None,
-            exclude_tags=None):
+            exclude_tags=None, with_tags=False):
         if accounts:
             entries = self.entry_set.filter(account__in=accounts)
         else:
@@ -199,7 +212,17 @@ class Book(models.Model):
 
         # Range test (inclusive).
         assert start <= end
-        complete = Balance(entries, start, end).balance()
+        return calculate_balance(entries, start, end, with_tags), entries
+
+    def balance(
+            self, accounts=None, start=None, end=None, tags=None,
+            exclude_tags=None):
+        result = self._balance(accounts, start, end, tags, exclude_tags)
+        if not result:
+            return
+
+        result, entries = result
+        start, end = result['start'], result['end']
 
         months = []
         last_month = None
@@ -207,18 +230,26 @@ class Book(models.Model):
         for next_month in month_year_iter(start, end):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
-                balance = Balance(entries, last_month, end_of_month).balance()
-                sanity_check += balance['result']
-                months.append(balance)
+                month_balance = calculate_balance(
+                    entries, last_month, end_of_month)
+                sanity_check += month_balance['result']
+                months.append(month_balance)
             last_month = next_month
 
-        balance = Balance(entries, last_month, end).balance()
-        sanity_check += balance['result']
-        months.append(balance)
+        month_balance = calculate_balance(entries, last_month, end)
+        sanity_check += month_balance['result']
+        months.append(month_balance)
 
-        assert sanity_check == complete['result']
+        assert sanity_check == result['result']
 
-        return {'complete': complete, 'months': months}
+        return {'complete': result, 'months': months}
+
+    def breakdown(self, accounts=None, start=None, end=None):
+        result = self._balance(accounts, start, end, with_tags=True)
+        if not result:
+            return
+
+        return result[0]
 
     def merge_entries(
             self, *entries, dry_run=False, when=None, who=None, what=None):

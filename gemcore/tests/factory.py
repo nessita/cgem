@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 
-from gemcore.models import Account, Book, Entry
+from gemcore.models import TAGS, Account, Book, Entry
 
 
 User = get_user_model()
@@ -75,6 +75,8 @@ class Factory(object):
             who = self.make_user()
         if what is None:
             what = 'Description of entry %i' % i
-        return Entry.objects.create(
+        tags = sum(TAGS[i] for i in kwargs.pop('tags', []))
+        result = Entry.objects.create(
             book=book, account=account, who=who, what=what, amount=amount,
-            country=country, **kwargs)
+            tags=tags, country=country, **kwargs)
+        return result

@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.db import IntegrityError
 from django.utils.timezone import now
 
-from gemcore.models import Entry
+from gemcore.models import TAGS, REVERSE_TAGS, Entry
 from gemcore.tests.helpers import BaseTestCase
 
 
@@ -155,12 +155,12 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=Decimal(i), tags=2**i,
-                is_income=False, what='Dummy')
+                book=self.book, account=account, amount=Decimal(i),
+                tags=[REVERSE_TAGS[2**i]], is_income=False, what='Dummy')
             for i in range(5)]
         target = self.factory.make_entry(
             book=self.book, account=account, amount=Decimal('100.88'),
-            is_income=True, tags=4096, what='A target entry')
+            is_income=True, tags=[REVERSE_TAGS[4096]], what='A target entry')
         ids = [e.id for e in entries] + [target.id]
 
         before_count = len(must_be_kept) + len(ids)
@@ -258,6 +258,16 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(Entry.objects.all().count(), len(entries))
         for e in entries:
             self.assertEqual(Entry.objects.get(id=e.id), e)
+
+    def test_breakdown(self):
+        for i, t in enumerate(TAGS, start=1):
+            for j in range(i):
+                self.factory.make_entry(book=self.book, tags=[t])
+                if j % 2:
+                    self.factory.make_entry(
+                        book=self.book, tags=[t], is_income=True)
+
+        self.book.breakdown()
 
 
 class AccountTestCase(BaseTestCase):
