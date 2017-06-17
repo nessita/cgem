@@ -145,6 +145,7 @@ LOGIN_REDIRECT_URL = '/'
 MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
 PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
+SESSION_COOKIE_AGE = 43200  # 12 hours
 SITE_ID = 1
 
 try:
