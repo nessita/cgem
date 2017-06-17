@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'gemcore',
-    'taggit',
     'django_countries',
     'qurl_templatetag',
 ]
@@ -144,9 +143,6 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
 MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
-MIGRATION_MODULES = {
-    'taggit': 'other_migrations.taggit',
-}
 PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 SITE_ID = 1

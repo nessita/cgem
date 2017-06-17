@@ -6,7 +6,6 @@ Django==1.10.7
 -e git+https://github.com/disqus/django-bitfield.git#egg=django_bitfield
 django-countries==4.0
 -e git+https://github.com/sophilabs/django-qurl-templatetag.git#egg=django_qurl_templatetag
-django-taggit==0.21.3
 django-templatetag-sugar==1.0
 django-toolbelt==0.0.1
 flake8==3.2.1
