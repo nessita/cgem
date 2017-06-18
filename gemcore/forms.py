@@ -3,7 +3,7 @@ from datetime import date
 from django import forms
 from django_countries import countries
 
-from gemcore.models import Account, Book, Entry
+from gemcore.models import TAGS, Account, Book, Entry
 
 
 class ChooseForm(forms.Form):
@@ -72,20 +72,24 @@ class EntryForm(forms.ModelForm):
     def __init__(self, book, *args, **kwargs):
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields['account'].queryset = Account.objects.by_book(book)
+        self.fields['labels'] = forms.MultipleChoiceField(
+            choices=((i, i) for i in TAGS),
+            widget=forms.CheckboxSelectMultiple())
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
-        if not cleaned_data.get('tags'):
-            raise forms.ValidationError('Missing tags, choose at leas one.')
+        if not cleaned_data.get('labels'):
+            raise forms.ValidationError('Missing labels, choose at leas one.')
         return cleaned_data
 
     def save(self, *args, book, **kwargs):
         self.instance.book = book
+        self.instance.tags = sum(TAGS[i] for i in self.instance.labels)
         return super(EntryForm, self).save(*args, **kwargs)
 
     class Meta:
         model = Entry
-        exclude = ('book',)
+        exclude = ('book', 'tags')
         widgets = dict(
             when=forms.DateInput(
                 attrs={'class': 'form-control datepicker'}),

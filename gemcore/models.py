@@ -10,6 +10,7 @@ from functools import reduce
 
 from bitfield import BitField
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
 from django.db.models.signals import pre_delete
@@ -34,9 +35,9 @@ TAGS = OrderedDict([  # order is IMPORTANT, do not re-order
     ('other', 256),
     ('rent', 512),
     ('taxes', 1024),
-    ('travel (transport)', 2048),
+    ('transportation', 2048),
     ('utilities', 4096),
-    ('work(ish)', 8192),
+    ('work-ish', 8192),
     ('imported', 16384),
     ('trips', 32768),
 ])
@@ -286,10 +287,11 @@ class Book(models.Model):
                 for e in entries)))
         amount = sum(e.money for e in entries)
         tags = reduce(operator.or_, [e.tags for e in entries])
+        labels = reduce(operator.add, [e.labels for e in entries])
         notes = '\n'.join(e.notes for e in entries)
         kwargs = dict(
             book=self, who=who, when=when, what=what, account=accounts.pop(),
-            amount=abs(amount), is_income=amount > 0, tags=tags,
+            amount=abs(amount), is_income=amount > 0, tags=tags, labels=labels,
             country=countries.pop(), notes=notes)
 
         try:
@@ -368,7 +370,10 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0'))])
     is_income = models.BooleanField(default=False, verbose_name='Income?')
-    tags = BitField(flags=[(t.lower(), t) for t in TAGS])
+    tags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
+    labels = ArrayField(
+        base_field=models.CharField(
+            choices=((i, i) for i in TAGS.keys()), max_length=256))
     country = models.CharField(max_length=2, choices=countries)
     notes = models.TextField(blank=True)
 

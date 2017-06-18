@@ -14,8 +14,6 @@ import django.utils.timezone
 
 class Migration(migrations.Migration):
 
-    replaces = [('gemcore', '0001_initial'), ('gemcore', '0002_auto_20140830_2348'), ('gemcore', '0003_auto_20140903_2351'), ('gemcore', '0004_account_currency_code'), ('gemcore', '0005_auto_20140927_2326'), ('gemcore', '0006_entry_flags'), ('gemcore', '0007_auto_20140928_2102'), ('gemcore', '0008_remove_entry_tags'), ('gemcore', '0009_auto_20141005_1831'), ('gemcore', '0010_entry_notes'), ('gemcore', '0011_auto_20141009_2009'), ('gemcore', '0012_auto_20150301_1809'), ('gemcore', '0013_auto_20150419_1923'), ('gemcore', '0014_auto_20160919_1801'), ('gemcore', '0015_auto_20160921_1834'), ('gemcore', '0016_account_active'), ('gemcore', '0017_auto_20161109_2355'), ('gemcore', '0018_tagregex_transfer'), ('gemcore', '0019_auto_20161230_1921'), ('gemcore', '0020_auto_20161230_1940'), ('gemcore', '0021_entryhistory')]
-
     initial = True
 
     dependencies = [

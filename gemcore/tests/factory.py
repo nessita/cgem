@@ -75,8 +75,9 @@ class Factory(object):
             who = self.make_user()
         if what is None:
             what = 'Description of entry %i' % i
-        tags = sum(TAGS[i] for i in kwargs.pop('tags', []))
+        labels = kwargs.pop('tags', [])
+        tags = sum(TAGS[i] for i in labels)
         result = Entry.objects.create(
             book=book, account=account, who=who, what=what, amount=amount,
-            tags=tags, country=country, **kwargs)
+            tags=tags, labels=labels, country=country, **kwargs)
         return result

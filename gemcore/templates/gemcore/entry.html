@@ -17,6 +17,9 @@
     {% if form.non_field_errors %}
     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
+    {% if form.errors %}
+    <div class="alert alert-danger">{{ form.errors }}</div>
+    {% endif %}
 
     {% include 'gemcore/_form_field.html' with field=form.who sronly=True %}
     {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
@@ -28,7 +31,7 @@
 
     <div class="form-group checkbox">{{ form.is_income }} Income?</div>
 
-    <div class="form-group tags">{{ form.tags }}</div>
+    <div class="form-group tags">{{ form.labels }}</div>
 
     <input type="hidden" name="qs" value="{{ qs }}" />
 
