@@ -518,17 +518,27 @@ def balance(
 
     balance = None
     if chosen_accounts:
-        start = request.GET.get('start')
-        end = request.GET.get('end')
+        entries = book.entry_set.filter(account__in=chosen_accounts)
+
         tags = request.GET.getlist('tag')
+        if tags:
+            entries = entries.filter(labels__contained_by=tags)
+
         exclude_tags = request.GET.getlist('exclude')
+        if exclude_tags:
+            entries = entries.exclude(labels__contained_by=exclude_tags)
+
+        start = request.GET.get('start')
         if start:
             start = datetime.strptime(start, '%Y-%m-%d').date()
+
+        end = request.GET.get('end')
         if end:
             end = datetime.strptime(end, '%Y-%m-%d').date()
+
         # book.balance will only return entries for the book, which we ensured
         # request.user has access to
-        balance = book.balance(chosen_accounts, start, end, tags, exclude_tags)
+        balance = book.balance(entries, start, end)
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,

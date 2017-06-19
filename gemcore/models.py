@@ -56,28 +56,6 @@ def month_year_iter(start, end):
         yield date(y, m + 1, 1)
 
 
-def calculate_balance(entries, start, end):
-    assert entries.count() > 0
-    assert start <= end, start
-    entries = entries.filter(when__range=(start, end))
-    totals = entries.values('is_income').annotate(models.Sum('amount'))
-
-    assert len(totals) <= 2, totals
-
-    result = {
-        'start': start, 'end': end,
-        'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
-    }
-    for t in totals:
-        key = 'income' if t['is_income'] else 'expense'
-        value = t['amount__sum']
-        # grand-local result per type of entry
-        result[key] += value
-
-    result['result'] = result['income'] - result['expense']
-    return result
-
-
 class Book(models.Model):
 
     name = models.CharField(max_length=256)
@@ -167,20 +145,31 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
-    def _balance(
-            self, accounts=None, start=None, end=None, tags=None,
-            exclude_tags=None):
-        if accounts:
-            entries = self.entry_set.filter(account__in=accounts)
-        else:
+    def calculate_balance(self, entries, start, end):
+        # Range test (inclusive).
+        assert start <= end, start
+        entries = entries.filter(when__range=(start, end))
+        totals = entries.values('is_income').annotate(models.Sum('amount'))
+
+        assert len(totals) <= 2, totals
+
+        result = {
+            'start': start, 'end': end,
+            'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
+        }
+        for t in totals:
+            key = 'income' if t['is_income'] else 'expense'
+            value = t['amount__sum']
+            # grand-local result per type of entry
+            result[key] += value
+
+        result['result'] = result['income'] - result['expense']
+        return result
+
+    def balance(self, entries=None, start=None, end=None):
+        if entries is None:
             entries = self.entry_set.all()
-
-        if tags:
-            entries = entries.filter(labels__contained_by=tags)
-        if exclude_tags:
-            entries = entries.exclude(labels__contained_by=exclude_tags)
-
-        if not entries:
+        elif entries.count() == 0:
             return
 
         if not start:
@@ -188,19 +177,9 @@ class Book(models.Model):
         if not end:
             end = entries.latest('when').when
 
-        # Range test (inclusive).
-        assert start <= end
-        return calculate_balance(entries, start, end), entries
-
-    def balance(
-            self, accounts=None, start=None, end=None, tags=None,
-            exclude_tags=None):
-        result = self._balance(accounts, start, end, tags, exclude_tags)
+        result = self.calculate_balance(entries, start, end)
         if not result:
             return
-
-        result, entries = result
-        start, end = result['start'], result['end']
 
         months = []
         last_month = None
@@ -208,13 +187,13 @@ class Book(models.Model):
         for next_month in month_year_iter(start, end):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
-                month_balance = calculate_balance(
+                month_balance = self.calculate_balance(
                     entries, last_month, end_of_month)
                 sanity_check += month_balance['result']
                 months.append(month_balance)
             last_month = next_month
 
-        month_balance = calculate_balance(entries, last_month, end)
+        month_balance = self.calculate_balance(entries, last_month, end)
         sanity_check += month_balance['result']
         months.append(month_balance)
 
@@ -222,12 +201,20 @@ class Book(models.Model):
 
         return {'complete': result, 'months': months}
 
-    def breakdown(self, accounts=None, start=None, end=None):
-        result = self._balance(accounts, start, end)
-        if not result:
+    def breakdown(self, entries=None, start=None, end=None):
+        if entries is None:
+            entries = self.entry_set.all()
+        elif entries.count() == 0:
             return
 
-        return result[0]
+        if not start:
+            start = entries.earliest('when').when
+        if not end:
+            end = entries.latest('when').when
+
+        entries = entries.filter(when__range=(start, end))
+        result = self.calculate_balance(entries, start, end)
+        return result
 
     def merge_entries(
             self, *entries, dry_run=False, when=None, who=None, what=None):

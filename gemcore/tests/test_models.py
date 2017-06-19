@@ -21,12 +21,12 @@ class BookTestCase(BaseTestCase):
             name='our-expenses-test', users=[self.user1, self.user2])
 
     def test_balance_one_account(self, account=None):
+        # no entries
+        balance = self.book.balance(Entry.objects.none())
+        self.assertIsNone(balance)
+
         if account is None:
             account = self.factory.make_account()
-
-        # no entries
-        balance = self.book.balance([account])
-        self.assertIsNone(balance)
 
         # add some entries, $1 each, all but one the same day
         when = now().date()
@@ -39,7 +39,8 @@ class BookTestCase(BaseTestCase):
             book=self.book, account=account, when=other_when)
 
         other_first_of_month = date(other_when.year, other_when.month, 1)
-        balance = self.book.balance([account])
+        balance = self.book.balance(
+            entries=Entry.objects.filter(account=account))
         expected = {
             'complete': {
                 'expense': Decimal('3.00'),
