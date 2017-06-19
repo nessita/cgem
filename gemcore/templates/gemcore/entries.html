@@ -165,8 +165,8 @@
                 </td>
                 <td>
                     {{ entry.country }}<br/>
-                    {% for t, is_set in entry.tags %}
-                    {% if is_set %}{{ t }}<br/>{% endif %}
+                    {% for t in entry.labels %}
+                    {{ t }}<br/>
                     {% endfor %}
                 </td>
             </tr>

@@ -1,6 +1,3 @@
-from bitfield import BitField
-from bitfield.admin import BitFieldListFilter
-from bitfield.forms import BitFieldCheckboxSelectMultiple
 from django.contrib import admin
 
 from gemcore.models import Account, Book, Entry, EntryHistory, TagRegex
@@ -29,16 +26,27 @@ class BookAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
 
 
+class TagListFilter(admin.SimpleListFilter):
+    """List filter based on the values from a model's ArrayField. """
+
+    title = 'Tags'
+    parameter_name = 'tag'
+
+    def lookups(self, request, model_admin):
+        tags = Entry.objects.values_list('labels', flat=True)
+        return sorted({(tag, tag) for item in tags for tag in item if tag})
+
+    def queryset(self, request, queryset):
+        lookup_value = self.value()
+        if lookup_value:
+            queryset = queryset.filter(labels__contains=[lookup_value])
+        return queryset
+
+
 class EntryAdmin(admin.ModelAdmin):
 
     search_fields = ('what', 'when')
-    list_filter = (
-        'who', 'account', 'when',
-        ('tags', BitFieldListFilter),
-    )
-    formfield_overrides = {
-        BitField: {'widget': BitFieldCheckboxSelectMultiple},
-    }
+    list_filter = ('who', 'account', 'when', TagListFilter)
 
 
 class EntryHistoryAdmin(admin.ModelAdmin):

@@ -8,7 +8,6 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import reduce
 
-from bitfield import BitField
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator
@@ -23,27 +22,24 @@ from django_countries import countries
 CURRENCIES = [
     'ARS', 'BRL', 'CAD', 'CNY', 'EUR', 'GBP', 'USD', 'UYU',
 ]
-TAGS = OrderedDict([  # order is IMPORTANT, do not re-order
-    ('bureaucracy', 1),
-    ('car', 2),
-    ('change', 4),
-    ('food', 8),
-    ('fun', 16),
-    ('health', 32),
-    ('house', 64),
-    ('maintainance', 128),
-    ('other', 256),
-    ('rent', 512),
-    ('taxes', 1024),
-    ('transportation', 2048),
-    ('utilities', 4096),
-    ('work-ish', 8192),
-    ('imported', 16384),
-    ('trips', 32768),
-])
-REVERSE_TAGS = {
-    2**i: t for i, t in enumerate(TAGS)
-}
+TAGS = [
+    'bureaucracy',
+    'car',
+    'change',
+    'food',
+    'fun',
+    'health',
+    'house',
+    'maintainance',
+    'other',
+    'rent',
+    'taxes',
+    'transportation',
+    'utilities',
+    'work-ish',
+    'imported',
+    'trips',
+]
 
 
 class DryRunError(Exception):
@@ -60,42 +56,25 @@ def month_year_iter(start, end):
         yield date(y, m + 1, 1)
 
 
-def calculate_balance(entries, start, end, with_tags=False):
+def calculate_balance(entries, start, end):
     assert entries.count() > 0
     assert start <= end, start
     entries = entries.filter(when__range=(start, end))
+    totals = entries.values('is_income').annotate(models.Sum('amount'))
+
+    assert len(totals) <= 2, totals
 
     result = {
         'start': start, 'end': end,
         'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
     }
-    tags = defaultdict(lambda: defaultdict(Decimal))
-    totals = entries.values('is_income', 'tags').annotate(
-        models.Sum('amount'), models.Count('tags'))
     for t in totals:
-        item = tags[t['tags']]
-
         key = 'income' if t['is_income'] else 'expense'
         value = t['amount__sum']
-        item[key] = value
-
         # grand-local result per type of entry
         result[key] += value
-        # tag-local result
-        item['result'] = item['income'] - item['expense']
-        item['count'] += t['tags__count']
 
     result['result'] = result['income'] - result['expense']
-
-    if with_tags:
-        result['tags'] = {}
-        for tag, data in tags.items():
-            try:
-                tag_label = REVERSE_TAGS[tag]
-            except KeyError:
-                tag_label = ', '.join(t for t, i in TAGS.items() if tag & i)
-            result['tags'][tag_label] = dict(data)
-
     return result
 
 
@@ -129,7 +108,7 @@ class Book(models.Model):
 
         result = OrderedDict()
         for tag in TAGS:
-            tag_count = entries.filter(tags=getattr(Entry.tags, tag)).count()
+            tag_count = entries.filter(labels__contains=[tag]).count()
             if tag_count:
                 result[tag] = tag_count
 
@@ -190,18 +169,16 @@ class Book(models.Model):
 
     def _balance(
             self, accounts=None, start=None, end=None, tags=None,
-            exclude_tags=None, with_tags=False):
+            exclude_tags=None):
         if accounts:
             entries = self.entry_set.filter(account__in=accounts)
         else:
             entries = self.entry_set.all()
 
         if tags:
-            for tag in tags:
-                entries = entries.filter(tags=getattr(Entry.tags, tag))
+            entries = entries.filter(labels__contained_by=tags)
         if exclude_tags:
-            for tag in exclude_tags:
-                entries = entries.exclude(tags=getattr(Entry.tags, tag))
+            entries = entries.exclude(labels__contained_by=exclude_tags)
 
         if not entries:
             return
@@ -213,7 +190,7 @@ class Book(models.Model):
 
         # Range test (inclusive).
         assert start <= end
-        return calculate_balance(entries, start, end, with_tags), entries
+        return calculate_balance(entries, start, end), entries
 
     def balance(
             self, accounts=None, start=None, end=None, tags=None,
@@ -246,7 +223,7 @@ class Book(models.Model):
         return {'complete': result, 'months': months}
 
     def breakdown(self, accounts=None, start=None, end=None):
-        result = self._balance(accounts, start, end, with_tags=True)
+        result = self._balance(accounts, start, end)
         if not result:
             return
 
@@ -286,12 +263,11 @@ class Book(models.Model):
                 '%s %s$%s' % (e.what, '+' if e.is_income else '-', e.amount)
                 for e in entries)))
         amount = sum(e.money for e in entries)
-        tags = reduce(operator.or_, [e.tags for e in entries])
         labels = reduce(operator.add, [e.labels for e in entries])
         notes = '\n'.join(e.notes for e in entries)
         kwargs = dict(
             book=self, who=who, when=when, what=what, account=accounts.pop(),
-            amount=abs(amount), is_income=amount > 0, tags=tags, labels=labels,
+            amount=abs(amount), is_income=amount > 0, labels=labels,
             country=countries.pop(), notes=notes)
 
         try:
@@ -370,10 +346,9 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0'))])
     is_income = models.BooleanField(default=False, verbose_name='Income?')
-    tags = BitField(flags=[(t.lower(), t) for t in TAGS], null=True)
     labels = ArrayField(
         base_field=models.CharField(
-            choices=((i, i) for i in TAGS.keys()), max_length=256))
+            choices=((i, i) for i in TAGS), max_length=256))
     country = models.CharField(max_length=2, choices=countries)
     notes = models.TextField(blank=True)
 
@@ -433,7 +408,7 @@ def record_entry_history(sender, instance, **kwargs):
         account_slug=instance.account.slug,
         amount=str(instance.amount),
         is_income=instance.is_income,
-        tags_label=', '.join(i for i, j in instance.tags.items() if j),
+        tags_label=', '.join(instance.labels),
         country_code=instance.country,
         notes=instance.notes,
         reason=EntryHistory.DELETE)

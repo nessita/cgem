@@ -1,8 +1,5 @@
-import operator
-
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from functools import reduce
 from io import StringIO, TextIOWrapper
 from urllib.parse import urlencode
 
@@ -122,12 +119,9 @@ def filter_entries(request, book_slug, **kwargs):
     if currency_code:
         entries = entries.filter(account__currency_code=currency_code)
 
-    used_tags = set(params.getlist('tag', []))
+    used_tags = list(params.getlist('tag', []))
     if used_tags:
-        tags = reduce(
-            operator.or_,
-            [getattr(Entry.tags, t.lower(), 0) for t in used_tags])
-        entries = entries.filter(tags=tags)
+        entries = entries.filter(labels__contains=used_tags)
 
     if kwargs:
         entries = entries.filter(**kwargs)
@@ -450,19 +444,18 @@ def account_transfer(request, book_slug):
             when = form.cleaned_data.get('when')
             what = form.cleaned_data.get('what')
             country = form.cleaned_data.get('country')
-            tags = Entry.tags.change
 
             Entry.objects.create(
                 book=book, who=request.user, when=when,
                 what=what + ' (source)',
                 account=source_account, amount=source_amount,
-                is_income=False, country=country, tags=tags,
+                is_income=False, country=country, labels=['change'],
             )
             Entry.objects.create(
                 book=book, who=request.user, when=when,
                 what=what + ' (target)',
                 account=target_account, amount=target_amount,
-                is_income=True, country=country, tags=tags,
+                is_income=True, country=country, labels=['change'],
             )
 
             return HttpResponseRedirect(

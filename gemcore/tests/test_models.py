@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.db import IntegrityError
 from django.utils.timezone import now
 
-from gemcore.models import TAGS, REVERSE_TAGS, Entry
+from gemcore.models import TAGS, Entry
 from gemcore.tests.helpers import BaseTestCase
 
 
@@ -156,11 +156,11 @@ class BookTestCase(BaseTestCase):
         entries = [
             self.factory.make_entry(
                 book=self.book, account=account, amount=Decimal(i),
-                tags=[REVERSE_TAGS[2**i]], is_income=False, what='Dummy')
+                tags=[TAGS[i]], is_income=False, what='Dummy')
             for i in range(5)]
         target = self.factory.make_entry(
             book=self.book, account=account, amount=Decimal('100.88'),
-            is_income=True, tags=[REVERSE_TAGS[4096]], what='A target entry')
+            is_income=True, tags=[TAGS[-1]], what='A target entry')
         ids = [e.id for e in entries] + [target.id]
 
         before_count = len(must_be_kept) + len(ids)
@@ -183,8 +183,7 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.account, account)
         self.assertEqual(result.amount, Decimal('90.88'))
         self.assertEqual(result.is_income, True)
-        self.assertEqual(
-            result.tags, target.tags + sum(2**i for i in range(5)))
+        self.assertEqual(result.labels, [TAGS[-1]] + TAGS[:5])
         self.assertEqual(result.country, target.country)
         self.assertEqual(Entry.objects.last(), result)
         self.assertNotIn(result.id, ids)

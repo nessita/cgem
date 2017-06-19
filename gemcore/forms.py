@@ -84,12 +84,11 @@ class EntryForm(forms.ModelForm):
 
     def save(self, *args, book, **kwargs):
         self.instance.book = book
-        self.instance.tags = sum(TAGS[i] for i in self.instance.labels)
         return super(EntryForm, self).save(*args, **kwargs)
 
     class Meta:
         model = Entry
-        exclude = ('book', 'tags')
+        exclude = ('book',)
         widgets = dict(
             when=forms.DateInput(
                 attrs={'class': 'form-control datepicker'}),
