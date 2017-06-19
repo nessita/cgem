@@ -72,14 +72,14 @@ class EntryForm(forms.ModelForm):
     def __init__(self, book, *args, **kwargs):
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields['account'].queryset = Account.objects.by_book(book)
-        self.fields['labels'] = forms.MultipleChoiceField(
+        self.fields['tags'] = forms.MultipleChoiceField(
             choices=((i, i) for i in TAGS),
             widget=forms.CheckboxSelectMultiple())
 
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
-        if not cleaned_data.get('labels'):
-            raise forms.ValidationError('Missing labels, choose at leas one.')
+        if not cleaned_data.get('tags'):
+            raise forms.ValidationError('Missing tags, choose at leas one.')
         return cleaned_data
 
     def save(self, *args, book, **kwargs):

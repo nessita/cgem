@@ -184,7 +184,7 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.account, account)
         self.assertEqual(result.amount, Decimal('90.88'))
         self.assertEqual(result.is_income, True)
-        self.assertEqual(result.labels, [TAGS[-1]] + TAGS[:5])
+        self.assertEqual(result.tags, [TAGS[-1]] + TAGS[:5])
         self.assertEqual(result.country, target.country)
         self.assertEqual(Entry.objects.last(), result)
         self.assertNotIn(result.id, ids)

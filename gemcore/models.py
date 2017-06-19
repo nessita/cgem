@@ -86,7 +86,7 @@ class Book(models.Model):
 
         result = OrderedDict()
         for tag in TAGS:
-            tag_count = entries.filter(labels__contains=[tag]).count()
+            tag_count = entries.filter(tags__contains=[tag]).count()
             if tag_count:
                 result[tag] = tag_count
 
@@ -250,11 +250,11 @@ class Book(models.Model):
                 '%s %s$%s' % (e.what, '+' if e.is_income else '-', e.amount)
                 for e in entries)))
         amount = sum(e.money for e in entries)
-        labels = reduce(operator.add, [e.labels for e in entries])
+        tags = reduce(operator.add, [e.tags for e in entries])
         notes = '\n'.join(e.notes for e in entries)
         kwargs = dict(
             book=self, who=who, when=when, what=what, account=accounts.pop(),
-            amount=abs(amount), is_income=amount > 0, labels=labels,
+            amount=abs(amount), is_income=amount > 0, tags=tags,
             country=countries.pop(), notes=notes)
 
         try:
@@ -333,7 +333,7 @@ class Entry(models.Model):
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0'))])
     is_income = models.BooleanField(default=False, verbose_name='Income?')
-    labels = ArrayField(
+    tags = ArrayField(
         base_field=models.CharField(
             choices=((i, i) for i in TAGS), max_length=256))
     country = models.CharField(max_length=2, choices=countries)
@@ -370,7 +370,7 @@ class EntryHistory(models.Model):
     account_slug = models.TextField()
     amount = models.TextField()
     is_income = models.BooleanField()
-    tags_label = models.TextField()
+    tags = models.TextField()
     country_code = models.CharField(max_length=2, choices=countries)
     notes = models.TextField(blank=True)
 
@@ -382,7 +382,7 @@ class EntryHistory(models.Model):
         return '%s: %s (%s%s %s, by %s on %s, %s)' % (
             self.book_slug, self.what,
             '+' if self.is_income else '-', self.amount,
-            self.account_slug, self.who_username, self.when, self.tags_label)
+            self.account_slug, self.who_username, self.when, self.tags)
 
 
 @receiver(pre_delete, sender=Entry)
@@ -395,7 +395,7 @@ def record_entry_history(sender, instance, **kwargs):
         account_slug=instance.account.slug,
         amount=str(instance.amount),
         is_income=instance.is_income,
-        tags_label=', '.join(instance.labels),
+        tags=', '.join(instance.tags),
         country_code=instance.country,
         notes=instance.notes,
         reason=EntryHistory.DELETE)

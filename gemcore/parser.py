@@ -98,7 +98,7 @@ class CSVParser(object):
         return dict(
             account=account.id, amount=abs(amount), country=self.COUNTRY,
             is_income=amount > 0, notes=self.find_notes(row),
-            labels=self.find_tags(row, account), what=row[self.WHAT].strip(),
+            tags=self.find_tags(row, account), what=row[self.WHAT].strip(),
             when=self.find_when(row), who=user.id)
 
     @transaction.atomic

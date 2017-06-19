@@ -33,13 +33,13 @@ class TagListFilter(admin.SimpleListFilter):
     parameter_name = 'tag'
 
     def lookups(self, request, model_admin):
-        tags = Entry.objects.values_list('labels', flat=True)
+        tags = Entry.objects.values_list('tags', flat=True)
         return sorted({(tag, tag) for item in tags for tag in item if tag})
 
     def queryset(self, request, queryset):
         lookup_value = self.value()
         if lookup_value:
-            queryset = queryset.filter(labels__contains=[lookup_value])
+            queryset = queryset.filter(tags__contains=[lookup_value])
         return queryset
 
 
