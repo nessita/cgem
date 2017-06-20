@@ -73,7 +73,7 @@ class CSVParser(object):
         return ' | '.join(notes)
 
     def find_tags(self, row, account):
-        tags = account.tags_for(row[self.WHAT]).keys() or ['imported']
+        tags = list(account.tags_for(row[self.WHAT]).keys()) or ['imported']
         return tags
 
     def find_when(self, row):
