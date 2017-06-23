@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from gemcore.models import Account, Book, Entry, EntryHistory, TagRegex
+from gemcore.models import (
+    Account, Book, Entry, EntryHistory, ParserConfig, TagRegex)
 
 
 class TagRegexInline(admin.StackedInline):
@@ -13,7 +14,8 @@ class TagRegexInline(admin.StackedInline):
 class AccountAdmin(admin.ModelAdmin):
 
     list_display = (
-        'name', 'slug', 'currency_code', 'active',  'people', 'parser')
+        'name', 'slug', 'currency_code', 'active',  'people', 'parser_config',
+        'parser')
     prepopulated_fields = {'slug': ('name',)}
     inlines = (TagRegexInline,)
 
@@ -51,7 +53,18 @@ class EntryAdmin(admin.ModelAdmin):
 
 class EntryHistoryAdmin(admin.ModelAdmin):
 
-    pass  # list_display = ('regex', 'tag', 'account')
+    pass
+
+
+class ParserConfigAdmin(admin.ModelAdmin):
+
+    list_display = (
+        'name', 'date_format', 'separators', 'when', 'what', 'amount', 'notes',
+        'ignore_rows', 'country')
+
+    def separators(self, instance):
+        return '100%s000%s00' % (
+            instance.decimal_point, instance.thousands_sep)
 
 
 class TagRegexAdmin(admin.ModelAdmin):
@@ -63,4 +76,5 @@ admin.site.register(Account, AccountAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Entry, EntryAdmin)
 admin.site.register(EntryHistory, EntryHistoryAdmin)
+admin.site.register(ParserConfig, ParserConfigAdmin)
 admin.site.register(TagRegex, TagRegexAdmin)

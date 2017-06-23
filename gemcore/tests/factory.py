@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 
-from gemcore.models import Account, Book, Entry
+from gemcore.models import Account, Book, Entry, ParserConfig
 
 
 User = get_user_model()
@@ -80,3 +80,9 @@ class Factory(object):
             book=book, account=account, who=who, what=what, amount=amount,
             tags=tags, country=country, **kwargs)
         return result
+
+    def make_parser_config(self, name=None, **kwargs):
+        i = self.make_integer()
+        if name is None:
+            name = 'Parser %s' % i
+        return ParserConfig.objects.create(name=name, **kwargs)

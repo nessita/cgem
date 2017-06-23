@@ -15,7 +15,6 @@ from django.views.decorators.http import (
     require_http_methods,
 )
 
-import gemcore.parser
 from gemcore.forms import (
     AccountBalanceForm,
     AccountTransferForm,
@@ -27,6 +26,7 @@ from gemcore.forms import (
     EntryMergeForm,
 )
 from gemcore.models import Account, Book, Entry
+from gemcore.parser import CSVParser
 
 
 ENTRIES_PER_PAGE = 25
@@ -396,12 +396,18 @@ def load_from_file(request, book_slug):
                 csv_file.name = ''
 
             account = form.cleaned_data['account']
-            csv_parser = getattr(gemcore.parser, account.parser)
-            result = csv_parser().parse(
-                csv_file, book=book, user=request.user, account=account)
+            if account.parser_config is None:
+                messages.error(
+                    request,
+                    'Parser config for account %s is not set.' % account)
+                return HttpResponseRedirect('.')
+
+            result = CSVParser(account).parse(
+                csv_file, book=book, user=request.user)
             success = len([e for e in result['entries'] if e])
-            error = sum(len(i) for i in result['errors'].values())
-            if not error:
+            errors = [
+                '%s %s' % (len(v), k) for k, v in result['errors'].items()]
+            if not errors:
                 messages.success(
                     request, 'File %s successfully parsed (%s entries added).'
                     % (csv_file.name, success))
@@ -409,13 +415,13 @@ def load_from_file(request, book_slug):
                 messages.warning(
                     request,
                     'File %s partially parsed (%s successes, %s errors).' %
-                    (csv_file.name, success, error))
+                    (csv_file.name, success, errors))
             else:
                 messages.error(
-                    request, 'File %s could not be parsed (%s errors).' %
-                    (csv_file.name, error))
+                    request, 'File %s could not be parsed (%s).' %
+                    (csv_file.name, ', '.join(errors)))
 
-            if error:
+            if errors:
                 for e, errors in result['errors'].items():
                     error_msg = ', '.join(str(i) for i in errors)
                     messages.error(request, '%s: %s' % (e, error_msg))

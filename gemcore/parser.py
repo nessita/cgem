@@ -8,13 +8,9 @@ from collections import defaultdict, namedtuple
 from datetime import datetime
 from decimal import Decimal
 
-from django.conf import settings
-from django.db import IntegrityError, transaction
-from django.db.models import F, Value
-from django.db.models.functions import Concat
+from django.db import transaction
 
 from gemcore.forms import EntryForm
-from gemcore.models import Entry
 
 
 UserData = namedtuple('UserData', ['user', 'account'])
@@ -28,11 +24,7 @@ class DataToBeProcessedError(Exception):
         super(DataToBeProcessedError, self).__init__(*args, **kwargs)
 
 
-class DataMergedError(Exception):
-    """This row will needs to be merged with an existing one."""
-
-
-class CSVParser(object):
+class OldParser(object):
 
     AMOUNTS = []
     NOTES = []
@@ -43,9 +35,6 @@ class CSVParser(object):
     DATE_FORMAT = '%Y-%m-%d'
     HEADER = []
     IGNORE_ROWS = 0
-    MERGE_ERRORS = [
-        'duplicate key value violates unique constraint "gemcore_entry_book_',
-        'DETAIL:  Key (book_id, account_id, "when", what, amount, is_income)']
 
     @property
     def header(self):
@@ -61,7 +50,9 @@ class CSVParser(object):
         for field in self.AMOUNTS:
             result = row.get(field, '')
             if result:
-                result = re.sub(r'[^\d\-.]', '', self.process_amount(result))
+                if ',' in result:  # .ar locale
+                    result = result.replace('.', '').replace(',', '.')
+                result = re.sub(r'[^\d\-.]', '', result)
                 break
         assert result, (
             'Amount not found (tried %r): %r' % (self.AMOUNTS, row))
@@ -78,19 +69,10 @@ class CSVParser(object):
 
     def find_when(self, row):
         when = None
-        if self.WHEN in row:
-            when = self.process_when(row[self.WHEN])
+        if self.WHEN in row and self.DATE_FORMAT:
+            when = datetime.strptime(row[self.WHEN], self.DATE_FORMAT)
         assert when, ('When not found (tried %r): %r' % (self.WHEN, row))
         return when
-
-    def process_amount(self, value):
-        """Implement on child."""
-        return value
-
-    def process_when(self, value):
-        if self.DATE_FORMAT:
-            value = datetime.strptime(value, self.DATE_FORMAT)
-        return value
 
     def make_data(self, row, user, account, unprocessed=None):
         assert row, 'The given row is empty'
@@ -115,19 +97,6 @@ class CSVParser(object):
         else:
             entry = form.save(book=book)
         return entry
-
-    def merge_entries(self, data, book, dry_run=False):
-        amount = data['amount']
-        existing = Entry.objects.filter(
-            book=book, amount=amount, account__id=data['account'],
-            is_income=data['is_income'], when=data['when'], what=data['what'])
-        assert existing.count() == 1, (
-            'Data needs merging and %s entries exist' % existing.count())
-        if not dry_run:
-            existing.update(
-                amount=amount*2,
-                notes=Concat(F('notes'), Value(' Merging with data %s' % data))
-            )
 
     def parse(self, fileobj, book, user, account, dry_run=False):
         self.name = fileobj.name
@@ -167,14 +136,6 @@ class CSVParser(object):
             error = None
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
-            except IntegrityError as e:
-                # Disable merges on parsing, for now.
-                # if all(i in str(e) for i in self.MERGE_ERRORS):
-                if getattr(settings, 'MERGE_ROWS', False):
-                    self.merge_entries(data, book=book, dry_run=dry_run)
-                    error = DataMergedError()
-                else:
-                    error = e
             except Exception as e:
                 error = e
 
@@ -195,7 +156,7 @@ class CSVParser(object):
         return result
 
 
-class ExpenseParser(CSVParser):
+class ExpenseParser(OldParser):
 
     AMOUNTS = ['How much']
     NOTES = ['Summary category', 'Summary amount']
@@ -221,7 +182,7 @@ class ExpenseParser(CSVParser):
         return self.TAGS_MAPPING[row[self.WHAT]]
 
 
-class ScoBankParser(CSVParser):
+class ScoBankParser(OldParser):
 
     AMOUNTS = ['Débito', 'Crédito']
     NOTES = ['﻿"Suc."', "Fecha Valor", "Comprobante", "Saldo"]
@@ -233,11 +194,8 @@ class ScoBankParser(CSVParser):
     HEADER = ['﻿"Suc."', "Fecha", "Fecha Valor", "Descripción", "Comprobante",
               "Débito", "Crédito", "Saldo"]
 
-    def process_amount(self, value):
-        return value.replace('.', '').replace(',', '.')
 
-
-class WFGBankParser(CSVParser):
+class WFGBankParser(OldParser):
 
     AMOUNTS = ['How Much']
     WHEN = 0
@@ -276,7 +234,7 @@ class WFGBankParser(CSVParser):
         return data
 
 
-class BrouBankParser(CSVParser):
+class BrouBankParser(OldParser):
 
     AMOUNTS = ['Débito', 'Crédito']
     NOTES = ['Número Documento', 'Num. Dep.', 'Asunto']
@@ -294,7 +252,7 @@ class BrouBankParser(CSVParser):
         return data
 
 
-class BNABankParser(CSVParser):
+class BNABankParser(OldParser):
 
     AMOUNTS = ['Importe']
     NOTES = ['Comentarios', 'Saldo Parcial']
@@ -306,7 +264,7 @@ class BNABankParser(CSVParser):
     HEADER = [WHEN, WHAT] + AMOUNTS + NOTES
 
 
-class TripParser(CSVParser):
+class TripParser(OldParser):
 
     COUNTRY = 'Country'
     WHAT = 'What'
@@ -331,7 +289,7 @@ class TripParser(CSVParser):
         amount = None
         for c in self.currencies:
             if row[c]:
-                amount = Decimal(self.process_amount(row[c]))
+                amount = Decimal(row[c])
                 break
 
         assert amount is not None
@@ -342,3 +300,146 @@ class TripParser(CSVParser):
         data['tags'].append('trips')
 
         return data
+
+
+class CSVParser(object):
+
+    def __init__(self, account):
+        super(CSVParser, self).__init__()
+        self.account = account
+        self.config = self.account.parser_config
+
+    def _parse_amount(self, row, i):
+        result = Decimal(0)
+        value = row[i]
+        if value:
+            value = value.replace(self.config.thousands_sep, '')
+            if self.config.decimal_point != '.':
+                value = value.replace(self.config.decimal_point, '.')
+            result = Decimal(re.sub(r'[^\d\-.]', '', value))
+        return result
+
+    def find_amount(self, row):
+        if len(self.config.amount) == 1:
+            result = self._parse_amount(row, self.config.amount[0])
+        else:
+            assert len(self.config.amount) == 2, (
+                'Config amount can not be bigger than 2 elements (got %r).' %
+                self.config.amount)
+            expense = self._parse_amount(row, self.config.amount[0])
+            income = self._parse_amount(row, self.config.amount[1])
+            result = income - abs(expense)
+        return result
+
+    def find_notes(self, row):
+        notes = ([row[k] for k in self.config.notes] +
+                 ['source: %r' % self.name])
+        return ' | '.join(notes)
+
+    def find_what(self, row):
+        result = None
+        for i in self.config.what:
+            result = row[i].strip()
+            if result:
+                break
+        assert result, ('What not found (tried %r): %r' %
+                        (self.config.what, row))
+        return result
+
+    def find_when(self, row):
+        result = None
+        for i in self.config.when:
+            result = row[i]
+            if result:
+                result = datetime.strptime(
+                    result, self.config.date_format)
+                break
+        assert result, ('When not found (tried %r): %r' %
+                        (self.config.when, row))
+        return result
+
+    def make_data(self, row, user, unprocessed=None):
+        assert row, 'The given row is empty'
+        amount = self.find_amount(row)
+        what = self.find_what(row)
+        tags = list(self.account.tags_for(what).keys()) or ['imported']
+        data = dict(
+            account=self.account.id, amount=abs(amount),
+            country=self.config.country,
+            is_income=amount > 0, notes=self.find_notes(row),
+            tags=tags, what=what, when=self.find_when(row), who=user.id)
+
+        if what in self.config.defer_processing:
+            raise DataToBeProcessedError(data)
+
+        if unprocessed:
+            assert unprocessed['is_income'] == data['is_income']
+            assert unprocessed['when'] == data['when']
+            amount = unprocessed['amount']
+            data['notes'] = '%s + %s %s' % (
+                data['amount'], unprocessed['what'], amount)
+            data['amount'] += amount
+
+        return data
+
+    @transaction.atomic
+    def make_entry(self, data, book, dry_run=False):
+        if not data:
+            return None
+        form = EntryForm(book=book, data=data)
+        if not form.is_valid():
+            msg = ' | '.join(
+                '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items())
+            raise ValueError(msg)
+        if dry_run:
+            entry = data
+        else:
+            entry = form.save(book=book)
+        return entry
+
+    def parse(self, fileobj, book, user, dry_run=False):
+        self.name = fileobj.name
+        result = dict(entries=[], errors=defaultdict(list))
+
+        reader = csv.reader(fileobj)
+        ignored = 0
+        unprocessed = None
+        for row in reader:
+            # ignore initial rows
+            if ignored < self.config.ignore_rows:
+                ignored += 1
+                continue
+
+            if not row or not any(row):
+                continue
+
+            try:
+                data = self.make_data(
+                    row=row, user=user, unprocessed=unprocessed)
+            except DataToBeProcessedError as e:
+                assert unprocessed is None, 'Unprocessed data should be None'
+                unprocessed = e.data
+                continue
+
+            unprocessed = None
+            error = None
+            try:
+                entry = self.make_entry(data, book=book, dry_run=dry_run)
+            except Exception as e:
+                error = e
+
+            if error is not None:
+                result['errors'][error.__class__.__name__].append(
+                    (error, data))
+            else:
+                assert entry is not None, 'Entry should not be None'
+                result['entries'].append(entry)
+                # Needs a transfer?
+                tags = self.account.tags_for(data['what'])
+                for transfer in filter(None, tags.values()):
+                    data['is_income'] = not data['is_income']
+                    data['account'] = transfer.id
+                    entry = self.make_entry(data, book, dry_run=dry_run)
+                    result['entries'].append(entry)
+
+        return result

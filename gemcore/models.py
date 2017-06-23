@@ -56,6 +56,28 @@ def month_year_iter(start, end):
         yield date(y, m + 1, 1)
 
 
+class ParserConfig(models.Model):
+
+    name = models.TextField(unique=True)
+    country = models.CharField(max_length=2, choices=countries)
+    date_format = models.CharField(max_length=128, default='%Y-%m-%d')
+    decimal_point = models.CharField(max_length=1, default='.')
+    thousands_sep = models.CharField(max_length=1, default=',')
+    ignore_rows = models.PositiveSmallIntegerField()
+
+    when = ArrayField(base_field=models.PositiveSmallIntegerField())
+    what = ArrayField(base_field=models.PositiveSmallIntegerField())
+    amount = ArrayField(base_field=models.PositiveSmallIntegerField(), size=2)
+    notes = ArrayField(
+        base_field=models.PositiveSmallIntegerField(), default=list,
+        blank=True)
+    defer_processing = ArrayField(
+        base_field=models.CharField(max_length=256), default=list, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Book(models.Model):
 
     name = models.CharField(max_length=256)
@@ -283,6 +305,7 @@ class Account(models.Model):
     currency_code = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
     parser = models.CharField(max_length=256, blank=True, default='')
+    parser_config = models.ForeignKey(ParserConfig, null=True)
     active = models.BooleanField(default=True)
 
     objects = AccountManager()

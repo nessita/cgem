@@ -28,9 +28,9 @@
           </button>
           {% block navbar-title %}
             {% if book %}
-            <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }}</a>
+            <a class="navbar-brand" href="{% url 'entries' book.slug %}">{{ book }} at {{ request.META.HTTP_HOST }}</a>
             {% else %}
-            <a class="navbar-brand" href="{% url 'books' %}">cgem</a>
+            <a class="navbar-brand" href="{% url 'books' %}">{{ request.META.HTTP_HOST }}</a>
             {% endif %}
           {% endblock navbar-title %}
         </div>
