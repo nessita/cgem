@@ -304,8 +304,7 @@ class Account(models.Model):
     users = models.ManyToManyField(User)
     currency_code = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
-    parser = models.CharField(max_length=256, blank=True, default='')
-    parser_config = models.ForeignKey(ParserConfig, null=True)
+    parser_config = models.ForeignKey(ParserConfig, null=True, blank=True)
     active = models.BooleanField(default=True)
 
     objects = AccountManager()

@@ -29,13 +29,19 @@ class CSVParser(object):
         self.config = self.account.parser_config
 
     def _parse_amount(self, row, i):
-        result = Decimal(0)
+        result = '0'
         value = row[i]
         if value:
             value = value.replace(self.config.thousands_sep, '')
             if self.config.decimal_point != '.':
                 value = value.replace(self.config.decimal_point, '.')
-            result = Decimal(re.sub(r'[^\d\-.]', '', value))
+            result = re.sub(r'[^\d\-.]', '', value)
+
+        try:
+            result = Decimal(result)
+        except Exception as e:
+            assert False, 'Can not convert %r to Decimal (got it from row %s, index %s)' % (result, row, i)
+
         return result
 
     def find_amount(self, row):
@@ -78,7 +84,7 @@ class CSVParser(object):
         return result
 
     def make_data(self, row, user, unprocessed=None):
-        assert row, 'The given row is empty'
+        assert row, 'The given row %r is empty' % row
         amount = self.find_amount(row)
         what = self.find_what(row)
         tags = list(self.account.tags_for(what).keys()) or ['imported']
