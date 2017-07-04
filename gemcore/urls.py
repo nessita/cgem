@@ -27,7 +27,7 @@ urlpatterns = [
         gemcore.views.entry_merge, name='merge-entry'),
     url(r'^(?P<book_slug>[\w-]+)/balance/$',
         gemcore.views.balance, name='balance'),
-    url(r'^(?P<book_slug>[\w-]+)/balance/(?P<currency_code>[A-Z]{3})/$',
+    url(r'^(?P<book_slug>[\w-]+)/balance/(?P<currency>[A-Z]{3})/$',
         gemcore.views.balance, name='balance'),
     url(r'^(?P<book_slug>[\w-]+)/balance/(?P<account_slug>[\w-]+)/$',
         gemcore.views.balance, name='balance'),

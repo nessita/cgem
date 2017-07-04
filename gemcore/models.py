@@ -153,11 +153,17 @@ class Book(models.Model):
         if entries is None:
             entries = self.entry_set.all()
 
-        if not entries:
-            return []
-
         return entries.order_by('account').values_list(
             'account__slug', flat=True).distinct()
+
+    def currencies(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        result = defaultdict(int)
+        for d in entries.values_list('account__currency', flat=True):
+            result[d] += 1
+        return dict(result)
 
     def who(self, entries=None):
         if entries is None:
@@ -167,9 +173,20 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
-    def calculate_balance(self, entries, start, end):
+    def calculate_balance(self, entries=None, start=None, end=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        if entries.count() == 0:
+            return
+
+        if not start:
+            start = entries.earliest('when').when
+        if not end:
+            end = entries.latest('when').when
+
         # Range test (inclusive).
-        assert start <= end, start
+        assert start <= end
         entries = entries.filter(when__range=(start, end))
         totals = entries.values('is_income').annotate(models.Sum('amount'))
 
@@ -189,16 +206,6 @@ class Book(models.Model):
         return result
 
     def balance(self, entries=None, start=None, end=None):
-        if entries is None:
-            entries = self.entry_set.all()
-        elif entries.count() == 0:
-            return
-
-        if not start:
-            start = entries.earliest('when').when
-        if not end:
-            end = entries.latest('when').when
-
         result = self.calculate_balance(entries, start, end)
         if not result:
             return
@@ -206,11 +213,11 @@ class Book(models.Model):
         months = []
         last_month = None
         sanity_check = Decimal(0)
-        for next_month in month_year_iter(start, end):
+        for next_month in month_year_iter(result['start'], result['end']):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
                 month_balance = self.calculate_balance(
-                    entries, last_month, end_of_month)
+                    entries, start=last_month, end=end_of_month)
                 sanity_check += month_balance['result']
                 months.append(month_balance)
             last_month = next_month
@@ -224,17 +231,6 @@ class Book(models.Model):
         return {'complete': result, 'months': months}
 
     def breakdown(self, entries=None, start=None, end=None):
-        if entries is None:
-            entries = self.entry_set.all()
-        elif entries.count() == 0:
-            return
-
-        if not start:
-            start = entries.earliest('when').when
-        if not end:
-            end = entries.latest('when').when
-
-        entries = entries.filter(when__range=(start, end))
         result = self.calculate_balance(entries, start, end)
         return result
 
@@ -302,7 +298,7 @@ class Account(models.Model):
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
-    currency_code = models.CharField(
+    currency = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
     parser_config = models.ForeignKey(ParserConfig, null=True, blank=True)
     active = models.BooleanField(default=True)
@@ -310,10 +306,10 @@ class Account(models.Model):
     objects = AccountManager()
 
     class Meta:
-        ordering = ('currency_code', 'name')
+        ordering = ('currency', 'name')
 
     def __str__(self):
-        result = '%s %s' % (self.currency_code, self.name)
+        result = '%s %s' % (self.currency, self.name)
         if self.users.count() == 1:
             result += ' %s' % self.users.get().username
         return result
@@ -370,10 +366,6 @@ class Entry(models.Model):
         return '%s (%s%s %s, by %s on %s)' % (
             self.what, '+' if self.is_income else '-', self.amount,
             self.account, self.who, self.when)
-
-    @property
-    def currency(self):
-        return self.account.currency_code
 
     @property
     def money(self):

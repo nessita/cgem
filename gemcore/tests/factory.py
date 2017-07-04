@@ -43,15 +43,15 @@ class Factory(object):
         return book
 
     def make_account(
-            self, name=None, slug=None, currency_code='USD', users=None,
+            self, name=None, slug=None, currency='USD', users=None,
             **kwargs):
         i = self.make_integer()
         if name is None:
-            name = 'Account %s (%s)' % (i, currency_code)
+            name = 'Account %s (%s)' % (i, currency)
         if slug is None:
-            slug = 'account-%s-%s' % (currency_code, i)
+            slug = 'account-%s-%s' % (currency, i)
         account = Account.objects.create(
-            name=name, slug=slug, currency_code=currency_code, **kwargs)
+            name=name, slug=slug, currency=currency, **kwargs)
         if users:
             for u in users:
                 account.users.add(u)

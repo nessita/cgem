@@ -40,7 +40,9 @@ class CSVParser(object):
         try:
             result = Decimal(result)
         except Exception as e:
-            assert False, 'Can not convert %r to Decimal (got it from row %s, index %s)' % (result, row, i)
+            assert False, (
+                'Can not convert %r to Decimal (got it from row %s, index %s)'
+                % (result, row, i))
 
         return result
 

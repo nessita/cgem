@@ -26,6 +26,10 @@
     text-align: right;
 }
 
+.filtered {
+    color: black;
+}
+
 #entry-form-search .row {
     padding-left: 15px;
     padding-right: 10px;

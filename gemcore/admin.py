@@ -14,7 +14,7 @@ class TagRegexInline(admin.StackedInline):
 class AccountAdmin(admin.ModelAdmin):
 
     list_display = (
-        'name', 'slug', 'currency_code', 'active',  'people', 'parser_config')
+        'name', 'slug', 'currency', 'active',  'people', 'parser_config')
     prepopulated_fields = {'slug': ('name',)}
     inlines = (TagRegexInline,)
 

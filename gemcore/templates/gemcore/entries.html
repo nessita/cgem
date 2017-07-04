@@ -12,39 +12,19 @@
 
 <div class="row">
   <div class="col-md-12">
-    {% for tag in used_tags %}
+    {% if filters.q %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path tag-=tag %}">{{ tag }} &times;</a>
-    </div>
-    {% endfor %}
-    {% if when %}
-    <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=when %}">{{ when|date }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path q-=filters.q %}">{{ filters.q }} &times;</a>
     </div>
     {% endif %}
-    {% if year %}
+    {% if filters.when %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path year-=year %}">{{ year }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=filters.when %}">{{ filters.when|date }} &times;</a>
     </div>
     {% endif %}
-    {% if month %}
+    {% if filters.account %}
     <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path month-=month %}">{{ month_label }} &times;</a>
-    </div>
-    {% endif %}
-    {% if who %}
-    <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path who-=who %}">{{ who }} &times;</a>
-    </div>
-    {% endif %}
-    {% if country %}
-    <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path country-=country %}">{{ country }} &times;</a>
-    </div>
-    {% endif %}
-    {% if account %}
-    <div class="btn-group">
-        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path account-=account %}">{{ account }} &times;</a>
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path account-=filters.account %}">{{ filters.account }} &times;</a>
     </div>
     {% endif %}
   </div>
@@ -55,34 +35,59 @@
 
     <div class="row">
         <h3>Filters</h3>
-        <p>{% for tag, i in tags.items %}
-            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=tag %}">
-                {{ tag }} <span class="badge">{{ i }}</span>
+        <p>{% for k, i in available.tags.items %}
+            {% if k not in filters.tags %}
+            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
             </a>
+            {% else %}
+            <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path tag-=k %}">{{ k }} &times;</a>
+            {% endif %}
         {% endfor %}</p>
-        <p>{% for k, label in months.items %}
-            {% ifnotequal k month %}
+        <p>{% for k, label in available.months.items %}
+            {% ifnotequal k filters.month %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
                 {{ label }}
             </a>
+            {% else %}
+            <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path month-=filters.month %}">{{ filters.month_label }} &times;</a>
             {% endifnotequal %}
         {% endfor %}</p>
-        <p>{% for k, i in years.items %}
-            {% ifnotequal k year %}
+        <p>{% for k, i in available.years.items %}
+            {% ifnotequal k filters.year %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
+            {% else %}
+            <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path year-=filters.year %}">{{ filters.year }} &times;</a>
             {% endifnotequal %}
         {% endfor %}</p>
-        <p>{% for k, i in countries.items %}
+        <p>{% for k, i in available.countries.items %}
+            {% ifnotequal k filters.country %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
+            {% else %}
+            <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path country-=filters.country %}">{{ filters.country }} &times;</a>
+            {% endifnotequal %}
         {% endfor %}</p>
-        <p>{% for k, i in users.items %}
+        <p>{% for k, i in available.users.items %}
+            {% ifnotequal k filters.who %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
+            {% else %}
+            <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path who-=filters.who %}">{{ filters.who }} &times;</a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.currencies.items %}
+            {% ifnotequal k filters.currency %}
+            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path currency+=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path currency-=filters.currency %}">{{ filters.currency }} &times;</a>
+            {% endifnotequal %}
         {% endfor %}</p>
     </div>
 
@@ -91,14 +96,14 @@
             <div class="col-xs-5 has-feedback">
                 <input type="text" class="form-control input-sm" name="q" autofocus="on" 
                        id="search-text" placeholder="Search"
-                       {% if q %}value="{{ q }}"{% endif %} />
+                       {% if filters.q %}value="{{ filters.q }}"{% endif %} />
                 <span style="cursor: pointer;" id="clear-search-text"
                       class="glyphicon glyphicon-remove form-control-feedback"></span>
             </div>
             <div class="col-xs-5 has-feedback">
                 <input type="date" class="form-control input-sm datepicker" name="when"
                        id="search-date" placeholder="When"
-                       {% if when %}value="{{ when|date }}"{% endif %} />
+                       {% if filters.when %}value="{{ filters.when|date }}"{% endif %} />
                 <span style="cursor: pointer;" id="clear-search-date"
                       class="glyphicon glyphicon-remove form-control-feedback"></span>
             </div>
