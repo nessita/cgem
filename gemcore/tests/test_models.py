@@ -20,6 +20,63 @@ class BookTestCase(BaseTestCase):
         self.book = self.factory.make_book(
             name='our-expenses-test', users=[self.user1, self.user2])
 
+    def test_month_breakdown_empty(self):
+        result = self.book.month_breakdown()
+        self.assertEqual(list(result), [])
+
+    def test_month_breakdown(self):
+        expected = []
+        for month in range(1, 13):
+            for j in range(month):
+                year = 2000 + j
+                total = Decimal(0)
+                for i in range(j):
+                    is_income = True  # XXX: need to store better amounts i % 2
+                    amount = Decimal(j**2)
+                    if is_income:
+                        total += amount
+                    else:
+                        total -= amount
+                    self.factory.make_entry(
+                        book=self.book, when=date(year, month, i + 1),
+                        amount=amount, is_income=is_income)
+                if j > 0:
+                    expected.append({'month': date(year, month, 1), 'count': j,
+                                     'total': total})
+
+        result = self.book.month_breakdown()
+        self.assertCountEqual(list(result), expected)
+
+    def test_year_breakdown_empty(self):
+        result = self.book.year_breakdown()
+        self.assertEqual(list(result), [])
+
+    def test_year_breakdown(self):
+        expected = []
+        for year_suffix in range(13):
+            year = 2000 + year_suffix
+            year_count = 0
+            total = Decimal(0)
+            for j in range(year_suffix + 1):
+                month = (j % 13)
+                for i in range(j):
+                    is_income = True  # XXX: need to store better amounts i % 2
+                    amount = Decimal(j**2)
+                    if is_income:
+                        total += amount
+                    else:
+                        total -= amount
+                    year_count += 1
+                    self.factory.make_entry(
+                        book=self.book, when=date(year, month, i + 1),
+                        amount=amount, is_income=is_income)
+            if year_count > 0:
+                expected.append({'year': date(year, 1, 1), 'count': year_count,
+                                 'total': total})
+
+        result = self.book.year_breakdown()
+        self.assertCountEqual(list(result), expected)
+
     def test_balance_one_account(self, account=None):
         # no entries
         balance = self.book.balance(Entry.objects.none())

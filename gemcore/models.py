@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
+from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
@@ -99,37 +100,12 @@ class Book(models.Model):
         return self.entry_set.filter(
             models.Q(what__icontains=text) | models.Q(notes__icontains=text))
 
-    def tags(self, entries=None):
+    def accounts(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
 
-        if not entries:
-            return {}
-
-        result = OrderedDict()
-        for tag in TAGS:
-            tag_count = entries.filter(tags__contains=[tag]).count()
-            if tag_count:
-                result[tag] = tag_count
-
-        return result
-
-    def years(self, entries=None):
-        if entries is None:
-            entries = self.entry_set.all()
-
-        if not entries:
-            return {}
-
-        result = OrderedDict()
-        oldest = entries.earliest('when').when.year
-        newest = entries.latest('when').when.year
-        for year in range(oldest, newest + 1):
-            year_count = entries.filter(when__year=year).count()
-            if year_count:
-                result[year] = year_count
-
-        return result
+        return entries.order_by('account').values_list(
+            'account__slug', flat=True).distinct()
 
     def countries(self, entries=None):
         if entries is None:
@@ -149,15 +125,67 @@ class Book(models.Model):
         result = OrderedDict(cursor.fetchall())
         return result
 
-    def accounts(self, entries=None):
+    def currencies(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        result = defaultdict(int)
+        for d in entries.values_list('account__currency', flat=True):
+            result[d] += 1
+        return dict(result)
+
+    def month_breakdown(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+        # Truncate to month and add to select list
+        entries = entries.annotate(month=TruncMonth('when')).values('month')
+        # Group By month and select the count of the grouping
+        entries = entries.annotate(
+            count=models.Count('id'), total=models.Sum('amount'))
+        return entries
+
+    def months(self, entries=None):
+        breakdown = self.month_breakdown(entries)
+
+        result = defaultdict(int)
+        for i in breakdown:
+            result[date(1900, i['month'].month, 1)] += i['count']
+
+        return dict(result)
+
+    def year_breakdown(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+        # Truncate to year and add to select list
+        entries = entries.annotate(year=TruncYear('when')).values('year')
+        # Group By year and select the count of the grouping
+        entries = entries.annotate(
+            count=models.Count('id'), total=models.Sum('amount'))
+        return entries
+
+    def years(self, entries=None):
+        breakdown = self.year_breakdown(entries)
+
+        result = defaultdict(int)
+        for i in breakdown:
+            result[i['year'].year] += i['count']
+
+        return dict(result)
+
+    def tags(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
 
         if not entries:
-            return []
+            return {}
 
-        return entries.order_by('account').values_list(
-            'account__slug', flat=True).distinct()
+        result = OrderedDict()
+        for tag in TAGS:
+            tag_count = entries.filter(tags__contains=[tag]).count()
+            if tag_count:
+                result[tag] = tag_count
+
+        return result
 
     def who(self, entries=None):
         if entries is None:
@@ -167,9 +195,20 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
-    def calculate_balance(self, entries, start, end):
+    def calculate_balance(self, entries=None, start=None, end=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        if entries.count() == 0:
+            return
+
+        if not start:
+            start = entries.earliest('when').when
+        if not end:
+            end = entries.latest('when').when
+
         # Range test (inclusive).
-        assert start <= end, start
+        assert start <= end
         entries = entries.filter(when__range=(start, end))
         totals = entries.values('is_income').annotate(models.Sum('amount'))
 
@@ -189,16 +228,6 @@ class Book(models.Model):
         return result
 
     def balance(self, entries=None, start=None, end=None):
-        if entries is None:
-            entries = self.entry_set.all()
-        elif entries.count() == 0:
-            return
-
-        if not start:
-            start = entries.earliest('when').when
-        if not end:
-            end = entries.latest('when').when
-
         result = self.calculate_balance(entries, start, end)
         if not result:
             return
@@ -206,11 +235,11 @@ class Book(models.Model):
         months = []
         last_month = None
         sanity_check = Decimal(0)
-        for next_month in month_year_iter(start, end):
+        for next_month in month_year_iter(result['start'], result['end']):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
                 month_balance = self.calculate_balance(
-                    entries, last_month, end_of_month)
+                    entries, start=last_month, end=end_of_month)
                 sanity_check += month_balance['result']
                 months.append(month_balance)
             last_month = next_month
@@ -224,17 +253,6 @@ class Book(models.Model):
         return {'complete': result, 'months': months}
 
     def breakdown(self, entries=None, start=None, end=None):
-        if entries is None:
-            entries = self.entry_set.all()
-        elif entries.count() == 0:
-            return
-
-        if not start:
-            start = entries.earliest('when').when
-        if not end:
-            end = entries.latest('when').when
-
-        entries = entries.filter(when__range=(start, end))
         result = self.calculate_balance(entries, start, end)
         return result
 

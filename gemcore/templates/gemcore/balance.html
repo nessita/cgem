@@ -33,7 +33,7 @@
             {% for item in balance.months %}
             <tr>
                 <td class="">
-                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start.year month=item.start.month account=account_slug currency=currency %}">
+                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start|date:"Y" month=item.start|date:"b" account=account_slug currency=currency %}{% if filters.qs %}&{{ filters.qs }}{% endif %}">
                         {{ item.start|date:"Y M" }}
                     </a>
                 </td>
