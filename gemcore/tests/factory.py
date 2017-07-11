@@ -43,8 +43,7 @@ class Factory(object):
         return book
 
     def make_account(
-            self, name=None, slug=None, currency='USD', users=None,
-            **kwargs):
+            self, name=None, slug=None, currency='USD', users=None, **kwargs):
         i = self.make_integer()
         if name is None:
             name = 'Account %s (%s)' % (i, currency)
