@@ -221,7 +221,7 @@ def entries(request, book_slug):
 
         context = {
             'entries': entries,
-            'qs': urlencode(request.GET),
+            'qs': filters['qs'],
         }
         if 'merge-selected' in request.POST:
             template = 'gemcore/merge-entries.html'
@@ -291,10 +291,9 @@ def entries(request, book_slug):
         'entries': entries,
         'when_next': when_next,
         'when_prev': when_prev,
-        'start': start,
-        'end': end,
-        'qs': urlencode(request.GET),
+        'page_end': end,
         'page_range': range(start, end + 1),
+        'page_start': start,
         'edit_account_form': ChooseForm(queryset=accounts),
         'account_balance_form': AccountBalanceForm(queryset=accounts),
         'currency_balance_form': CurrencyBalanceForm(choices=currencies),
