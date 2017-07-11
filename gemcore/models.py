@@ -302,7 +302,7 @@ class Account(models.Model):
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
-    currency_code = models.CharField(
+    currency = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
     parser_config = models.ForeignKey(ParserConfig, null=True, blank=True)
     active = models.BooleanField(default=True)
@@ -310,10 +310,10 @@ class Account(models.Model):
     objects = AccountManager()
 
     class Meta:
-        ordering = ('currency_code', 'name')
+        ordering = ('currency', 'name')
 
     def __str__(self):
-        result = '%s %s' % (self.currency_code, self.name)
+        result = '%s %s' % (self.currency, self.name)
         if self.users.count() == 1:
             result += ' %s' % self.users.get().username
         return result
@@ -370,10 +370,6 @@ class Entry(models.Model):
         return '%s (%s%s %s, by %s on %s)' % (
             self.what, '+' if self.is_income else '-', self.amount,
             self.account, self.who, self.when)
-
-    @property
-    def currency(self):
-        return self.account.currency_code
 
     @property
     def money(self):

@@ -115,9 +115,9 @@ def filter_entries(request, book_slug, **kwargs):
     if account:
         entries = entries.filter(account__slug=account)
 
-    currency_code = params.get('currency_code')
-    if currency_code:
-        entries = entries.filter(account__currency_code=currency_code)
+    currency = params.get('currency')
+    if currency:
+        entries = entries.filter(account__currency=currency)
 
     used_tags = list(params.getlist('tag', []))
     if used_tags:
@@ -142,7 +142,7 @@ def filter_entries(request, book_slug, **kwargs):
         month=month, months=months, month_label=months.get(month),
         year=year, years=years, tags=tags, used_tags=used_tags,
         country=country, countries=countries,
-        account=account, accounts=accounts, currency_code=currency_code,
+        account=account, accounts=accounts, currency=currency,
     )
     return book, entries, context
 
@@ -152,7 +152,7 @@ def filter_entries(request, book_slug, **kwargs):
 def entries(request, book_slug):
     book, entries, context = filter_entries(request, book_slug)
     accounts = Account.objects.by_book(book)
-    currencies = sorted(set(accounts.values_list('currency_code', flat=True)))
+    currencies = sorted(set(accounts.values_list('currency', flat=True)))
 
     edit_account_form = ChooseForm(queryset=accounts)
     if request.method == 'POST':
@@ -480,11 +480,11 @@ def account_transfer(request, book_slug):
 @require_http_methods(['GET', 'POST'])
 @login_required
 def balance(
-        request, book_slug, account_slug=None, currency_code=None,
+        request, book_slug, account_slug=None, currency=None,
         start=None, end=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     accounts = Account.objects.by_book(book)
-    currencies = sorted(set(accounts.values_list('currency_code', flat=True)))
+    currencies = sorted(set(accounts.values_list('currency', flat=True)))
 
     if request.method == 'POST':
         if 'get-account-balance' in request.POST:
@@ -500,7 +500,7 @@ def balance(
             if isinstance(source, Account):
                 kwargs['account_slug'] = source.slug
             else:
-                kwargs['currency_code'] = source
+                kwargs['currency'] = source
             url = reverse('balance', kwargs=kwargs)
             start = form.cleaned_data['start']
             end = form.cleaned_data['end']
@@ -516,8 +516,8 @@ def balance(
     chosen_accounts = None
     if account_slug:
         chosen_accounts = accounts.filter(slug=account_slug)
-    elif currency_code:
-        chosen_accounts = accounts.filter(currency_code=currency_code)
+    elif currency:
+        chosen_accounts = accounts.filter(currency=currency)
 
     if chosen_accounts is not None and not chosen_accounts.exists():
         raise Http404
@@ -551,12 +551,12 @@ def balance(
         initial=dict(source=account_slug, start=start, end=end))
     currency_balance_form = CurrencyBalanceForm(
         choices=currencies,
-        initial=dict(source=currency_code, start=start, end=end))
+        initial=dict(source=currency, start=start, end=end))
     context = {
         'balance': balance,
         'book': book,
         'account_slug': account_slug,
-        'currency_code': currency_code,
+        'currency': currency,
         'account_balance_form': account_balance_form,
         'currency_balance_form': currency_balance_form,
     }
