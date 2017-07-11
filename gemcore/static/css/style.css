@@ -27,7 +27,12 @@
 }
 
 .filtered {
-    color: black;
+    background-color: #b6b6b6;
+    border-color: #b6b6b6;
+}
+
+.filtered .badge {
+    color: #b6b6b6;
 }
 
 #entry-form-search .row {

@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import StringIO, TextIOWrapper
 from urllib.parse import urlencode
@@ -91,12 +90,14 @@ def parse_request(request, book, **kwargs):
     else:
         entries = entries.filter(when__year=year)
 
-    try:
-        month = int(params.get('month'))
-    except (ValueError, TypeError):
-        month = None
-    else:
-        entries = entries.filter(when__month=int(month))
+    month = params.get('month')
+    if month:
+        try:
+            month_int = int(datetime.strptime(month, '%b').month)
+        except (ValueError, TypeError):
+            month_int = None
+        else:
+            entries = entries.filter(when__month=month_int)
 
     who = params.get('who')
     if who:
@@ -121,32 +122,26 @@ def parse_request(request, book, **kwargs):
     if kwargs:
         entries = entries.filter(**kwargs)
 
-    months = OrderedDict(sorted({
-        (d.month, d.strftime('%b'))
-        for d in entries.values_list('when', flat=True)
-    }))
-
     filters = {
+        'account': account,
+        'country': country,
+        'currency': currency,
+        'month': month,
         'q': q,
         'qs': urlencode(params),
-        'when': when,
-        'year': year,
-        'month': month,
-        'month_label': months.get(month),
-        'who': who,
-        'country': country,
-        'account': account,
-        'currency': currency,
         'tags': used_tags,
+        'when': when,
+        'who': who,
+        'year': year,
     }
     available = {
-        'years': book.years(entries),
-        'months': months,
-        'countries': book.countries(entries),
-        'accounts': book.accounts(entries),
-        'currencies': book.currencies(entries),
-        'users': book.who(entries),
-        'tags': book.tags(entries),
+        'countries': sorted(book.countries(entries).items()),
+        'currencies': sorted(book.currencies(entries).items()),
+        'months': [(d.strftime('%b').lower(), i)
+                   for d, i in sorted(book.months(entries).items())],
+        'tags': sorted(book.tags(entries).items()),
+        'users': sorted(book.who(entries).items()),
+        'years': sorted(book.years(entries).items()),
     }
     return entries, filters, available
 
@@ -258,7 +253,7 @@ def entries(request, book_slug):
     else:
         when_next = None
         when_prev = None
-    currencies = sorted(available['currencies'].keys())
+    currencies = [c for c, i in available['currencies']]
     context = {
         'book': book,
         'filters': filters,
