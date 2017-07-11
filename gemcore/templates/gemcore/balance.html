@@ -25,12 +25,6 @@
         {% if balance %}
         <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
 
-        <p>
-        {% for k, i in filters.items %}
-            {% if i %} {{ k }} {{ i }} {% endif %}
-        {% endfor %}
-        </p>
-
         <table class="table table-condensed">
             <thead>
             <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total</th></tr>
