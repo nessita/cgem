@@ -119,6 +119,32 @@ def parse_request(request, book, **kwargs):
     if used_tags:
         entries = entries.filter(tags__contains=used_tags)
 
+    include_tags = request.GET.getlist('include_tag')
+    if include_tags:
+        entries = entries.filter(tags__contained_by=include_tags)
+
+    exclude_tags = request.GET.getlist('exclude_tag')
+    if exclude_tags:
+        entries = entries.exclude(tags__contained_by=exclude_tags)
+
+    start = request.GET.get('start')
+    if start:
+        try:
+            start = datetime.strptime(start, '%Y-%m-%d').date()
+        except ValueError:
+            start = None
+        else:
+            entries = entries.filter(when__gte=start)
+
+    end = request.GET.get('end')
+    if end:
+        try:
+            end = datetime.strptime(end, '%Y-%m-%d').date()
+        except ValueError:
+            end = None
+        else:
+            entries = entries.filter(when__lte=end)
+
     if kwargs:
         entries = entries.filter(**kwargs)
 
@@ -126,9 +152,13 @@ def parse_request(request, book, **kwargs):
         'account': account,
         'country': country,
         'currency': currency,
+        'end': end,
+        'exclude_tags': exclude_tags,
+        'include_tags': include_tags,
         'month': month,
         'q': q,
         'qs': urlencode(params),
+        'start': start,
         'tags': used_tags,
         'when': when,
         'who': who,
@@ -541,29 +571,11 @@ def balance(
     if chosen_accounts is not None and not chosen_accounts.exists():
         raise Http404
 
-    balance = None
+    balance = filters = available = None
     if chosen_accounts:
-        entries = book.entry_set.filter(account__in=chosen_accounts)
-
-        tags = request.GET.getlist('tag')
-        if tags:
-            entries = entries.filter(tags__contained_by=tags)
-
-        exclude_tags = request.GET.getlist('exclude')
-        if exclude_tags:
-            entries = entries.exclude(tags__contained_by=exclude_tags)
-
-        start = request.GET.get('start')
-        if start:
-            start = datetime.strptime(start, '%Y-%m-%d').date()
-
-        end = request.GET.get('end')
-        if end:
-            end = datetime.strptime(end, '%Y-%m-%d').date()
-
-        # book.balance will only return entries for the book, which we ensured
-        # request.user has access to
-        balance = book.balance(entries, start, end)
+        entries, filters, available = parse_request(
+            request, book, account__in=chosen_accounts)
+        balance = book.balance(entries)
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,
@@ -578,5 +590,7 @@ def balance(
         'currency': currency,
         'account_balance_form': account_balance_form,
         'currency_balance_form': currency_balance_form,
+        'filters': filters,
+        'available': available,
     }
     return render(request, 'gemcore/balance.html', context)
