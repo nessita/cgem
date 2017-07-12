@@ -19,10 +19,9 @@ from django.utils.text import slugify
 from django.utils.timezone import now
 from django_countries import countries
 
+from gemcore.currencies import CURRENCIES
 
-CURRENCIES = [
-    'ARS', 'BRL', 'CAD', 'CNY', 'EUR', 'GBP', 'USD', 'UYU',
-]
+
 TAGS = [
     'bureaucracy',
     'car',
