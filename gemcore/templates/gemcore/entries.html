@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% load qurl %}
+{% load static %}
+
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
+{% endblock head-extra %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col-md-12">
+    {% if filters.q %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path q-=filters.q %}">{{ filters.q }} &times;</a>
+    </div>
+    {% endif %}
+    {% if filters.when %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path when-=filters.when %}">{{ filters.when|date }} &times;</a>
+    </div>
+    {% endif %}
+    {% if filters.account %}
+    <div class="btn-group">
+        <a class="btn btn-xs btn-info close" href="{% qurl request.get_full_path account-=filters.account %}">{{ filters.account }} &times;</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-4">
+
+    <div class="row">
+        <h3>Filters <div class="pull-right"><small><a href=".">reset</a></small></div></h3>
+        <p>{% for k, i in available.tags %}
+            {% if k not in filters.tags %}
+            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path tag-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endif %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.months %}
+            {% ifnotequal k filters.month %}
+            <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path month-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.years %}
+            {% ifnotequal k filters.year %}
+            <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path year-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.countries %}
+            {% ifnotequal k filters.country %}
+            <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path country-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.users %}
+            {% ifnotequal k filters.who %}
+            <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path who-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+        <p>{% for k, i in available.currencies %}
+            {% ifnotequal k filters.currency %}
+            <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path currency+=k %}">
+                {{ k }} <span class="badge">{{ i }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path currency-=k %}">
+                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+            </a>
+            {% endifnotequal %}
+        {% endfor %}</p>
+    </div>
+
+    <div class="row">
+        <form id="entry-form-search" class="form-horizontal" method="GET" action="">
+            <div class="col-xs-5 has-feedback">
+                <input type="text" class="form-control input-sm" name="q" autofocus="on" 
+                       id="search-text" placeholder="Search"
+                       {% if filters.q %}value="{{ filters.q }}"{% endif %} />
+                <span style="cursor: pointer;" id="clear-search-text"
+                      class="glyphicon glyphicon-remove form-control-feedback"></span>
+            </div>
+            <div class="col-xs-5 has-feedback">
+                <input type="date" class="form-control input-sm datepicker" name="when"
+                       id="search-date" placeholder="When"
+                       {% if filters.when %}value="{{ filters.when|date }}"{% endif %} />
+                <span style="cursor: pointer;" id="clear-search-date"
+                      class="glyphicon glyphicon-remove form-control-feedback"></span>
+            </div>
+            <div class="col-xs-2">
+                <button class="btn btn-sm btn-default" type="submit">
+                    <span class="glyphicon glyphicon-search"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="row">
+        {% include 'gemcore/_book_actions.html' %}
+    </div>
+
+    <div class="row">
+        <h3>Balances</h3>
+        <div class="col-md-12">
+        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-default' %}
+        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
+        </div>
+    </div>
+
+  </div>
+
+<!---------------------------------------------------------------------------->
+
+  <div class="col-md-8">
+    {% include 'gemcore/_entries_paginator.html' %}
+    {% if entries %}
+    <form action="" method="POST" class="form-horizontal" role="form">
+    {% csrf_token %}
+    <table id="entries-list" class="table table-condensed table-hover table-striped">
+        <thead>
+            <tr>
+                <th><input type="checkbox" onClick="toggle(this)" /></th>
+                <th>When</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>$$$</th>
+                <th>From</th>
+                <th>Tags</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>
+                    <input name="edit-entry" type="checkbox" value="{{ entry.id }}" />
+                </td>
+                <td>
+                    <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date }}</a>
+                </td>
+                <td>{{ entry.who.username|slice:"3" }}</td>
+                <td>
+                    <a href="{% url 'entry' book.slug entry.id %}?{{ filters.qs }}">{{ entry.what }}</a>
+                </td>
+                <td class="text-right {% if not entry.is_income %}expense{% endif %}">
+                    {% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}
+                </td>
+                <td>
+                    <a href="{% qurl request.get_full_path account=entry.account.slug %}">{{ entry.account }}</a>
+                </td>
+                <td>
+                    {{ entry.country }}<br/>
+                    {% for t in entry.tags %}
+                    {{ t }}<br/>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="row">
+        <div class="form-group col-xs-2">
+            {{ edit_account_form.target }}
+        </div>
+        <div class="form-group col-xs-2">
+            <button type="submit" class="btn btn-sm btn-default" name="change-account">Change</button>
+        </div>
+
+        <!--div class="form-group col-xs-2">
+            {{ edit_tags_form.target }}
+        </div>
+        <div class="form-group col-xs-2">
+            <button type="submit" class="btn btn-sm btn-default" name="change-tags">Change</button>
+        </div-->
+
+        <div class="btn-group col-xs-4">
+            <button type="submit" class="btn btn-sm btn-default" name="merge-selected">Merge</button>
+            <button type="submit" class="btn btn-sm btn-default" name="remove-selected">Remove</button>
+        </div>
+    </div>
+
+    {% include 'gemcore/_entries_paginator.html' %}
+    </form>
+    {% else %}
+    <p>No entries in the system.</dp>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+$("#clear-search-text").click(function(evt) {
+    evt.preventDefault();
+    $("#search-text").val("").focus();
+});
+$("#clear-search-date").click(function(evt) {
+    evt.preventDefault();
+    $("#search-date").val("").focus();
+});
+function toggle(source) {
+  checkboxes = document.getElementsByName('edit-entry');
+  for(var i=0, n=checkboxes.length;i<n;i++) {
+    checkboxes[i].checked = source.checked;
+  }
+}
+</script>
+
+{% endblock content %}

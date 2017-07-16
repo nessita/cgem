@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
+{% endblock head-extra %}
+
+{% block content %}
+
+<h1>Are you sure you want to merge these entries?</h1>
+
+<form action="{% if book %}{% url 'merge-entry' book.slug %}?{{ qs }}{% endif %}" method="POST" class="form-inline" role="form">
+    {% csrf_token %}
+    <p>Result of merge will be: {{ merge_dry_run }}</p>
+    <p>Choose date: {{ form.when }}</p>
+    <ul>
+    {% for entry in entries %}
+        <li>{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"/></li>
+    {% endfor %}
+    </ul>
+    <div class="text-center">
+        <button type="submit" class="btn btn-default" name="yes">Yes, merge</button>
+        <button type="submit" class="btn btn-primary" name="no">No!</button>
+    </div>
+</form>
+
+{% endblock content %}

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
+{% endblock head-extra %}
+
+{% block content %}
+
+<form action="." method="POST" class="form-inline" role="form">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    {% include 'gemcore/_form_field.html' with field=form.source_account %}
+    {% include 'gemcore/_form_field.html' with field=form.source_amount %}
+    {% include 'gemcore/_form_field.html' with field=form.target_account %}
+    {% include 'gemcore/_form_field.html' with field=form.target_amount %}
+    {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
+
+    <div class="btn-group">
+        <button type="submit" class="btn btn-primary" name="transfer">Transfer</button>
+    </div>
+</form>
+
+{% endblock content %}

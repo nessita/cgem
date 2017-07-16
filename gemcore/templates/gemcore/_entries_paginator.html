@@ -1,0 +1,33 @@
+{% load qurl %}
+
+    <div class="text-center">
+    <ul class="pagination pagination-sm">
+
+        {% if when_prev %}
+        <li><a href="{% qurl request.get_full_path when=when_prev %}">previous day &laquo;</a></li>
+        {% endif %}
+
+        {% if entries.has_previous %}
+        {% if page_start > 1 %}
+        <li><a href="{% qurl request.get_full_path page=1 %}">&laquo;</a></li>
+        {% endif %}
+        <li><a href="{% qurl request.get_full_path page=entries.previous_page_number %}">&lsaquo;</a></li>
+        {% endif %}
+        {% for p in page_range %}
+        <li{% ifequal entries.number p %} class="active"{% endifequal %}>
+            <a href="{% qurl request.get_full_path page=p %}">{{ p }}</a>
+        </li>
+        {% endfor %}
+        {% if entries.has_next %}
+        <li><a href="{% qurl request.get_full_path page=entries.next_page_number %}">&rsaquo;</a></li>
+        {% if page_end < entries.paginator.num_pages %}
+        <li><a href="{% qurl request.get_full_path page=entries.paginator.num_pages %}">&raquo;</a></li>
+        {% endif %}
+        {% endif %}
+
+        {% if when_next %}
+        <li><a href="{% qurl request.get_full_path when=when_next %}">&raquo; next day</a></li>
+        {% endif %}
+
+    </ul>
+    </div>

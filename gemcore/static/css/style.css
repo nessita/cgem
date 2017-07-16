@@ -1,0 +1,69 @@
+#entries-list {
+    font-size: 90%;
+}
+
+.add-entry {
+    padding-bottom: 10px;
+}
+
+.add-entry .datepicker {
+    width: 7em;
+}
+
+.entry-navigation {
+    display: inline-block;
+}
+
+.table {
+    width: auto;
+}
+
+.expense {
+    color: red;
+}
+
+.balance {
+    text-align: right;
+}
+
+.filtered {
+    background-color: #b6b6b6;
+    border-color: #b6b6b6;
+}
+
+.filtered .badge {
+    color: #b6b6b6;
+}
+
+#entry-form-search .row {
+    padding-left: 15px;
+    padding-right: 10px;
+}
+
+#entry-form-search div {
+    padding: 0;
+}
+
+#entry-form-search .form-control-feedback {
+    right: 0;
+}
+
+.vspace-10 {
+    margin-top: 10px;
+}
+
+#id_tags {
+    list-style: none outside none;
+}
+
+#id_tags > li {
+    margin-top: 5px;
+    display: inline-block;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 5px 10px;
+}
