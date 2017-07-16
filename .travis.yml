@@ -18,7 +18,7 @@ install:
     - pip install -r requirements.txt
 
 before_script:
-    - psql -U postgres -c 'create database traviscgem;'
+    - psql -U postgres -c 'create database travisdb;'
 
 script:
-    - SECRET_KEY=testkey DATABASE_URL='postgres://localhost/traviscgem' python manage.py test
+    - SECRET_KEY=testkey DATABASE_URL='postgres://localhost/travisdb' python manage.py test
