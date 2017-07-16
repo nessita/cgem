@@ -1,13 +1,24 @@
+# Some bits taken from https://gist.github.com/ndarville/3625246
+
 language: python
 sudo: false
 dist: trusty
+
 python:
     - "3.5"
     - "3.6"
+
+services: postgresql
+
 env:
     - DJANGO_VERSION=1.10.7
     - DJANGO_VERSION=1.11.3
+
 install:
     - pip install -r requirements.txt
+
+before_script:
+    - psql -U postgres -c 'create database traviscgem;'
+
 script:
-    - SECRET_KEY=testkey python manage.py test
+    - SECRET_KEY=testkey DATABASE_URL='postgres://localhost/traviscgem' python manage.py test
