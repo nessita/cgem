@@ -24,11 +24,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'ugpu*6%qi!$)(@dxjd0b%r9ase-wfe32fv+h@)3=r^a=b!jl7@'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['cgem.herokuapp.com', 'cgem-14.herokuapp.com']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split(',')
 
 
 # Application definition
@@ -88,7 +88,7 @@ WSGI_APPLICATION = 'gem.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'gem',
+        'NAME': 'cgem',
         'USER': '',
         'PASSWORD': '',
         'HOST': '127.0.0.1',
@@ -134,7 +134,7 @@ DATABASES['default'] = dj_database_url.config()
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-ADMINS = (('Owner', 'naninessa@yahoo.com.ar'),)
+ADMINS = (('Admin', os.environ.get('ADMINS')))
 DATE_FORMAT = 'Y-m-d'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
