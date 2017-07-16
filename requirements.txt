@@ -2,7 +2,7 @@ dj-database-url==0.4.2
 dj-static==0.0.6
 Django==1.11.3
 django-countries==4.6.1
--e git+https://github.com/sophilabs/django-qurl-templatetag.git@8a785b112437d05cb54846b79012967fee1cb534#egg=django_qurl_templatetag
+-e git+https://github.com/sophilabs/django-qurl-templatetag.git#egg=django_qurl_templatetag
 django-toolbelt==0.0.1
 flake8==3.3.0
 gunicorn==19.7.1
