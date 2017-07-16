@@ -18,7 +18,7 @@ class BookTestCase(BaseTestCase):
         for u in ('user1', 'user2', 'other'):
             setattr(self, u, self.factory.make_user(username=u))
         self.book = self.factory.make_book(
-            name='our-expenses-test', users=[self.user1, self.user2])
+            name='Test', users=[self.user1, self.user2])
 
     def test_month_breakdown_empty(self):
         result = self.book.month_breakdown()
