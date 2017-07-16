@@ -1,0 +1,10 @@
+    <div class="form-group{% if field.errors %} has-error has-feedback{% endif %} {{ extra_class }}">
+        <label for="{{ field.auto_id }}"{% if sronly %} class="sr-only"{% endif %}>
+        {{ field.label }}
+        </label>
+        {% if field.errors %}
+        <span class="glyphicon glyphicon-remove form-control-feedback"
+              title="{{ field.errors.0 }}"></span>
+        {% endif %}
+        {{ field }}
+    </div>

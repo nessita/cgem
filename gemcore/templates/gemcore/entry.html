@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head-extra %}
+    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
+    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
+    <script src="{% static 'js/add-entry.js' %}"></script>
+{% endblock head-extra %}
+
+{% block content %}
+
+<div class="row add-entry">
+
+<form action="." method="POST" class="form-inline" role="form">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% if form.errors %}
+    <div class="alert alert-danger">{{ form.errors }}</div>
+    {% endif %}
+
+    {% include 'gemcore/_form_field.html' with field=form.who sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.account sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.amount sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.notes sronly=True %}
+
+    <div class="form-group checkbox">{{ form.is_income }} Income?</div>
+
+    <div class="form-group tags">{{ form.tags }}</div>
+
+    <input type="hidden" name="qs" value="{{ qs }}" />
+
+    <div class="text-center">
+        {% if entry_prev %}
+        <div class="entry-navigation">
+            <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
+        </div>
+        {% endif %}
+        <div class="btn-group hidden-xs" role="group">
+            {% include 'gemcore/_entry_save_buttons.html' %}
+        </div>
+        <div class="btn-group-vertical visible-xs" role="group">
+            {% include 'gemcore/_entry_save_buttons.html' %}
+        </div>
+        {% if entry_next %}
+        <div class="entry-navigation">
+            <a href="{% url 'entry' book.slug entry_next.id %}">next &raquo;</a>
+        </div>
+        {% endif %}
+    </div>
+</form>
+
+</div>
+
+{% endblock content %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row">
+{% for book in books %}
+<div class="row">
+    <div class="col-md-8">
+        <h2><a href="{% url 'entries' book.slug %}">{{ book }}</a></h2>
+        <h3>({% for u in book.users.all %}{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %})</h3>
+        Recent entries:
+        <ul>
+            {% for entry in book.latest_entries %}
+            <li><a href="{% url 'entry' book.slug entry.id %}">{{ entry }}</a></li>
+            {% empty %}
+            <li>No entries for this book yet.</li>
+            {% endfor %}
+        </ul>
+        {% include 'gemcore/_book_actions.html' %}
+    </div>
+</div>
+{% empty %}
+    <h2>No books in the system yet.</h2>
+{% endfor %}
+</div>
+
+<div class="row">
+    <div class="btn-group vspace-10">
+        <a href="{% url 'add-book' %}" class="btn btn-default">Add Book</a>
+    </div>
+</div>
+
+{% endblock content %}
