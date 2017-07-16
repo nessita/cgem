@@ -14,8 +14,6 @@ import django.utils.timezone
 
 class Migration(migrations.Migration):
 
-    replaces = [('gemcore', '0001_squashed_0006_remove_entry_tags'), ('gemcore', '0002_auto_20170619_1120'), ('gemcore', '0003_auto_20170622_1842'), ('gemcore', '0004_auto_20170622_2257'), ('gemcore', '0005_auto_20170711_2030'), ('gemcore', '0006_auto_20170711_2112')]
-
     initial = True
 
     dependencies = [
