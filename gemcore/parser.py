@@ -59,7 +59,7 @@ class CSVParser(object):
         return result
 
     def find_notes(self, row):
-        notes = ([row[k] for k in self.config.notes] +
+        notes = ([row[k] for k in self.config.notes if row[k]] +
                  ['source: %r' % self.name])
         return ' | '.join(notes)
 

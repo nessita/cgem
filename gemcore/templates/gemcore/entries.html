@@ -165,7 +165,7 @@
             {% for entry in entries %}
             <tr>
                 <td>
-                    <input name="edit-entry" type="checkbox" value="{{ entry.id }}" />
+                    <input name="entry" type="checkbox" value="{{ entry.id }}" />
                 </td>
                 <td>
                     <a href="{% qurl request.get_full_path when=entry.when %}">{{ entry.when|date }}</a>
@@ -231,7 +231,7 @@ $("#clear-search-date").click(function(evt) {
     $("#search-date").val("").focus();
 });
 function toggle(source) {
-  checkboxes = document.getElementsByName('edit-entry');
+  checkboxes = document.getElementsByName('entry');
   for(var i=0, n=checkboxes.length;i<n;i++) {
     checkboxes[i].checked = source.checked;
   }

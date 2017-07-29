@@ -187,7 +187,7 @@ def entries(request, book_slug):
         edit_account_form = ChooseForm(queryset=accounts, data=request.POST)
         here = request.get_full_path()
 
-        ids = [int(i) for i in request.POST.getlist('edit-entry')]
+        ids = [int(i) for i in request.POST.getlist('entry')]
         if len(ids) == 0:
             messages.error(request, 'Invalid request, no entries selected.')
             return HttpResponseRedirect(here)
@@ -234,6 +234,7 @@ def entries(request, book_slug):
                 return HttpResponseRedirect(here)
 
             context['merge_dry_run'] = merge_dry_run
+            context['book'] = book
             context['form'] = EntryMergeForm(initial=dict(when=when))
 
         elif 'remove-selected' in request.POST:

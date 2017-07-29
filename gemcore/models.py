@@ -290,7 +290,7 @@ class Book(models.Model):
                 for e in entries)))
         amount = sum(e.money for e in entries)
         tags = reduce(operator.add, [e.tags for e in entries])
-        notes = '\n'.join(e.notes for e in entries)
+        notes = '\n'.join(str(e) for e in entries)
         kwargs = dict(
             book=self, who=who, when=when, what=what, account=accounts.pop(),
             amount=abs(amount), is_income=amount > 0, tags=tags,
@@ -384,9 +384,9 @@ class Entry(models.Model):
         verbose_name_plural = 'Entries'
 
     def __str__(self):
-        return '%s (%s%s %s, by %s on %s)' % (
-            self.what, '+' if self.is_income else '-', self.amount,
-            self.account, self.who, self.when)
+        return '%s: %s %s%s %s%s' % (
+            self.when, self.what, '+' if self.is_income else '-', self.amount,
+            self.account, ' | ' + self.notes if self.notes else '')
 
     @property
     def money(self):
