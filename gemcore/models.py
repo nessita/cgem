@@ -321,7 +321,8 @@ class Account(models.Model):
     users = models.ManyToManyField(User)
     currency = models.CharField(
         max_length=3, choices=[(c, c) for c in CURRENCIES])
-    parser_config = models.ForeignKey(ParserConfig, null=True, blank=True)
+    parser_config = models.ForeignKey(
+        ParserConfig, null=True, blank=True, on_delete=models.CASCADE)
     active = models.BooleanField(default=True)
 
     objects = AccountManager()
@@ -351,11 +352,12 @@ class Account(models.Model):
 
 class TagRegex(models.Model):
 
-    account = models.ForeignKey(Account)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
     regex = models.TextField()
     tag = models.CharField(max_length=256, choices=((t, t) for t in TAGS))
     transfer = models.ForeignKey(
-        Account, related_name='transfers', null=True, blank=True)
+        Account, related_name='transfers', null=True, blank=True,
+        on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('account', 'regex', 'tag')
@@ -363,11 +365,11 @@ class TagRegex(models.Model):
 
 class Entry(models.Model):
 
-    book = models.ForeignKey(Book)
-    who = models.ForeignKey(User)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    who = models.ForeignKey(User, on_delete=models.CASCADE)
     when = models.DateField(default=datetime.today)
     what = models.TextField()
-    account = models.ForeignKey(Account)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
     amount = models.DecimalField(
         decimal_places=2, max_digits=12,
         validators=[MinValueValidator(Decimal('0'))])
