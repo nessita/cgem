@@ -24,10 +24,11 @@ class Factory(object):
     def make_slug(self, prefix='slug'):
         return '%s-%s' % (prefix, self.make_integer())
 
-    def make_user(self, username=None, **kwargs):
+    def make_user(self, username=None, password='test', **kwargs):
         if username is None:
             username = 'user-%s' % self.make_integer()
-        return User.objects.create_user(username=username, **kwargs)
+        return User.objects.create_user(
+            username=username, password=password, **kwargs)
 
     def make_book(self, slug=None, name=None, users=None, **kwargs):
         i = self.make_integer()

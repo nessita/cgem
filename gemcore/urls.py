@@ -27,8 +27,8 @@ urlpatterns = [
          gemcore.views.entry_merge, name='merge-entry'),
     path('<slug:book_slug>/balance/',
          gemcore.views.balance, name='balance'),
-    path('<slug:book_slug>/balance/<str:currency>/',
-         gemcore.views.balance, name='balance'),
     path('<slug:book_slug>/balance/<slug:account_slug>/',
+         gemcore.views.balance, name='balance'),
+    path('<slug:book_slug>/balance/currency/<str:currency>/',
          gemcore.views.balance, name='balance'),
 ]
