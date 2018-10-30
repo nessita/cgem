@@ -332,11 +332,11 @@ class AccountTestCase(BaseTestCase):
     def test_tags_for(self):
         account = self.factory.make_account()
         self.factory.make_tag_regex(
-            regex='\d{2}', tag='house', account=account)
+            regex=r'\d{2}', tag='house', account=account)
         self.factory.make_tag_regex(
-            regex='^[a-zA-Z ]+$', tag='food', account=account)
+            regex=r'^[a-zA-Z ]+$', tag='food', account=account)
         self.factory.make_tag_regex(
-            regex='\d{2}[a-z]', tag='fun', account=account)
+            regex=r'\d{2}[a-z]', tag='fun', account=account)
         self.factory.make_tag_regex(
             regex='HOLA MANOLA', tag='trips', account=account)
 
