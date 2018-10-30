@@ -12,7 +12,7 @@ class Flake8ConformanceTestCase(TestCase):
 
     def test_lint(self):
         excludes = ','.join(self.excludes)
-        cmd = ['env/bin/flake8', '--exclude', excludes] + PACKAGES
+        cmd = ['flake8', '--exclude', excludes] + PACKAGES
         try:
             result = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
