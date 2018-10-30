@@ -94,12 +94,12 @@ DATABASES = {
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
-
+_VALIDATORS = (
+    'UserAttributeSimilarityValidator', 'MinimumLengthValidator',
+    'CommonPasswordValidator', 'NumericPasswordValidator')
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.%s' % i}
+    for i in _VALIDATORS
 ]
 
 
@@ -142,6 +142,6 @@ SESSION_COOKIE_AGE = 43200  # 12 hours
 SITE_ID = 1
 
 try:
-    from gem.local_settings import *
+    from gem.local_settings import *  # noqa
 except ImportError:
     pass
