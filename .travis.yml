@@ -1,11 +1,13 @@
 # Some bits taken from https://gist.github.com/ndarville/3625246
 
-language: python
 sudo: false
-dist: trusty
+dist: xenial
+language: python
 
 python:
     - "3.6"
+    - "3.7"
+    - "3.8"
 
 services: postgresql
 
@@ -13,7 +15,7 @@ addons:
     postgresql: "9.6"
 
 env:
-    - DJANGO_VERSION=2.1.2
+    - DJANGO_VERSION=2.2.6
 
 install:
     - pip install -r requirements.txt
