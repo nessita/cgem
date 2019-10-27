@@ -220,6 +220,7 @@ def entries(request, book_slug):
             raise NotImplementedError()
 
         context = {
+            'book': book,
             'entries': entries,
             'qs': filters['qs'],
         }
@@ -234,7 +235,6 @@ def entries(request, book_slug):
                 return HttpResponseRedirect(here)
 
             context['merge_dry_run'] = merge_dry_run
-            context['book'] = book
             context['form'] = EntryMergeForm(initial=dict(when=when))
 
         elif 'remove-selected' in request.POST:

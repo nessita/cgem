@@ -386,9 +386,10 @@ class Entry(models.Model):
         verbose_name_plural = 'Entries'
 
     def __str__(self):
-        return '%s: %s %s%s %s%s' % (
-            self.when, self.what, '+' if self.is_income else '-', self.amount,
-            self.account, ' | ' + self.notes if self.notes else '')
+        return '%s: %s %s%.2f %s%s' % (
+            self.when.strftime('%Y-%m-%d'), self.what,
+            '+' if self.is_income else '-', self.amount, self.account,
+            ' | ' + self.notes if self.notes else '')
 
     @property
     def money(self):
