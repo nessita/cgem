@@ -1,4 +1,4 @@
-{% load staticfiles %}
+{% load static %}
 {% load i18n %}
 
 <!DOCTYPE html>
@@ -55,7 +55,7 @@
         <div class="col-md-12">
             {% for message in messages %}
                 <div id="messages" class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-                    {{ message }}
+                    {{ message|linebreaksbr }}
                 </div>
             {% endfor %}
         </div>

@@ -65,14 +65,23 @@ class ParserConfig(models.Model):
     thousands_sep = models.CharField(max_length=1, default=',')
     ignore_rows = models.PositiveSmallIntegerField()
 
-    when = ArrayField(base_field=models.PositiveSmallIntegerField())
-    what = ArrayField(base_field=models.PositiveSmallIntegerField())
-    amount = ArrayField(base_field=models.PositiveSmallIntegerField(), size=2)
+    when = ArrayField(
+        base_field=models.PositiveSmallIntegerField(),
+        help_text='Indexes start at 0, comma separated list of naturals.')
+    what = ArrayField(
+        base_field=models.PositiveSmallIntegerField(),
+        help_text='Indexes start at 0, comma separated list of naturals.')
+    amount = ArrayField(
+        base_field=models.PositiveSmallIntegerField(), size=2,
+        help_text='Indexes start at 0, comma separated list of naturals.')
     notes = ArrayField(
-        base_field=models.PositiveSmallIntegerField(), default=list,
-        blank=True)
+        base_field=models.PositiveSmallIntegerField(),
+        default=list, blank=True,
+        help_text='Indexes start at 0, comma separated list of naturals.')
     defer_processing = ArrayField(
-        base_field=models.CharField(max_length=256), default=list, blank=True)
+        base_field=models.CharField(max_length=256),
+        default=list, blank=True,
+        help_text='Indexes start at 0, comma separated list of strings.')
 
     def __str__(self):
         return self.name
