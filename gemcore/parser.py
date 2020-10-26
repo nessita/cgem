@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import csv
+import logging
 import re
 
 from collections import defaultdict
@@ -11,6 +12,9 @@ from decimal import Decimal
 from django.db import transaction
 
 from gemcore.forms import EntryForm
+
+
+logger = logging.getLogger(__name__)
 
 
 class DataToBeProcessedError(Exception):
@@ -144,8 +148,11 @@ class CSVParser(object):
         ignored = 0
         unprocessed = None
         for row in reader:
+            logger.debug('CSVParser.parse row: %r', row)
             # ignore initial rows
             if ignored < self.config.ignore_rows:
+                logger.info(
+                    'CSVParser.parse ignoring row %i-th row: %r', ignored, row)
                 ignored += 1
                 continue
 

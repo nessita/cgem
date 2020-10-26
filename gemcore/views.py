@@ -472,8 +472,8 @@ def load_from_file(request, book_slug):
 
             if errors:
                 for e, errors in result['errors'].items():
-                    error_msg = ', '.join(str(i) for i in errors)
-                    messages.error(request, '%s: %s' % (e, error_msg))
+                    msg = '\n\n'.join('%s\n%s' % i for i in errors)
+                    messages.error(request, '%s\n\n%s' % (e, msg))
 
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))
