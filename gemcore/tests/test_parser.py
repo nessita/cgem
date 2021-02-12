@@ -98,6 +98,23 @@ class CSVParserTestCase(BaseTestCase):
         }
         self.assertEqual(result['errors'], [error])
 
+    def test_what_concatenates_columns(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[2, 5, 4], amount=[1], country='ES'
+        )
+        f = StringIO(
+            "2022-05-01,12,col 12, col 13, col 14, col 15,ignored\n"
+            "2022-05-02,34,col 22, col 23, col 24, col 25,ignored\n"
+            "2022-05-03,56,col 32, col 33, col 34, col 35,ignored\n"
+            "2022-05-04,78,col 42, col 43, col 44, col 45,ignored\n"
+            ""
+        )
+        result, rows = self.do_parse(account, f)
+
+        self.assert_result(result, errors=0, entries=4)
+        for i, entry in enumerate(result['entries'], start=1):
+            self.assertEqual(entry.what, f'col {i}2 | col {i}5 | col {i}4')
+
     def test_bank1(self):
         # Fecha / Hora Mov.,Concepto,Importe,Comentarios,Saldo Parcial
         account = self.make_account_with_parser(

@@ -62,18 +62,17 @@ class CSVParser(object):
             result = income - abs(expense)
         return result
 
+    def _concat_columns(self, row, indexes, extra=None):
+        result = [row[i].strip() for i in indexes if row[i].strip()]
+        return ' | '.join(result + (extra or []))
+
     def find_notes(self, row):
-        notes = [row[k] for k in self.config.notes if row[k]] + [
-            'source: %r' % self.name
-        ]
-        return ' | '.join(notes)
+        return self._concat_columns(
+            row, self.config.notes, ['source: %r' % self.name]
+        )
 
     def find_what(self, row):
-        result = None
-        for i in self.config.what:
-            result = row[i].strip()
-            if result:
-                break
+        result = self._concat_columns(row, self.config.what)
         assert result, 'What not found (tried %r): %r' % (
             self.config.what,
             row,
