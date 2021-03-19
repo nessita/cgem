@@ -186,7 +186,7 @@ class CSVParser(object):
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
             except Exception as e:
-               result['errors'][e.__class__.__name__].append((e, data))
+                result['errors'][e.__class__.__name__].append((e, data))
             else:
                 assert entry is not None, 'Entry should not be None'
                 result['entries'].append(entry)
