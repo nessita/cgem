@@ -24,10 +24,9 @@ class EntryViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-def transactions(
-        request, book_slug=TEST_SLUG, account_slug=TEST_SLUG, format=None):
-    book = get_object_or_404(Book, slug=book_slug)
-    account = get_object_or_404(Account, slug=account_slug)
+def transactions(request):
+    book = get_object_or_404(Book, slug=TEST_SLUG)
+    account = get_object_or_404(Account, slug=TEST_SLUG)
     user = User.objects.get(username=TEST_SLUG)
 
     f = request.FILES.get('data')
@@ -45,8 +44,8 @@ def transactions(
 
 
 @api_view(['GET'])
-def report(request, book_slug=TEST_SLUG):
-    book = get_object_or_404(Book, slug=book_slug)
+def report(request):
+    book = get_object_or_404(Book, slug=TEST_SLUG)
     balance = book.calculate_balance()
     if balance is not None:
         report = {
