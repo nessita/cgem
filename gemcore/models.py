@@ -38,6 +38,7 @@ TAGS = [
     'utilities',
     'work-ish',
     'imported',
+    'test',
     'trips',
 ]
 
@@ -64,6 +65,7 @@ class ParserConfig(models.Model):
     decimal_point = models.CharField(max_length=1, default='.')
     thousands_sep = models.CharField(max_length=1, default=',')
     ignore_rows = models.PositiveSmallIntegerField()
+    ignore_rows_char = models.CharField(max_length=1, default='#')
 
     when = ArrayField(
         base_field=models.PositiveSmallIntegerField(),
@@ -74,6 +76,15 @@ class ParserConfig(models.Model):
     amount = ArrayField(
         base_field=models.PositiveSmallIntegerField(), size=2,
         help_text='Indexes start at 0, comma separated list of naturals.')
+    amount_extra = models.JSONField(
+        null=True, help_text=(
+            'Extra data to help parsing amounts: provide an extra column '
+            'index, starting at 0, to be used for comparison against fixed '
+            'values to indicate if the entry is an expense or an income. Must '
+            'be a dict with keys: column_index (nat), expense_label (str), '
+            'income_label (str).'
+        )
+    )
     notes = ArrayField(
         base_field=models.PositiveSmallIntegerField(),
         default=list, blank=True,

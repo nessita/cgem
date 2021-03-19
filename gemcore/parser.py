@@ -53,10 +53,19 @@ class CSVParser(object):
     def find_amount(self, row):
         if len(self.config.amount) == 1:
             result = self._parse_amount(row, self.config.amount[0])
+            if self.config.amount_extra is not None:
+                hint = row[self.config.amount_extra['column_index']].strip()
+                if hint == self.config.amount_extra['expense_label']:
+                    result = -1 * abs(result)
+                elif hint == self.config.amount_extra['income_label']:
+                    result = abs(result)
         else:
             assert len(self.config.amount) == 2, (
                 'Config amount can not be bigger than 2 elements (got %r).' %
                 self.config.amount)
+            assert self.config.amount_extra is None, (
+                'When 2 indexes were given for amount, extra information '
+                'should not be provided.')
             expense = self._parse_amount(row, self.config.amount[0])
             income = self._parse_amount(row, self.config.amount[1])
             result = income - abs(expense)
@@ -159,6 +168,9 @@ class CSVParser(object):
             if not row or not any(row):
                 continue
 
+            if row[0].startswith(self.config.ignore_rows_char):
+                continue
+
             try:
                 data = self.make_data(
                     row=row, user=user, unprocessed=unprocessed)
@@ -166,17 +178,15 @@ class CSVParser(object):
                 assert unprocessed is None, 'Unprocessed data should be None'
                 unprocessed = e.data
                 continue
+            except Exception as e:
+                result['errors'][e.__class__.__name__].append((e, row))
+                continue
 
             unprocessed = None
-            error = None
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
             except Exception as e:
-                error = e
-
-            if error is not None:
-                result['errors'][error.__class__.__name__].append(
-                    (error, data))
+               result['errors'][e.__class__.__name__].append((e, data))
             else:
                 assert entry is not None, 'Entry should not be None'
                 result['entries'].append(entry)
