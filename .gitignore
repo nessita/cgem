@@ -1,5 +1,6 @@
 gem/local_settings.py
 gem/__pycache__/
+gemapi/__pycache__/
 gemcore/__pycache__/
 gemcore/management/__pycache__/
 gemcore/management/commands/__pycache__/

@@ -42,9 +42,11 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'gemapi',
     'gemcore',
     'django_countries',
     'qurl_templatetag',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -126,7 +128,7 @@ STATIC_URL = '/static/'
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-ADMINS = (('Admin', os.environ.get('ADMINS')))
+ADMINS = [('Admin', os.environ.get('ADMINS', 'foo@example.com'))]
 DATE_FORMAT = 'Y-m-d'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
