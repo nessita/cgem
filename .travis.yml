@@ -5,17 +5,17 @@ dist: xenial
 language: python
 
 python:
-    - "3.6"
-    - "3.7"
     - "3.8"
 
 services: postgresql
 
 addons:
-    postgresql: "9.6"
+    postgresql:
+        - "12.7"
+        - "13.3"
 
 env:
-    - DJANGO_VERSION=2.2.6
+    - DJANGO_VERSION=3.1.12
 
 install:
     - pip install -r requirements.txt
