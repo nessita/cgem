@@ -4,6 +4,28 @@ from django.urls import reverse
 from gemcore.tests.helpers import BaseTestCase
 
 
+class AddEntryTestCase(BaseTestCase):
+
+    def test_integrity_error_handled(self):
+        user = self.factory.make_user()
+        assert self.client.login(username=user.username, password='test')
+        book = self.factory.make_book(users=[user])
+        account = self.factory.make_account(users=[user])
+        existing = self.factory.make_entry(
+            book=book, account=account, who=user, amount=10, what='test',
+            tags=['food'], country='US')
+        url = reverse('add-entry', kwargs={'book_slug': book.slug})
+
+        data = dict(
+            who=user.id, amount=10, what='test', country='US',
+            when=existing.when.date().isoformat(),
+            account=account.id, tags=['food'])
+        response = self.client.post(url, data=data, follow=True)
+
+        error = 'There is already an entry for this data.'
+        self.assertFormError(response, 'form', '__all__', error)
+
+
 class BalanceViewTestCase(BaseTestCase):
 
     def test_get_by_account(self):

@@ -1,6 +1,7 @@
 from datetime import date
 
 from django import forms
+from django.db import IntegrityError, transaction
 from django_countries import countries
 
 from gemcore.models import TAGS, Account, Book, Entry
@@ -79,12 +80,18 @@ class EntryForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super(EntryForm, self).clean()
         if not cleaned_data.get('tags'):
-            raise forms.ValidationError('Missing tags, choose at leas one.')
+            raise forms.ValidationError('Missing tags, choose at least one.')
         return cleaned_data
 
+    @transaction.atomic
     def save(self, *args, book, **kwargs):
         self.instance.book = book
-        return super(EntryForm, self).save(*args, **kwargs)
+        try:
+            self.instance = super(EntryForm, self).save(*args, **kwargs)
+        except IntegrityError:
+            self.instance = None
+            self.add_error(None, 'There is already an entry for this data.')
+        return self.instance
 
     class Meta:
         model = Entry

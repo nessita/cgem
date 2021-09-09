@@ -315,22 +315,23 @@ def entry(request, book_slug, entry_id=None):
         form = EntryForm(instance=entry, book=book, data=request.POST)
         if form.is_valid():
             entry = form.save(book=book)
-            # decide where to redirecr next
-            kwargs = dict(book_slug=book_slug)
-            if 'save-and-new' in request.POST:
-                url = reverse('add-entry', kwargs=kwargs)
-            elif 'save-and-new-same-date' in request.POST:
-                url = reverse('add-entry', kwargs=kwargs)
-                url += '?when=' + entry.when.isoformat()
-            elif 'save-and-edit' in request.POST:
-                kwargs['entry_id'] = entry.id
-                url = reverse('entry', kwargs=kwargs)
-            else:  # could be a remove or 'save-and-go-back'
-                url = reverse(
-                    'entries', kwargs=kwargs) + '?' + request.POST['qs']
-            messages.success(
-                request, 'Entry "%s" successfully processed.' % entry)
-            return HttpResponseRedirect(url)
+            if entry is not None:
+                # decide where to redirecr next
+                kwargs = dict(book_slug=book_slug)
+                if 'save-and-new' in request.POST:
+                    url = reverse('add-entry', kwargs=kwargs)
+                elif 'save-and-new-same-date' in request.POST:
+                    url = reverse('add-entry', kwargs=kwargs)
+                    url += '?when=' + entry.when.isoformat()
+                elif 'save-and-edit' in request.POST:
+                    kwargs['entry_id'] = entry.id
+                    url = reverse('entry', kwargs=kwargs)
+                else:  # could be a remove or 'save-and-go-back'
+                    url = reverse(
+                        'entries', kwargs=kwargs) + '?' + request.POST['qs']
+                messages.success(
+                    request, 'Entry "%s" successfully processed.' % entry)
+                return HttpResponseRedirect(url)
     else:
         initial = {}
         if entry is None:
