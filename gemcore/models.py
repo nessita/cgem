@@ -63,7 +63,7 @@ class ParserConfig(models.Model):
     date_format = models.CharField(max_length=128, default='%Y-%m-%d')
     decimal_point = models.CharField(max_length=1, default='.')
     thousands_sep = models.CharField(max_length=1, default=',')
-    ignore_rows = models.PositiveSmallIntegerField()
+    ignore_rows = models.PositiveSmallIntegerField(default=0)
 
     when = ArrayField(
         base_field=models.PositiveSmallIntegerField(),

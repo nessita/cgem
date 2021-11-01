@@ -2,6 +2,7 @@ import csv
 
 from datetime import datetime
 from decimal import Decimal
+from io import StringIO
 
 from gemcore.models import Entry
 from gemcore.parser import CSVParser
@@ -16,38 +17,96 @@ class CSVParserTestCase(BaseTestCase):
         account = self.factory.make_account(users=[user], parser_config=parser)
         return account
 
-    def do_parse(self, account, csv_name, book=None):
+    def do_parse(self, account, stream, book=None):
         user = account.users.get()
         if book is None:
             book = self.factory.make_book(users=[user])
 
-        fname = self.data_file(csv_name)
-        with open(fname) as f:
-            result = CSVParser(account).parse(f, book=book, user=user)
-            f.seek(0)
-            reader = csv.reader(f)
-            rows = [i for i in reader if filter(bool, i)]
+        result = CSVParser(account).parse(stream, book=book, user=user)
+        stream.seek(0)
+        reader = csv.reader(stream)
+        rows = [i for i in reader if filter(bool, i)]
 
         return result, rows
 
-    def assert_result(self, result, errors, entries):
+    def assert_result(self, result, errors, entries, all_entries=None):
         self.assertEqual(
             len(result['errors']), errors,
             'Expected %r errors (got %s %s instead).' %
             (errors, len(result['errors']), result['errors']))
         self.assertEqual(len(result['entries']), entries)
-        self.assertEqual(Entry.objects.all().count(), entries)
+        if all_entries is None:
+            all_entries = entries
+        self.assertEqual(Entry.objects.all().count(), all_entries)
 
     def assert_entry_correct(self, **kwargs):
         entries = Entry.objects.filter(**kwargs)
         self.assertEqual(entries.count(), 1)
+
+    def test_duplicated_entry(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2, 3], country='US')
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+
+        f = StringIO(
+            "2021-10-21,line 1,10,0\n"
+            "2021-10-21,line 2,0,20\n"
+        )
+        result, rows = self.do_parse(account, f, book)
+        self.assert_result(result, errors=0, entries=2)
+
+        f = StringIO("2021-10-21,line 2,0,20")
+        result, rows = self.do_parse(account, f, book)
+
+        self.assert_result(result, errors=1, entries=0, all_entries=2)
+        data = {
+            'account': account.pk,
+            'amount': Decimal('20'),
+            'country': 'US',
+            'is_income': True,
+            'notes': "source: 'stream with no name'",
+            'tags': ['imported'],
+            'what': 'line 2',
+            'when': datetime(2021, 10, 21, 0, 0),
+            'who': user.pk,
+        }
+        error = {
+            'exception': 'ValueError',
+            'message': '__all__: There is already an entry for this data.',
+            'data': data,
+        }
+        self.assertEqual(result['errors'], [error])
+
+    def test_index_error(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2, 3], country='ES')
+
+        f = StringIO(
+            "2021-10-21,line 1,10,0\n"
+            "hola mono\n"
+            "2021-10-21,line 2,0,20\n"
+            ""
+        )
+        result, rows = self.do_parse(account, f)
+
+        self.assert_result(result, errors=1, entries=2)
+        error = {
+            'exception': 'IndexError',
+            'message': 'list index out of range',
+            'data': ['hola mono'],
+        }
+        self.assertEqual(result['errors'], [error])
 
     def test_bank1(self):
         # Fecha / Hora Mov.,Concepto,Importe,Comentarios,Saldo Parcial
         account = self.make_account_with_parser(
             when=[0], what=[1], amount=[2], notes=[3, 4],
             date_format='%d/%m/%Y', country='FR', ignore_rows=1)
-        result, rows = self.do_parse(account, 'bank1.csv')
+
+        fname = self.data_file('bank1.csv')
+        with open(fname) as f:
+            result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=225)
 
         # drop first row, header
@@ -71,7 +130,10 @@ class CSVParserTestCase(BaseTestCase):
             when=[1, 2], what=[3], amount=[5, 6], notes=[0, 4, 7],
             date_format='%d/%m/%Y', country='ES', ignore_rows=1,
             thousands_sep='.', decimal_point=',')
-        result, rows = self.do_parse(account, 'bank2.csv')
+
+        fname = self.data_file('bank2.csv')
+        with open(fname) as f:
+            result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=78)
 
         # drop first row, header
@@ -93,7 +155,10 @@ class CSVParserTestCase(BaseTestCase):
         account = self.make_account_with_parser(
             when=[1], what=[3], amount=[8, 9], notes=[4, 5, 6],
             date_format='%d/%m/%Y', country='IT', ignore_rows=6)
-        result, rows = self.do_parse(account, 'bank3.csv')
+
+        fname = self.data_file('bank3.csv')
+        with open(fname) as f:
+            result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=21)
 
         # drop dummy rows
@@ -119,7 +184,10 @@ class CSVParserTestCase(BaseTestCase):
         account = self.make_account_with_parser(
             when=[0], what=[4], amount=[1], date_format='%m/%d/%Y',
             country='NZ', defer_processing=defer, ignore_rows=0)
-        result, rows = self.do_parse(account, 'bank4.csv')
+
+        fname = self.data_file('bank4.csv')
+        with open(fname) as f:
+            result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=54)
 
         last_extra_fee = 0
