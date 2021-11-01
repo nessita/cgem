@@ -140,6 +140,9 @@ class CSVParser(object):
 
         return entry
 
+    def add_error(self, result, error, data):
+        result['errors'][error.__class__.__name__].append((error, data))
+
     def parse(self, fileobj, book, user, dry_run=False):
         self.name = fileobj.name
         result = dict(entries=[], errors=defaultdict(list))
@@ -152,7 +155,7 @@ class CSVParser(object):
             # ignore initial rows
             if ignored < self.config.ignore_rows:
                 logger.info(
-                    'CSVParser.parse ignoring row %i-th row: %r', ignored, row)
+                    'CSVParser.parse ignoring row %i: %r', ignored, row)
                 ignored += 1
                 continue
 
@@ -166,17 +169,15 @@ class CSVParser(object):
                 assert unprocessed is None, 'Unprocessed data should be None'
                 unprocessed = e.data
                 continue
+            except Exception as e:
+                self.add_error(result, e, row)
+                return result
 
             unprocessed = None
-            error = None
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
             except Exception as e:
-                error = e
-
-            if error is not None:
-                result['errors'][error.__class__.__name__].append(
-                    (error, data))
+                self.add_error(result, e, data)
             else:
                 assert entry is not None, 'Entry should not be None'
                 result['entries'].append(entry)
