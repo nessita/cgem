@@ -454,9 +454,8 @@ def load_from_file(request, book_slug):
 
             result = CSVParser(account).parse(
                 csv_file, book=book, user=request.user)
-            success = len([e for e in result['entries'] if e])
-            errors = [
-                '%s %s' % (len(v), k) for k, v in result['errors'].items()]
+            success = len(result['entries'])
+            errors = len(result['errors'])
             if not errors:
                 messages.success(
                     request, 'File %s successfully parsed (%s entries added).'
@@ -468,13 +467,15 @@ def load_from_file(request, book_slug):
                     (csv_file.name, success, errors))
             else:
                 messages.error(
-                    request, 'File %s could not be parsed (%s).' %
-                    (csv_file.name, ', '.join(errors)))
+                    request, 'File %s could not be parsed (%s errors).' %
+                    (csv_file.name, errors))
 
             if errors:
-                for e, errors in result['errors'].items():
-                    msg = '\n\n'.join('%s\n%s' % i for i in errors)
-                    messages.error(request, '%s\n\n%s' % (e, msg))
+                for error in result['errors']:
+                    e = error['exception']
+                    msg = error['message']
+                    data = error['data']
+                    messages.error(request, '%s\n\n%s\n%r' % (e, msg, data))
 
             return HttpResponseRedirect(
                 reverse('entries', kwargs=dict(book_slug=book_slug)))

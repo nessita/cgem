@@ -5,7 +5,6 @@ import csv
 import logging
 import re
 
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
@@ -115,20 +114,23 @@ class CSVParser(object):
 
     def _validate_and_save_entry(self, data, book, dry_run=False):
         form = EntryForm(book=book, data=data)
-        if not form.is_valid():
+        if form.is_valid():
+            if dry_run:
+                entry = data
+            else:
+                entry = form.save(book=book)
+        logger.debug(
+            'CSVParser._validate_and_save_entry dry_run: %r data: %r '
+            'form is valid: %r form.errors: %r',
+            dry_run, data, form.is_valid(), form.errors)
+        if form.errors:
             msg = ' | '.join(
                 '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items())
             raise ValueError(msg)
-        if dry_run:
-            entry = data
-        else:
-            entry = form.save(book=book)
         return entry
 
     @transaction.atomic
     def make_entry(self, data, book, dry_run=False):
-        if not data:
-            return None
         entry = self._validate_and_save_entry(data, book, dry_run=dry_run)
 
         # Needs a transfer?
@@ -140,9 +142,17 @@ class CSVParser(object):
 
         return entry
 
+    def add_error(self, result, error, data):
+        error = {
+            'exception': error.__class__.__name__,
+            'message': str(error),
+            'data': data
+        }
+        result['errors'].append(error)
+
     def parse(self, fileobj, book, user, dry_run=False):
-        self.name = fileobj.name
-        result = dict(entries=[], errors=defaultdict(list))
+        self.name = getattr(fileobj, 'name', 'stream with no name')
+        result = dict(entries=[], errors=[])
 
         reader = csv.reader(fileobj)
         ignored = 0
@@ -152,7 +162,7 @@ class CSVParser(object):
             # ignore initial rows
             if ignored < self.config.ignore_rows:
                 logger.info(
-                    'CSVParser.parse ignoring row %i-th row: %r', ignored, row)
+                    'CSVParser.parse ignoring row %i: %r', ignored, row)
                 ignored += 1
                 continue
 
@@ -166,17 +176,18 @@ class CSVParser(object):
                 assert unprocessed is None, 'Unprocessed data should be None'
                 unprocessed = e.data
                 continue
+            except Exception as e:
+                self.add_error(result, e, row)
+                continue
+
+            if not data:
+                return None
 
             unprocessed = None
-            error = None
             try:
                 entry = self.make_entry(data, book=book, dry_run=dry_run)
             except Exception as e:
-                error = e
-
-            if error is not None:
-                result['errors'][error.__class__.__name__].append(
-                    (error, data))
+                self.add_error(result, e, data)
             else:
                 assert entry is not None, 'Entry should not be None'
                 result['entries'].append(entry)
