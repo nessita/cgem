@@ -129,11 +129,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ADMINS = [('Admin', os.environ.get('ADMINS'))]
 DATE_FORMAT = 'Y-m-d'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/'
 MESSAGE_TAGS = {message_constants.ERROR: 'danger'}
@@ -141,6 +136,39 @@ PYFLAKES_IGNORE_FILE = os.path.join(
     BASE_DIR, 'gemcore', 'tests', 'pyflakes-ignore.txt')
 SESSION_COOKIE_AGE = 43200  # 12 hours
 SITE_ID = 1
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': ('%(asctime)s [%(process)d] [%(levelname)s] ' +
+                       'pathname=%(pathname)s lineno=%(lineno)s ' +
+                       'funcname=%(funcName)s %(message)s'),
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        }
+    },
+    'handlers': {
+        'null': {
+            'level': 'DEBUG',
+            'class': 'logging.NullHandler',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        }
+    },
+    'loggers': {
+        'testlogger': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        }
+    }
+}
 
 try:
     from gem.local_settings import *  # noqa
