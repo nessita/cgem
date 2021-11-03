@@ -158,7 +158,6 @@ class CSVParser(object):
         ignored = 0
         unprocessed = None
         for row in reader:
-            logger.debug('CSVParser.parse row: %r', row)
             # ignore initial rows
             if ignored < self.config.ignore_rows:
                 logger.info(
