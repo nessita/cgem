@@ -16,32 +16,8 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
 from django.utils.timezone import now
-from django_countries import countries
 
-from gemcore.currencies import CURRENCIES
-
-
-TAGS = [
-    'bureaucracy',
-    'car',
-    'change',
-    'children',
-    'food',
-    'fun',
-    'investments'
-    'health',
-    'house',
-    'maintenance',
-    'other',
-    'rent',
-    'taxes',
-    'transportation',
-    'utilities',
-    'work-ish',
-    'imported',
-    'trips',
-]
-TAG_CHOICES = [(t, t) for t in TAGS]
+from gemcore.constants import TAGS, ChoicesMixin
 
 
 class DryRunError(Exception):
@@ -61,7 +37,9 @@ def month_year_iter(start, end):
 class ParserConfig(models.Model):
 
     name = models.TextField(unique=True)
-    country = models.CharField(max_length=2, choices=countries)
+    country = models.CharField(
+        max_length=2, choices=ChoicesMixin.COUNTRY_CHOICES
+    )
     delimiter = models.CharField(max_length=10, default=',')
     date_format = models.CharField(max_length=128, default='%Y-%m-%d')
     decimal_point = models.CharField(max_length=1, default='.')
@@ -369,7 +347,7 @@ class Account(models.Model):
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
     currency = models.CharField(
-        max_length=3, choices=[(c, c) for c in CURRENCIES]
+        max_length=3, choices=ChoicesMixin.CURRENCY_CHOICES
     )
     parser_config = models.ForeignKey(
         ParserConfig, null=True, blank=True, on_delete=models.CASCADE
@@ -405,7 +383,7 @@ class TagRegex(models.Model):
 
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     regex = models.TextField()
-    tag = models.CharField(max_length=256, choices=TAG_CHOICES)
+    tag = models.CharField(max_length=256, choices=ChoicesMixin.TAG_CHOICES)
     transfer = models.ForeignKey(
         Account,
         related_name='transfers',
@@ -432,10 +410,14 @@ class Entry(models.Model):
     )
     is_income = models.BooleanField(default=False, verbose_name='Income?')
     tags = ArrayField(
-        base_field=models.CharField(choices=TAG_CHOICES, max_length=256),
+        base_field=models.CharField(
+            choices=ChoicesMixin.TAG_CHOICES, max_length=256
+        ),
         default=list,
     )
-    country = models.CharField(max_length=2, choices=countries)
+    country = models.CharField(
+        max_length=2, choices=ChoicesMixin.COUNTRY_CHOICES
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -477,7 +459,9 @@ class EntryHistory(models.Model):
     amount = models.TextField()
     is_income = models.BooleanField()
     tags = models.TextField()
-    country_code = models.CharField(max_length=2, choices=countries)
+    country_code = models.CharField(
+        max_length=2, choices=ChoicesMixin.COUNTRY_CHOICES
+    )
     notes = models.TextField(blank=True)
 
     creation_date = models.DateTimeField(default=now)
