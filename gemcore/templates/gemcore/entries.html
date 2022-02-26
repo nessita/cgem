@@ -47,7 +47,7 @@
             {% endif %}
         {% endfor %}</p>
         <p>{% for k, i in available.months %}
-            {% ifnotequal k filters.month %}
+            {% if k != filters.month %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path month=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
@@ -55,10 +55,10 @@
             <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path month-=k %}">
                 {{ k }} <span class="badge filtered">{{ i }}</span> &times;
             </a>
-            {% endifnotequal %}
+            {% endif %}
         {% endfor %}</p>
         <p>{% for k, i in available.years %}
-            {% ifnotequal k filters.year %}
+            {% if k != filters.year %}
             <a class="btn btn-xs btn-warning" href="{% qurl request.get_full_path year=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
@@ -66,10 +66,10 @@
             <a class="btn btn-xs btn-warning filtered" href="{% qurl request.get_full_path year-=k %}">
                 {{ k }} <span class="badge filtered">{{ i }}</span> &times;
             </a>
-            {% endifnotequal %}
+            {% endif %}
         {% endfor %}</p>
         <p>{% for k, i in available.countries %}
-            {% ifnotequal k filters.country %}
+            {% if k != filters.country %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path country=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
@@ -77,10 +77,10 @@
             <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path country-=k %}">
                 {{ k }} <span class="badge filtered">{{ i }}</span> &times;
             </a>
-            {% endifnotequal %}
+            {% endif %}
         {% endfor %}</p>
         <p>{% for k, i in available.users %}
-            {% ifnotequal k filters.who %}
+            {% if k != filters.who %}
             <a class="btn btn-xs btn-success" href="{% qurl request.get_full_path who=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
@@ -88,10 +88,10 @@
             <a class="btn btn-xs btn-success filtered" href="{% qurl request.get_full_path who-=k %}">
                 {{ k }} <span class="badge filtered">{{ i }}</span> &times;
             </a>
-            {% endifnotequal %}
+            {% endif %}
         {% endfor %}</p>
         <p>{% for k, i in available.currencies %}
-            {% ifnotequal k filters.currency %}
+            {% if k != filters.currency %}
             <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path currency+=k %}">
                 {{ k }} <span class="badge">{{ i }}</span>
             </a>
@@ -99,7 +99,7 @@
             <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path currency-=k %}">
                 {{ k }} <span class="badge filtered">{{ i }}</span> &times;
             </a>
-            {% endifnotequal %}
+            {% endif %}
         {% endfor %}</p>
     </div>
 
