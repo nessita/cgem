@@ -1,7 +1,13 @@
 from django.contrib import admin
 
 from gemcore.models import (
-    Account, Book, Entry, EntryHistory, ParserConfig, TagRegex)
+    Account,
+    Book,
+    Entry,
+    EntryHistory,
+    ParserConfig,
+    TagRegex,
+)
 
 
 class TagRegexInline(admin.StackedInline):
@@ -14,7 +20,13 @@ class TagRegexInline(admin.StackedInline):
 class AccountAdmin(admin.ModelAdmin):
 
     list_display = (
-        'name', 'slug', 'currency', 'active',  'people', 'parser_config')
+        'name',
+        'slug',
+        'currency',
+        'active',
+        'people',
+        'parser_config',
+    )
     prepopulated_fields = {'slug': ('name',)}
     inlines = (TagRegexInline,)
 
@@ -28,7 +40,7 @@ class BookAdmin(admin.ModelAdmin):
 
 
 class TagListFilter(admin.SimpleListFilter):
-    """List filter based on the values from a model's ArrayField. """
+    """List filter based on the values from a model's ArrayField."""
 
     title = 'Tags'
     parameter_name = 'tag'
@@ -58,12 +70,22 @@ class EntryHistoryAdmin(admin.ModelAdmin):
 class ParserConfigAdmin(admin.ModelAdmin):
 
     list_display = (
-        'name', 'date_format', 'separators', 'when', 'what', 'amount', 'notes',
-        'ignore_rows', 'country')
+        'name',
+        'date_format',
+        'separators',
+        'when',
+        'what',
+        'amount',
+        'notes',
+        'ignore_rows',
+        'country',
+    )
 
     def separators(self, instance):
         return '100%s000%s00' % (
-            instance.decimal_point, instance.thousands_sep)
+            instance.decimal_point,
+            instance.thousands_sep,
+        )
 
 
 class TagRegexAdmin(admin.ModelAdmin):

@@ -12,13 +12,13 @@ from gemcore.tests.helpers import BaseTestCase
 
 
 class BookTestCase(BaseTestCase):
-
     def setUp(self):
         super(BookTestCase, self).setUp()
         for u in ('user1', 'user2', 'other'):
             setattr(self, u, self.factory.make_user(username=u))
         self.book = self.factory.make_book(
-            name='Test', users=[self.user1, self.user2])
+            name='Test', users=[self.user1, self.user2]
+        )
 
     def test_month_breakdown_empty(self):
         result = self.book.month_breakdown()
@@ -38,11 +38,19 @@ class BookTestCase(BaseTestCase):
                     else:
                         total -= amount
                     self.factory.make_entry(
-                        book=self.book, when=date(year, month, i + 1),
-                        amount=amount, is_income=is_income)
+                        book=self.book,
+                        when=date(year, month, i + 1),
+                        amount=amount,
+                        is_income=is_income,
+                    )
                 if j > 0:
-                    expected.append({'month': date(year, month, 1), 'count': j,
-                                     'total': total})
+                    expected.append(
+                        {
+                            'month': date(year, month, 1),
+                            'count': j,
+                            'total': total,
+                        }
+                    )
 
         result = self.book.month_breakdown()
         self.assertCountEqual(list(result), expected)
@@ -58,7 +66,7 @@ class BookTestCase(BaseTestCase):
             year_count = 0
             total = Decimal(0)
             for j in range(year_suffix + 1):
-                month = (j % 13)
+                month = j % 13
                 for i in range(j):
                     is_income = True  # XXX: need to store better amounts i % 2
                     amount = Decimal(j**2)
@@ -68,11 +76,19 @@ class BookTestCase(BaseTestCase):
                         total -= amount
                     year_count += 1
                     self.factory.make_entry(
-                        book=self.book, when=date(year, month, i + 1),
-                        amount=amount, is_income=is_income)
+                        book=self.book,
+                        when=date(year, month, i + 1),
+                        amount=amount,
+                        is_income=is_income,
+                    )
             if year_count > 0:
-                expected.append({'year': date(year, 1, 1), 'count': year_count,
-                                 'total': total})
+                expected.append(
+                    {
+                        'year': date(year, 1, 1),
+                        'count': year_count,
+                        'total': total,
+                    }
+                )
 
         result = self.book.year_breakdown()
         self.assertCountEqual(list(result), expected)
@@ -90,14 +106,17 @@ class BookTestCase(BaseTestCase):
         self.factory.make_entry(book=self.book, account=account, when=when)
         self.factory.make_entry(book=self.book, account=account, when=when)
         self.factory.make_entry(
-            book=self.book, account=account, when=when, is_income=True)
+            book=self.book, account=account, when=when, is_income=True
+        )
         other_when = when + timedelta(days=31)
         self.factory.make_entry(
-            book=self.book, account=account, when=other_when)
+            book=self.book, account=account, when=other_when
+        )
 
         other_first_of_month = date(other_when.year, other_when.month, 1)
         balance = self.book.balance(
-            entries=Entry.objects.filter(account=account))
+            entries=Entry.objects.filter(account=account)
+        )
         expected = {
             'complete': {
                 'expense': Decimal('3.00'),
@@ -106,19 +125,22 @@ class BookTestCase(BaseTestCase):
                 'start': when,
                 'end': other_when,
             },
-            'months': [{
-                'expense': Decimal('2.00'),
-                'income': Decimal('1.00'),
-                'result': Decimal('-1.00'),
-                'start': date(when.year, when.month, 1),
-                'end': other_first_of_month - timedelta(days=1),
-            }, {
-                'expense': Decimal('1.00'),
-                'income': Decimal('0'),
-                'result': Decimal('-1.00'),
-                'start': other_first_of_month,
-                'end': other_when,
-            }]
+            'months': [
+                {
+                    'expense': Decimal('2.00'),
+                    'income': Decimal('1.00'),
+                    'result': Decimal('-1.00'),
+                    'start': date(when.year, when.month, 1),
+                    'end': other_first_of_month - timedelta(days=1),
+                },
+                {
+                    'expense': Decimal('1.00'),
+                    'income': Decimal('0'),
+                    'result': Decimal('-1.00'),
+                    'start': other_first_of_month,
+                    'end': other_when,
+                },
+            ],
         }
         self.assertEqual(balance, expected)
 
@@ -143,7 +165,8 @@ class BookTestCase(BaseTestCase):
             account = self.factory.make_account()
             for j in range(i):
                 self.factory.make_entry(
-                    book=self.book, account=account, when=when)
+                    book=self.book, account=account, when=when
+                )
 
         balance = self.book.balance()
         expected = {
@@ -154,13 +177,15 @@ class BookTestCase(BaseTestCase):
                 'start': when,
                 'end': when,
             },
-            'months': [{
-                'expense': Decimal('6.00'),
-                'income': Decimal('0'),
-                'result': Decimal('-6.00'),
-                'start': date(when.year, when.month, 1),
-                'end': when,
-            }]
+            'months': [
+                {
+                    'expense': Decimal('6.00'),
+                    'income': Decimal('0'),
+                    'result': Decimal('-6.00'),
+                    'start': date(when.year, when.month, 1),
+                    'end': when,
+                }
+            ],
         }
         self.assertEqual(balance, expected)
 
@@ -174,51 +199,73 @@ class BookTestCase(BaseTestCase):
         entry1 = self.factory.make_entry(book=self.book, account=account1)
 
         self.assert_merge_entries_value_error(
-            entry1, expected_error='Need at least 2 entries to merge (got 1).')
+            entry1, expected_error='Need at least 2 entries to merge (got 1).'
+        )
 
         other = self.factory.make_entry(
-            book=self.factory.make_book(slug='zzz'), account=account1)
+            book=self.factory.make_book(slug='zzz'), account=account1
+        )
         assert other.book != entry1.book
 
         expected = 'Can not merge entries outside this book (got %s, %s).'
         self.assert_merge_entries_value_error(
-            entry1, other,
-            expected_error=expected % (self.book.slug, other.book.slug))
+            entry1,
+            other,
+            expected_error=expected % (self.book.slug, other.book.slug),
+        )
 
         othercountry = self.factory.make_entry(
-            book=self.book, account=account1, country='XX')
+            book=self.book, account=account1, country='XX'
+        )
         assert othercountry.country != entry1.country
         expected = 'Can not merge entries for different countries (got %s).'
         self.assert_merge_entries_value_error(
-            entry1, othercountry, expected_error=expected % 'AR, XX')
+            entry1, othercountry, expected_error=expected % 'AR, XX'
+        )
 
         account2 = self.factory.make_account(slug='zzz')
         entry2 = self.factory.make_entry(book=self.book, account=account2)
 
         expected = 'Can not merge entries for different accounts (got %s, %s).'
         self.assert_merge_entries_value_error(
-            entry1, entry2,
-            expected_error=expected % (account1.slug, account2.slug))
+            entry1,
+            entry2,
+            expected_error=expected % (account1.slug, account2.slug),
+        )
 
     def test_merge_entries(self):
         account = self.factory.make_account()
 
         # create many other entries to ensure nothing else is removed
-        must_be_kept = ([
-            self.factory.make_entry(book=self.book, account=account)
-            for i in range(3)] +
-            [self.factory.make_entry(account=account) for i in range(3)] +
-            [self.factory.make_entry(book=self.book) for i in range(3)] +
-            [self.factory.make_entry() for i in range(3)])
+        must_be_kept = (
+            [
+                self.factory.make_entry(book=self.book, account=account)
+                for i in range(3)
+            ]
+            + [self.factory.make_entry(account=account) for i in range(3)]
+            + [self.factory.make_entry(book=self.book) for i in range(3)]
+            + [self.factory.make_entry() for i in range(3)]
+        )
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=Decimal(i),
-                tags=[TAGS[i]], is_income=False, what='Dummy')
-            for i in range(5)]
+                book=self.book,
+                account=account,
+                amount=Decimal(i),
+                tags=[TAGS[i]],
+                is_income=False,
+                what='Dummy',
+            )
+            for i in range(5)
+        ]
         target = self.factory.make_entry(
-            book=self.book, account=account, amount=Decimal('100.88'),
-            is_income=True, tags=[TAGS[-1]], what='A target entry')
+            book=self.book,
+            account=account,
+            amount=Decimal('100.88'),
+            is_income=True,
+            tags=[TAGS[-1]],
+            what='A target entry',
+        )
         ids = [e.id for e in entries] + [target.id]
 
         before_count = len(must_be_kept) + len(ids)
@@ -235,8 +282,10 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.book, self.book)
         self.assertEqual(result.who, target.who)
         self.assertEqual(result.when, target.when)
-        expected = ('A target entry +$100.88 | Dummy -$0 | Dummy -$1 | '
-                    'Dummy -$2 | Dummy -$3 | Dummy -$4')
+        expected = (
+            'A target entry +$100.88 | Dummy -$0 | Dummy -$1 | '
+            'Dummy -$2 | Dummy -$3 | Dummy -$4'
+        )
         self.assertEqual(result.what, expected)
         self.assertEqual(result.account, account)
         self.assertEqual(result.amount, Decimal('90.88'))
@@ -256,9 +305,13 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=Decimal(i),
-                is_income=False)
-            for i in range(1, 50, 3)]
+                book=self.book,
+                account=account,
+                amount=Decimal(i),
+                is_income=False,
+            )
+            for i in range(1, 50, 3)
+        ]
 
         result = self.book.merge_entries(*entries)
 
@@ -271,9 +324,13 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, amount=Decimal(i),
-                is_income=True)
-            for i in range(1, 50, 3)]
+                book=self.book,
+                account=account,
+                amount=Decimal(i),
+                is_income=True,
+            )
+            for i in range(1, 50, 3)
+        ]
 
         result = self.book.merge_entries(*entries)
 
@@ -285,12 +342,15 @@ class BookTestCase(BaseTestCase):
         account = self.factory.make_account()
         # create another entry that will make the creation fail
         initial = self.factory.make_entry(
-            book=self.book, account=account, what='foo', amount=Decimal(10))
+            book=self.book, account=account, what='foo', amount=Decimal(10)
+        )
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what='foo', amount=Decimal(i))
-            for i in range(5)]
+                book=self.book, account=account, what='foo', amount=Decimal(i)
+            )
+            for i in range(5)
+        ]
 
         with self.assertRaises(IntegrityError):
             self.book.merge_entries(*entries, what='foo')
@@ -304,11 +364,14 @@ class BookTestCase(BaseTestCase):
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what='foo', amount=Decimal(i))
-            for i in range(5)]
+                book=self.book, account=account, what='foo', amount=Decimal(i)
+            )
+            for i in range(5)
+        ]
 
-        with patch('gemcore.models.Entry.objects.filter',
-                   side_effect=TypeError('foo')):
+        with patch(
+            'gemcore.models.Entry.objects.filter', side_effect=TypeError('foo')
+        ):
             with self.assertRaises(TypeError):
                 self.book.merge_entries(*entries)
 
@@ -322,29 +385,34 @@ class BookTestCase(BaseTestCase):
                 self.factory.make_entry(book=self.book, tags=[t])
                 if j % 2:
                     self.factory.make_entry(
-                        book=self.book, tags=[t], is_income=True)
+                        book=self.book, tags=[t], is_income=True
+                    )
 
         self.book.breakdown()
 
 
 class AccountTestCase(BaseTestCase):
-
     def test_tags_for(self):
         account = self.factory.make_account()
         self.factory.make_tag_regex(
-            regex=r'\d{2}', tag='house', account=account)
+            regex=r'\d{2}', tag='house', account=account
+        )
         self.factory.make_tag_regex(
-            regex=r'^[a-zA-Z ]+$', tag='food', account=account)
+            regex=r'^[a-zA-Z ]+$', tag='food', account=account
+        )
         self.factory.make_tag_regex(
-            regex=r'\d{2}[a-z]', tag='fun', account=account)
+            regex=r'\d{2}[a-z]', tag='fun', account=account
+        )
         self.factory.make_tag_regex(
-            regex='HOLA MANOLA', tag='trips', account=account)
+            regex='HOLA MANOLA', tag='trips', account=account
+        )
 
         self.assertCountEqual(account.tags_for(''), [])
         self.assertCountEqual(account.tags_for('HOLA'), ['food'])
         self.assertCountEqual(account.tags_for('HOLA '), ['food'])
         self.assertCountEqual(
-            account.tags_for('HOLA MANOLA'), ['food', 'trips'])
+            account.tags_for('HOLA MANOLA'), ['food', 'trips']
+        )
         self.assertCountEqual(account.tags_for('HOLA MANOLA ---'), ['trips'])
         self.assertCountEqual(account.tags_for('HOLA MAN'), ['food'])
         self.assertCountEqual(account.tags_for('foo'), ['food'])

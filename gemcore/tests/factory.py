@@ -13,7 +13,6 @@ User = get_user_model()
 
 
 class Factory(object):
-
     def __init__(self):
         super(Factory, self).__init__()
         self.counter = itertools.count()
@@ -28,7 +27,8 @@ class Factory(object):
         if username is None:
             username = 'user-%s' % self.make_integer()
         return User.objects.create_user(
-            username=username, password=password, **kwargs)
+            username=username, password=password, **kwargs
+        )
 
     def make_book(self, slug=None, name=None, users=None, **kwargs):
         i = self.make_integer()
@@ -44,14 +44,16 @@ class Factory(object):
         return book
 
     def make_account(
-            self, name=None, slug=None, currency='USD', users=None, **kwargs):
+        self, name=None, slug=None, currency='USD', users=None, **kwargs
+    ):
         i = self.make_integer()
         if name is None:
             name = 'Account %s (%s)' % (i, currency)
         if slug is None:
             slug = 'account-%s-%s' % (currency, i)
         account = Account.objects.create(
-            name=name, slug=slug, currency=currency, **kwargs)
+            name=name, slug=slug, currency=currency, **kwargs
+        )
         if users:
             for u in users:
                 account.users.add(u)
@@ -64,8 +66,15 @@ class Factory(object):
         return account.tagregex_set.create(regex=regex, tag=tag)
 
     def make_entry(
-            self, book=None, account=None, who=None, amount=Decimal('1.0'),
-            what=None, country='AR', **kwargs):
+        self,
+        book=None,
+        account=None,
+        who=None,
+        amount=Decimal('1.0'),
+        what=None,
+        country='AR',
+        **kwargs
+    ):
         i = self.make_integer()
         if book is None:
             book = self.make_book()
@@ -77,8 +86,15 @@ class Factory(object):
             what = 'Description of entry %i' % i
         tags = kwargs.pop('tags', [])
         result = Entry.objects.create(
-            book=book, account=account, who=who, what=what, amount=amount,
-            tags=tags, country=country, **kwargs)
+            book=book,
+            account=account,
+            who=who,
+            what=what,
+            amount=amount,
+            tags=tags,
+            country=country,
+            **kwargs
+        )
         return result
 
     def make_parser_config(self, name=None, **kwargs):
