@@ -67,21 +67,29 @@ class ParserConfig(models.Model):
 
     when = ArrayField(
         base_field=models.PositiveSmallIntegerField(),
-        help_text='Indexes start at 0, comma separated list of naturals.')
+        help_text='Indexes start at 0, comma separated list of naturals.',
+    )
     what = ArrayField(
         base_field=models.PositiveSmallIntegerField(),
-        help_text='Indexes start at 0, comma separated list of naturals.')
+        help_text='Indexes start at 0, comma separated list of naturals.',
+    )
     amount = ArrayField(
-        base_field=models.PositiveSmallIntegerField(), size=2,
-        help_text='Indexes start at 0, comma separated list of naturals.')
+        base_field=models.PositiveSmallIntegerField(),
+        size=2,
+        help_text='Indexes start at 0, comma separated list of naturals.',
+    )
     notes = ArrayField(
         base_field=models.PositiveSmallIntegerField(),
-        default=list, blank=True,
-        help_text='Indexes start at 0, comma separated list of naturals.')
+        default=list,
+        blank=True,
+        help_text='Indexes start at 0, comma separated list of naturals.',
+    )
     defer_processing = ArrayField(
         base_field=models.CharField(max_length=256),
-        default=list, blank=True,
-        help_text='Indexes start at 0, comma separated list of strings.')
+        default=list,
+        blank=True,
+        help_text='Indexes start at 0, comma separated list of strings.',
+    )
 
     def __str__(self):
         return self.name
@@ -106,14 +114,18 @@ class Book(models.Model):
 
     def by_text(self, text):
         return self.entry_set.filter(
-            models.Q(what__icontains=text) | models.Q(notes__icontains=text))
+            models.Q(what__icontains=text) | models.Q(notes__icontains=text)
+        )
 
     def accounts(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()
 
-        return entries.order_by('account').values_list(
-            'account__slug', flat=True).distinct()
+        return (
+            entries.order_by('account')
+            .values_list('account__slug', flat=True)
+            .distinct()
+        )
 
     def countries(self, entries=None):
         if entries is None:
@@ -129,7 +141,8 @@ class Book(models.Model):
             "WHERE gemcore_entry.book_id = %s "
             "AND gemcore_entry.id IN (%s) "
             "GROUP BY gemcore_entry.country "
-            "ORDER BY gemcore_entry.country ASC;" % (self.id, entries))
+            "ORDER BY gemcore_entry.country ASC;" % (self.id, entries)
+        )
         result = OrderedDict(cursor.fetchall())
         return result
 
@@ -149,7 +162,8 @@ class Book(models.Model):
         entries = entries.annotate(month=TruncMonth('when')).values('month')
         # Group By month and select the count of the grouping
         entries = entries.annotate(
-            count=models.Count('id'), total=models.Sum('amount'))
+            count=models.Count('id'), total=models.Sum('amount')
+        )
         return entries
 
     def months(self, entries=None):
@@ -168,7 +182,8 @@ class Book(models.Model):
         entries = entries.annotate(year=TruncYear('when')).values('year')
         # Group By year and select the count of the grouping
         entries = entries.annotate(
-            count=models.Count('id'), total=models.Sum('amount'))
+            count=models.Count('id'), total=models.Sum('amount')
+        )
         return entries
 
     def years(self, entries=None):
@@ -223,8 +238,11 @@ class Book(models.Model):
         assert len(totals) <= 2, totals
 
         result = {
-            'start': start, 'end': end,
-            'result': Decimal(0), 'income': Decimal(0), 'expense': Decimal(0),
+            'start': start,
+            'end': end,
+            'result': Decimal(0),
+            'income': Decimal(0),
+            'expense': Decimal(0),
         }
         for t in totals:
             key = 'income' if t['is_income'] else 'expense'
@@ -247,7 +265,8 @@ class Book(models.Model):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
                 month_balance = self.calculate_balance(
-                    entries, start=last_month, end=end_of_month)
+                    entries, start=last_month, end=end_of_month
+                )
                 sanity_check += month_balance['result']
                 months.append(month_balance)
             last_month = next_month
@@ -265,45 +284,64 @@ class Book(models.Model):
         return result
 
     def merge_entries(
-            self, *entries, dry_run=False, when=None, who=None, what=None):
+        self, *entries, dry_run=False, when=None, who=None, what=None
+    ):
         # validate some minimal consistency on entries
         if len(entries) < 2:
             raise ValueError(
-                'Need at least 2 entries to merge (got %s).' % len(entries))
+                'Need at least 2 entries to merge (got %s).' % len(entries)
+            )
 
         books = {e.book for e in entries}
         if len(books) != 1 or books.pop() != self:
             raise ValueError(
-                'Can not merge entries outside this book (got %s).' %
-                ', '.join(sorted(b.slug for b in books)))
+                'Can not merge entries outside this book (got %s).'
+                % ', '.join(sorted(b.slug for b in books))
+            )
 
         accounts = {e.account for e in entries}
         if len(accounts) != 1:
             raise ValueError(
-                'Can not merge entries for different accounts (got %s).' %
-                ', '.join(sorted(a.slug for a in accounts)))
+                'Can not merge entries for different accounts (got %s).'
+                % ', '.join(sorted(a.slug for a in accounts))
+            )
 
         countries = {e.country for e in entries}
         if len(countries) != 1:
             raise ValueError(
-                'Can not merge entries for different countries (got %s).' %
-                ', '.join(sorted(countries)))
+                'Can not merge entries for different countries (got %s).'
+                % ', '.join(sorted(countries))
+            )
 
         # prepare data for new Entry
         master = entries[0]
         who = who if who is not None else master.who
         when = when if when is not None else master.when
         if what is None:
-            what = ' | '.join(sorted(set(
-                '%s %s$%s' % (e.what, '+' if e.is_income else '-', e.amount)
-                for e in entries)))
+            what = ' | '.join(
+                sorted(
+                    set(
+                        '%s %s$%s'
+                        % (e.what, '+' if e.is_income else '-', e.amount)
+                        for e in entries
+                    )
+                )
+            )
         amount = sum(e.money for e in entries)
         tags = reduce(operator.add, [e.tags for e in entries])
         notes = '\n'.join(str(e) for e in entries)
         kwargs = dict(
-            book=self, who=who, when=when, what=what, account=accounts.pop(),
-            amount=abs(amount), is_income=amount > 0, tags=tags,
-            country=countries.pop(), notes=notes)
+            book=self,
+            who=who,
+            when=when,
+            what=what,
+            account=accounts.pop(),
+            amount=abs(amount),
+            is_income=amount > 0,
+            tags=tags,
+            country=countries.pop(),
+            notes=notes,
+        )
 
         try:
             with transaction.atomic():
@@ -318,7 +356,6 @@ class Book(models.Model):
 
 
 class AccountManager(models.Manager):
-
     def by_book(self, book, **kwargs):
         return self.filter(users__book=book, active=True, **kwargs).distinct()
 
@@ -329,9 +366,11 @@ class Account(models.Model):
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
     currency = models.CharField(
-        max_length=3, choices=[(c, c) for c in CURRENCIES])
+        max_length=3, choices=[(c, c) for c in CURRENCIES]
+    )
     parser_config = models.ForeignKey(
-        ParserConfig, null=True, blank=True, on_delete=models.CASCADE)
+        ParserConfig, null=True, blank=True, on_delete=models.CASCADE
+    )
     active = models.BooleanField(default=True)
 
     objects = AccountManager()
@@ -365,8 +404,12 @@ class TagRegex(models.Model):
     regex = models.TextField()
     tag = models.CharField(max_length=256, choices=((t, t) for t in TAGS))
     transfer = models.ForeignKey(
-        Account, related_name='transfers', null=True, blank=True,
-        on_delete=models.CASCADE)
+        Account,
+        related_name='transfers',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
 
     class Meta:
         unique_together = ('account', 'regex', 'tag')
@@ -380,25 +423,39 @@ class Entry(models.Model):
     what = models.TextField()
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     amount = models.DecimalField(
-        decimal_places=2, max_digits=12,
-        validators=[MinValueValidator(Decimal('0'))])
+        decimal_places=2,
+        max_digits=12,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
     is_income = models.BooleanField(default=False, verbose_name='Income?')
     tags = ArrayField(
         base_field=models.CharField(
-            choices=((i, i) for i in TAGS), max_length=256))
+            choices=((i, i) for i in TAGS), max_length=256
+        )
+    )
     country = models.CharField(max_length=2, choices=countries)
     notes = models.TextField(blank=True)
 
     class Meta:
         unique_together = (
-            'book', 'account', 'when', 'what', 'amount', 'is_income')
+            'book',
+            'account',
+            'when',
+            'what',
+            'amount',
+            'is_income',
+        )
         verbose_name_plural = 'Entries'
 
     def __str__(self):
         return '%s: %s %s%.2f %s%s' % (
-            self.when.strftime('%Y-%m-%d'), self.what,
-            '+' if self.is_income else '-', self.amount, self.account,
-            ' | ' + self.notes if self.notes else '')
+            self.when.strftime('%Y-%m-%d'),
+            self.what,
+            '+' if self.is_income else '-',
+            self.amount,
+            self.account,
+            ' | ' + self.notes if self.notes else '',
+        )
 
     @property
     def money(self):
@@ -423,13 +480,20 @@ class EntryHistory(models.Model):
 
     creation_date = models.DateTimeField(default=now)
     reason = models.CharField(
-        max_length=256, choices=((i, i) for i in (DELETE, MERGE)))
+        max_length=256, choices=((i, i) for i in (DELETE, MERGE))
+    )
 
     def __str__(self):
         return '%s: %s (%s%s %s, by %s on %s, %s)' % (
-            self.book_slug, self.what,
-            '+' if self.is_income else '-', self.amount,
-            self.account_slug, self.who_username, self.when, self.tags)
+            self.book_slug,
+            self.what,
+            '+' if self.is_income else '-',
+            self.amount,
+            self.account_slug,
+            self.who_username,
+            self.when,
+            self.tags,
+        )
 
 
 @receiver(pre_delete, sender=Entry)
@@ -445,4 +509,5 @@ def record_entry_history(sender, instance, **kwargs):
         tags=', '.join(instance.tags),
         country_code=instance.country,
         notes=instance.notes,
-        reason=EntryHistory.DELETE)
+        reason=EntryHistory.DELETE,
+    )

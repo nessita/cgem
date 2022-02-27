@@ -25,7 +25,6 @@ class DataToBeProcessedError(Exception):
 
 
 class CSVParser(object):
-
     def __init__(self, account):
         super(CSVParser, self).__init__()
         self.account = account
@@ -45,7 +44,8 @@ class CSVParser(object):
         except Exception:
             assert False, (
                 'Can not convert %r to Decimal (got it from row %s, index %s)'
-                % (result, row, i))
+                % (result, row, i)
+            )
 
         return result
 
@@ -54,16 +54,18 @@ class CSVParser(object):
             result = self._parse_amount(row, self.config.amount[0])
         else:
             assert len(self.config.amount) == 2, (
-                'Config amount can not be bigger than 2 elements (got %r).' %
-                self.config.amount)
+                'Config amount can not be bigger than 2 elements (got %r).'
+                % self.config.amount
+            )
             expense = self._parse_amount(row, self.config.amount[0])
             income = self._parse_amount(row, self.config.amount[1])
             result = income - abs(expense)
         return result
 
     def find_notes(self, row):
-        notes = ([row[k] for k in self.config.notes if row[k]] +
-                 ['source: %r' % self.name])
+        notes = [row[k] for k in self.config.notes if row[k]] + [
+            'source: %r' % self.name
+        ]
         return ' | '.join(notes)
 
     def find_what(self, row):
@@ -72,8 +74,10 @@ class CSVParser(object):
             result = row[i].strip()
             if result:
                 break
-        assert result, ('What not found (tried %r): %r' %
-                        (self.config.what, row))
+        assert result, 'What not found (tried %r): %r' % (
+            self.config.what,
+            row,
+        )
         return result
 
     def find_when(self, row):
@@ -81,11 +85,12 @@ class CSVParser(object):
         for i in self.config.when:
             result = row[i]
             if result:
-                result = datetime.strptime(
-                    result, self.config.date_format)
+                result = datetime.strptime(result, self.config.date_format)
                 break
-        assert result, ('When not found (tried %r): %r' %
-                        (self.config.when, row))
+        assert result, 'When not found (tried %r): %r' % (
+            self.config.when,
+            row,
+        )
         return result
 
     def make_data(self, row, user, unprocessed=None):
@@ -94,10 +99,16 @@ class CSVParser(object):
         what = self.find_what(row)
         tags = list(self.account.tags_for(what).keys()) or ['imported']
         data = dict(
-            account=self.account.id, amount=abs(amount),
+            account=self.account.id,
+            amount=abs(amount),
             country=self.config.country,
-            is_income=amount > 0, notes=self.find_notes(row),
-            tags=tags, what=what, when=self.find_when(row), who=user.id)
+            is_income=amount > 0,
+            notes=self.find_notes(row),
+            tags=tags,
+            what=what,
+            when=self.find_when(row),
+            who=user.id,
+        )
 
         if what in self.config.defer_processing:
             raise DataToBeProcessedError(data)
@@ -107,7 +118,10 @@ class CSVParser(object):
             assert unprocessed['when'] == data['when']
             amount = unprocessed['amount']
             data['notes'] = '%s + %s %s' % (
-                data['amount'], unprocessed['what'], amount)
+                data['amount'],
+                unprocessed['what'],
+                amount,
+            )
             data['amount'] += amount
 
         return data
@@ -122,10 +136,15 @@ class CSVParser(object):
         logger.debug(
             'CSVParser._validate_and_save_entry dry_run: %r data: %r '
             'form is valid: %r form.errors: %r',
-            dry_run, data, form.is_valid(), form.errors)
+            dry_run,
+            data,
+            form.is_valid(),
+            form.errors,
+        )
         if form.errors:
             msg = ' | '.join(
-                '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items())
+                '%s: %s' % (k, ', '.join(v)) for k, v in form.errors.items()
+            )
             raise ValueError(msg)
         return entry
 
@@ -146,7 +165,7 @@ class CSVParser(object):
         error = {
             'exception': error.__class__.__name__,
             'message': str(error),
-            'data': data
+            'data': data,
         }
         result['errors'].append(error)
 
@@ -161,7 +180,8 @@ class CSVParser(object):
             # ignore initial rows
             if ignored < self.config.ignore_rows:
                 logger.info(
-                    'CSVParser.parse ignoring row %i: %r', ignored, row)
+                    'CSVParser.parse ignoring row %i: %r', ignored, row
+                )
                 ignored += 1
                 continue
 
@@ -170,7 +190,8 @@ class CSVParser(object):
 
             try:
                 data = self.make_data(
-                    row=row, user=user, unprocessed=unprocessed)
+                    row=row, user=user, unprocessed=unprocessed
+                )
             except DataToBeProcessedError as e:
                 assert unprocessed is None, 'Unprocessed data should be None'
                 unprocessed = e.data

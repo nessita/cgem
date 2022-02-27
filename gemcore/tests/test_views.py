@@ -1,25 +1,34 @@
-
 from django.urls import reverse
 
 from gemcore.tests.helpers import BaseTestCase
 
 
 class AddEntryTestCase(BaseTestCase):
-
     def test_integrity_error_handled(self):
         user = self.factory.make_user()
         assert self.client.login(username=user.username, password='test')
         book = self.factory.make_book(users=[user])
         account = self.factory.make_account(users=[user])
         existing = self.factory.make_entry(
-            book=book, account=account, who=user, amount=10, what='test',
-            tags=['food'], country='US')
+            book=book,
+            account=account,
+            who=user,
+            amount=10,
+            what='test',
+            tags=['food'],
+            country='US',
+        )
         url = reverse('add-entry', kwargs={'book_slug': book.slug})
 
         data = dict(
-            who=user.id, amount=10, what='test', country='US',
+            who=user.id,
+            amount=10,
+            what='test',
+            country='US',
             when=existing.when.date().isoformat(),
-            account=account.id, tags=['food'])
+            account=account.id,
+            tags=['food'],
+        )
         response = self.client.post(url, data=data, follow=True)
 
         error = 'There is already an entry for this data.'
@@ -27,7 +36,6 @@ class AddEntryTestCase(BaseTestCase):
 
 
 class BalanceViewTestCase(BaseTestCase):
-
     def test_get_by_account(self):
         user = self.factory.make_user()
         book = self.factory.make_book(users=[user])
@@ -57,7 +65,8 @@ class MultipleRemoveTestCase(BaseTestCase):
 
     remove_btn = (
         '<button type="submit" class="btn btn-sm btn-default" '
-        'name="remove-selected">Remove</button>')
+        'name="remove-selected">Remove</button>'
+    )
 
     def do_request(self, user, book, method='GET', **kwargs):
         url = reverse('entries', args=[book.slug])
@@ -86,8 +95,7 @@ class MultipleRemoveTestCase(BaseTestCase):
     def test_book_in_context_on_remove_post(self):
         user = self.factory.make_user()
         book = self.factory.make_book(users=[user])
-        entries = [
-            self.factory.make_entry(book=book) for i in range(3)]
+        entries = [self.factory.make_entry(book=book) for i in range(3)]
 
         data = {'entry': [e.id for e in entries], 'remove-selected': 1}
         response = self.do_request(user, book, method='POST', data=data)
@@ -103,4 +111,5 @@ class MultipleRemoveTestCase(BaseTestCase):
 
         url = reverse('remove-entry', args=[book.slug])
         self.assertContains(
-            response, '<form action="%s?" method="POST">' % url)
+            response, '<form action="%s?" method="POST">' % url
+        )

@@ -167,8 +167,10 @@ def parse_request(request, book, **kwargs):
     available = {
         'countries': sorted(book.countries(entries).items()),
         'currencies': sorted(book.currencies(entries).items()),
-        'months': [(d.strftime('%b').lower(), i)
-                   for d, i in sorted(book.months(entries).items())],
+        'months': [
+            (d.strftime('%b').lower(), i)
+            for d, i in sorted(book.months(entries).items())
+        ],
         'tags': sorted(book.tags(entries).items()),
         'users': sorted(book.who(entries).items()),
         'years': sorted(book.years(entries).items()),
@@ -195,7 +197,8 @@ def entries(request, book_slug):
         entries = entries.filter(id__in=ids)
         if entries.count() != len(ids):
             messages.error(
-                request, 'Invalid request, invalid choices for entries.')
+                request, 'Invalid request, invalid choices for entries.'
+            )
             return HttpResponseRedirect(here)
 
         if 'change-account' in request.POST:
@@ -203,16 +206,20 @@ def entries(request, book_slug):
                 target = edit_account_form.cleaned_data['target']
                 if not target:
                     messages.error(
-                        request, 'Invalid request, target account is empty.')
+                        request, 'Invalid request, target account is empty.'
+                    )
                 else:
                     entries.update(account=target)
                     msg = (', '.join(str(e) for e in entries), target)
                     messages.success(
-                        request, 'Entries "%s" changed to account %s.' % msg)
+                        request, 'Entries "%s" changed to account %s.' % msg
+                    )
             else:
                 messages.error(
-                    request, 'Invalid request for changing the account: %s' %
-                             edit_account_form.errors)
+                    request,
+                    'Invalid request for changing the account: %s'
+                    % edit_account_form.errors,
+                )
             return HttpResponseRedirect(here)
 
         if 'change-tags' in request.POST:
@@ -229,7 +236,8 @@ def entries(request, book_slug):
             when = sorted(set(entries.values_list('when', flat=True)))[-1]
             try:
                 merge_dry_run = book.merge_entries(
-                    *tuple(entries), dry_run=True, who=request.user, when=when)
+                    *tuple(entries), dry_run=True, who=request.user, when=when
+                )
             except ValueError as e:
                 messages.error(request, str(e))
                 return HttpResponseRedirect(here)
@@ -327,17 +335,22 @@ def entry(request, book_slug, entry_id=None):
                     kwargs['entry_id'] = entry.id
                     url = reverse('entry', kwargs=kwargs)
                 else:  # could be a remove or 'save-and-go-back'
-                    url = reverse(
-                        'entries', kwargs=kwargs) + '?' + request.POST['qs']
+                    url = (
+                        reverse('entries', kwargs=kwargs)
+                        + '?'
+                        + request.POST['qs']
+                    )
                 messages.success(
-                    request, 'Entry "%s" successfully processed.' % entry)
+                    request, 'Entry "%s" successfully processed.' % entry
+                )
                 return HttpResponseRedirect(url)
     else:
         initial = {}
         if entry is None:
             try:
                 last_entry = Entry.objects.filter(
-                    who=request.user, book=book).latest('when')
+                    who=request.user, book=book
+                ).latest('when')
                 account = last_entry.account
             except Entry.DoesNotExist:
                 account = None
@@ -386,10 +399,12 @@ def entry_remove(request, book_slug, entry_id=None):
         else:
             messages.warning(request, 'Removal of entries cancelled.')
         return HttpResponseRedirect(
-            reverse('entries', args=(book.slug,)) + '?' + filters['qs'])
+            reverse('entries', args=(book.slug,)) + '?' + filters['qs']
+        )
 
     return render(
-        request, 'gemcore/remove-entries.html', dict(entries=entries))
+        request, 'gemcore/remove-entries.html', dict(entries=entries)
+    )
 
 
 @require_POST
@@ -398,7 +413,8 @@ def entry_merge(request, book_slug):
     assert request.method == 'POST'
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     entries, filters, available = parse_request(
-        request, book, id__in=request.POST.getlist('entry'))
+        request, book, id__in=request.POST.getlist('entry')
+    )
 
     if not entries:
         raise Http404()
@@ -411,12 +427,14 @@ def entry_merge(request, book_slug):
             when = form.cleaned_data['when']
             assert when is not None
             new_entry = book.merge_entries(
-                *list(entries), dry_run=False, who=request.user, when=when)
+                *list(entries), dry_run=False, who=request.user, when=when
+            )
             messages.success(request, 'Entries "%s" merged.' % msg)
             url = reverse('entry', args=(book_slug, new_entry.id))
         else:
             messages.warning(
-                request, 'Merge cancelled, form had errors: %r.' % form.errors)
+                request, 'Merge cancelled, form had errors: %r.' % form.errors
+            )
     else:
         messages.warning(request, 'Merge of entries cancelled.')
 
@@ -430,7 +448,8 @@ def load_from_file(request, book_slug):
 
     if request.method == 'POST':
         form = CSVExpenseForm(
-            book=book, data=request.POST, files=request.FILES)
+            book=book, data=request.POST, files=request.FILES
+        )
         if form.is_valid():
             csv_file = form.cleaned_data.get('csv_file')
             if csv_file:
@@ -449,26 +468,33 @@ def load_from_file(request, book_slug):
             if account.parser_config is None:
                 messages.error(
                     request,
-                    'Parser config for account %s is not set.' % account)
+                    'Parser config for account %s is not set.' % account,
+                )
                 return HttpResponseRedirect('.')
 
             result = CSVParser(account).parse(
-                csv_file, book=book, user=request.user)
+                csv_file, book=book, user=request.user
+            )
             success = len(result['entries'])
             errors = len(result['errors'])
             if not errors:
                 messages.success(
-                    request, 'File %s successfully parsed (%s entries added).'
-                    % (csv_file.name, success))
+                    request,
+                    'File %s successfully parsed (%s entries added).'
+                    % (csv_file.name, success),
+                )
             elif success:
                 messages.warning(
                     request,
-                    'File %s partially parsed (%s successes, %s errors).' %
-                    (csv_file.name, success, errors))
+                    'File %s partially parsed (%s successes, %s errors).'
+                    % (csv_file.name, success, errors),
+                )
             else:
                 messages.error(
-                    request, 'File %s could not be parsed (%s errors).' %
-                    (csv_file.name, errors))
+                    request,
+                    'File %s could not be parsed (%s errors).'
+                    % (csv_file.name, errors),
+                )
 
             if errors:
                 for error in result['errors']:
@@ -478,7 +504,8 @@ def load_from_file(request, book_slug):
                     messages.error(request, '%s\n\n%s\n%r' % (e, msg, data))
 
             return HttpResponseRedirect(
-                reverse('entries', kwargs=dict(book_slug=book_slug)))
+                reverse('entries', kwargs=dict(book_slug=book_slug))
+            )
     else:
         form = CSVExpenseForm(book=book)
 
@@ -503,20 +530,31 @@ def account_transfer(request, book_slug):
             country = form.cleaned_data.get('country')
 
             Entry.objects.create(
-                book=book, who=request.user, when=when,
+                book=book,
+                who=request.user,
+                when=when,
                 what=what + ' (source)',
-                account=source_account, amount=source_amount,
-                is_income=False, country=country, tags=['change'],
+                account=source_account,
+                amount=source_amount,
+                is_income=False,
+                country=country,
+                tags=['change'],
             )
             Entry.objects.create(
-                book=book, who=request.user, when=when,
+                book=book,
+                who=request.user,
+                when=when,
                 what=what + ' (target)',
-                account=target_account, amount=target_amount,
-                is_income=True, country=country, tags=['change'],
+                account=target_account,
+                amount=target_amount,
+                is_income=True,
+                country=country,
+                tags=['change'],
             )
 
             return HttpResponseRedirect(
-                reverse('entries', kwargs=dict(book_slug=book_slug)))
+                reverse('entries', kwargs=dict(book_slug=book_slug))
+            )
     else:
         initial = {}
         when = request.GET.get('when')
@@ -531,8 +569,8 @@ def account_transfer(request, book_slug):
 @require_http_methods(['GET', 'POST'])
 @login_required
 def balance(
-        request, book_slug, account_slug=None, currency=None,
-        start=None, end=None):
+    request, book_slug, account_slug=None, currency=None, start=None, end=None
+):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     accounts = Account.objects.by_book(book)
     currencies = sorted(set(accounts.values_list('currency', flat=True)))
@@ -576,15 +614,17 @@ def balance(
     balance = filters = available = None
     if chosen_accounts:
         entries, filters, available = parse_request(
-            request, book, account__in=chosen_accounts)
+            request, book, account__in=chosen_accounts
+        )
         balance = book.balance(entries)
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,
-        initial=dict(source=account_slug, start=start, end=end))
+        initial=dict(source=account_slug, start=start, end=end),
+    )
     currency_balance_form = CurrencyBalanceForm(
-        choices=currencies,
-        initial=dict(source=currency, start=start, end=end))
+        choices=currencies, initial=dict(source=currency, start=start, end=end)
+    )
     context = {
         'balance': balance,
         'book': book,

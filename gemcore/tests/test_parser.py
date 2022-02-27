@@ -10,7 +10,6 @@ from gemcore.tests.helpers import BaseTestCase
 
 
 class CSVParserTestCase(BaseTestCase):
-
     def make_account_with_parser(self, **kwargs):
         parser = self.factory.make_parser_config(**kwargs)
         user = self.factory.make_user()
@@ -31,9 +30,11 @@ class CSVParserTestCase(BaseTestCase):
 
     def assert_result(self, result, errors, entries, all_entries=None):
         self.assertEqual(
-            len(result['errors']), errors,
-            'Expected %r errors (got %s %s instead).' %
-            (errors, len(result['errors']), result['errors']))
+            len(result['errors']),
+            errors,
+            'Expected %r errors (got %s %s instead).'
+            % (errors, len(result['errors']), result['errors']),
+        )
         self.assertEqual(len(result['entries']), entries)
         if all_entries is None:
             all_entries = entries
@@ -45,14 +46,12 @@ class CSVParserTestCase(BaseTestCase):
 
     def test_duplicated_entry(self):
         account = self.make_account_with_parser(
-            when=[0], what=[1], amount=[2, 3], country='US')
+            when=[0], what=[1], amount=[2, 3], country='US'
+        )
         user = account.users.get()
         book = self.factory.make_book(users=[user])
 
-        f = StringIO(
-            "2021-10-21,line 1,10,0\n"
-            "2021-10-21,line 2,0,20\n"
-        )
+        f = StringIO("2021-10-21,line 1,10,0\n" "2021-10-21,line 2,0,20\n")
         result, rows = self.do_parse(account, f, book)
         self.assert_result(result, errors=0, entries=2)
 
@@ -80,7 +79,8 @@ class CSVParserTestCase(BaseTestCase):
 
     def test_index_error(self):
         account = self.make_account_with_parser(
-            when=[0], what=[1], amount=[2, 3], country='ES')
+            when=[0], what=[1], amount=[2, 3], country='ES'
+        )
 
         f = StringIO(
             "2021-10-21,line 1,10,0\n"
@@ -101,8 +101,14 @@ class CSVParserTestCase(BaseTestCase):
     def test_bank1(self):
         # Fecha / Hora Mov.,Concepto,Importe,Comentarios,Saldo Parcial
         account = self.make_account_with_parser(
-            when=[0], what=[1], amount=[2], notes=[3, 4],
-            date_format='%d/%m/%Y', country='FR', ignore_rows=1)
+            when=[0],
+            what=[1],
+            amount=[2],
+            notes=[3, 4],
+            date_format='%d/%m/%Y',
+            country='FR',
+            ignore_rows=1,
+        )
 
         fname = self.data_file('bank1.csv')
         with open(fname) as f:
@@ -120,16 +126,28 @@ class CSVParserTestCase(BaseTestCase):
             amount = Decimal(row[2])
             is_income = amount > 0
             self.assert_entry_correct(
-                account=account, country=account.parser_config.country,
-                when=when, what=what, amount=abs(amount), is_income=is_income)
+                account=account,
+                country=account.parser_config.country,
+                when=when,
+                what=what,
+                amount=abs(amount),
+                is_income=is_income,
+            )
 
     def test_bank2(self):
         # "Suc.","Fecha","Fecha Valor","Descripción","Comprobante",
         # "Débito","Crédito","Saldo"
         account = self.make_account_with_parser(
-            when=[1, 2], what=[3], amount=[5, 6], notes=[0, 4, 7],
-            date_format='%d/%m/%Y', country='ES', ignore_rows=1,
-            thousands_sep='.', decimal_point=',')
+            when=[1, 2],
+            what=[3],
+            amount=[5, 6],
+            notes=[0, 4, 7],
+            date_format='%d/%m/%Y',
+            country='ES',
+            ignore_rows=1,
+            thousands_sep='.',
+            decimal_point=',',
+        )
 
         fname = self.data_file('bank2.csv')
         with open(fname) as f:
@@ -147,14 +165,25 @@ class CSVParserTestCase(BaseTestCase):
             amount = Decimal(amount.replace('.', '').replace(',', '.'))
             is_income = amount > 0
             self.assert_entry_correct(
-                account=account, country=account.parser_config.country,
-                when=when, what=what, amount=abs(amount), is_income=is_income)
+                account=account,
+                country=account.parser_config.country,
+                when=when,
+                what=what,
+                amount=abs(amount),
+                is_income=is_income,
+            )
 
     def test_bank3(self):
         # ,Fecha,,Descripción,Número Documento,Num. Dep.,Asunto,,Débito,Crédito
         account = self.make_account_with_parser(
-            when=[1], what=[3], amount=[8, 9], notes=[4, 5, 6],
-            date_format='%d/%m/%Y', country='IT', ignore_rows=6)
+            when=[1],
+            what=[3],
+            amount=[8, 9],
+            notes=[4, 5, 6],
+            date_format='%d/%m/%Y',
+            country='IT',
+            ignore_rows=6,
+        )
 
         fname = self.data_file('bank3.csv')
         with open(fname) as f:
@@ -175,15 +204,28 @@ class CSVParserTestCase(BaseTestCase):
                 amount = Decimal(row[9].replace(',', ''))
                 is_income = True
             self.assert_entry_correct(
-                account=account, country=account.parser_config.country,
-                when=when, what=what, amount=abs(amount), is_income=is_income)
+                account=account,
+                country=account.parser_config.country,
+                when=when,
+                what=what,
+                amount=abs(amount),
+                is_income=is_income,
+            )
 
     def test_bank4(self):
-        defer = ['INTERNATIONAL PURCHASE TRANSACTION FEE',
-                 'NON-WELLS FARGO ATM TRANSACTION FEE']
+        defer = [
+            'INTERNATIONAL PURCHASE TRANSACTION FEE',
+            'NON-WELLS FARGO ATM TRANSACTION FEE',
+        ]
         account = self.make_account_with_parser(
-            when=[0], what=[4], amount=[1], date_format='%m/%d/%Y',
-            country='NZ', defer_processing=defer, ignore_rows=0)
+            when=[0],
+            what=[4],
+            amount=[1],
+            date_format='%m/%d/%Y',
+            country='NZ',
+            defer_processing=defer,
+            ignore_rows=0,
+        )
 
         fname = self.data_file('bank4.csv')
         with open(fname) as f:
@@ -204,6 +246,11 @@ class CSVParserTestCase(BaseTestCase):
 
             amount = abs(amount) + abs(last_extra_fee)
             self.assert_entry_correct(
-                account=account, country=account.parser_config.country,
-                when=when, what=what, is_income=is_income, amount=amount)
+                account=account,
+                country=account.parser_config.country,
+                when=when,
+                what=what,
+                is_income=is_income,
+                amount=amount,
+            )
             last_extra_fee = 0
