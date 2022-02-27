@@ -51,4 +51,5 @@ jobs:
       run: |
         coverage run manage.py test -v 3
     - name: Generate coverage XML report
-      coverage xml
+      run: |
+        coverage xml
