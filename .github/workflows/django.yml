@@ -42,6 +42,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel
         pip install -r requirements.txt
+    - name: Check code style
+      uses: psf/black@stable
     - name: Run Tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432
