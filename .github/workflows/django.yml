@@ -49,4 +49,6 @@ jobs:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432
         SECRET_KEY: testkey
       run: |
-        python manage.py test -v 3
+        coverage run manage.py test -v 3
+    - name: Generate coverage XML report
+      coverage xml
