@@ -5,3 +5,4 @@ django-countries
 django-qurl-templatetag
 gunicorn
 psycopg2-binary
+flake8
