@@ -4,7 +4,6 @@ from gemcore.tests.helpers import BaseTestCase
 
 
 class HomeTestCase(BaseTestCase):
-
     def test_no_books(self):
         user = self.factory.make_user()
         assert self.client.login(username=user.username, password='test')
