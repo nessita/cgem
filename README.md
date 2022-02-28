@@ -1,7 +1,7 @@
 CGEM
 ====
 
-[![Build Status](https://travis-ci.org/nessita/cgem.svg?branch=master)](https://travis-ci.org/nessita/cgem)
+![Tests](https://github.com/nessita/cgem/actions/workflows/django.yml/badge.svg)
 
 CGEM could stand for "Custom Great Expense Manager" or, in spanish, "Cuánto
 Gastamos Este Mes?". CGEM is a simple accounting and reporting web service.
