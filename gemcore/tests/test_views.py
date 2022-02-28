@@ -3,6 +3,15 @@ from django.urls import reverse
 from gemcore.tests.helpers import BaseTestCase
 
 
+class HomeTestCase(BaseTestCase):
+
+    def test_no_books(self):
+        user = self.factory.make_user()
+        assert self.client.login(username=user.username, password='test')
+
+        self.client.get(reverse('home'))
+
+
 class AddEntryTestCase(BaseTestCase):
     def test_integrity_error_handled(self):
         user = self.factory.make_user()
