@@ -8,7 +8,28 @@ class HomeTestCase(BaseTestCase):
         user = self.factory.make_user()
         assert self.client.login(username=user.username, password='test')
 
-        self.client.get(reverse('home'))
+        response = self.client.get(reverse('home'))
+
+        self.assertRedirects(response, reverse('books'))
+
+    def test_one_book(self):
+        user = self.factory.make_user()
+        single = self.factory.make_book(users=[user])
+        assert self.client.login(username=user.username, password='test')
+
+        response = self.client.get(reverse('home'))
+
+        self.assertRedirects(response, reverse('entries', args=(single.slug,)))
+
+    def test_many_books(self):
+        user = self.factory.make_user()
+        self.factory.make_book(users=[user])
+        self.factory.make_book(users=[user])
+        assert self.client.login(username=user.username, password='test')
+
+        response = self.client.get(reverse('home'))
+
+        self.assertRedirects(response, reverse('books'))
 
 
 class AddEntryTestCase(BaseTestCase):
