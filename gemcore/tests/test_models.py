@@ -32,7 +32,7 @@ class BookTestCase(BaseTestCase):
                 total = Decimal(0)
                 for i in range(j):
                     is_income = True  # XXX: need to store better amounts i % 2
-                    amount = Decimal(j**2)
+                    amount = Decimal(j ** 2)
                     if is_income:
                         total += amount
                     else:
@@ -69,7 +69,7 @@ class BookTestCase(BaseTestCase):
                 month = j % 13
                 for i in range(j):
                     is_income = True  # XXX: need to store better amounts i % 2
-                    amount = Decimal(j**2)
+                    amount = Decimal(j ** 2)
                     if is_income:
                         total += amount
                     else:

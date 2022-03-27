@@ -77,7 +77,7 @@ class BookForm(forms.ModelForm):
         model = Book
         exclude = ('slug',)
         widgets = dict(
-            users=forms.SelectMultiple(attrs={'class': 'form-control'}),
+            users=forms.SelectMultiple(attrs={'class': 'form-control'})
         )
 
 
@@ -90,8 +90,7 @@ class EntryForm(forms.ModelForm):
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields['account'].queryset = Account.objects.by_book(book)
         self.fields['tags'] = forms.MultipleChoiceField(
-            choices=((i, i) for i in TAGS),
-            widget=TagsCheckboxSelectMultiple(),
+            choices=((i, i) for i in TAGS), widget=TagsCheckboxSelectMultiple()
         )
 
     def clean(self):
