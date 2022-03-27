@@ -6,3 +6,4 @@ gemcore/management/commands/__pycache__/
 gemcore/migrations/__pycache__/
 gemcore/tests/__pycache__/
 env/
+.coverage
