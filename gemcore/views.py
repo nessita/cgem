@@ -226,11 +226,7 @@ def entries(request, book_slug):
             template = 'gemcore/change-tags.html'
             raise NotImplementedError()
 
-        context = {
-            'book': book,
-            'entries': entries,
-            'qs': filters['qs'],
-        }
+        context = {'book': book, 'entries': entries, 'qs': filters['qs']}
         if 'merge-selected' in request.POST:
             template = 'gemcore/merge-entries.html'
             when = sorted(set(entries.values_list('when', flat=True)))[-1]

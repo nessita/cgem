@@ -53,17 +53,6 @@
 }
 
 #id_tags {
-    list-style: none outside none;
-}
-
-#id_tags > li {
-    margin-top: 5px;
-    display: inline-block;
-    background-color: #5bc0de;
-    border-color: #46b8da;
-    color: #fff;
-    border-radius: 3px;
-    font-size: 12px;
-    line-height: 1.5;
-    padding: 5px 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
