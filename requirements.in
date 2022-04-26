@@ -1,4 +1,3 @@
-coverage
 dj-database-url
 dj-static
 Django
@@ -6,4 +5,3 @@ django-countries
 django-qurl-templatetag
 gunicorn
 psycopg2-binary
-flake8

@@ -8,8 +8,6 @@ asgiref==3.5.0
     # via django
 backports-zoneinfo==0.2.1
     # via django
-coverage==6.3.2
-    # via -r requirements.in
 dj-database-url==0.5.0
     # via -r requirements.in
 dj-static==0.0.6
@@ -20,18 +18,10 @@ django-countries==7.2.1
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in
-flake8==4.0.1
-    # via -r requirements.in
 gunicorn==20.1.0
     # via -r requirements.in
-mccabe==0.6.1
-    # via flake8
 psycopg2-binary==2.9.3
     # via -r requirements.in
-pycodestyle==2.8.0
-    # via flake8
-pyflakes==2.4.0
-    # via flake8
 sqlparse==0.4.2
     # via django
 static3==0.7.0
