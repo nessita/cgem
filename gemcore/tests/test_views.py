@@ -25,7 +25,7 @@ class AddEntryTestCase(BaseTestCase):
             amount=10,
             what='test',
             country='US',
-            when=existing.when.date().isoformat(),
+            when=existing.when.isoformat(),
             account=account.id,
             tags=['food'],
         )

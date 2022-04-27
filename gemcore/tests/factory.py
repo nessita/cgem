@@ -5,6 +5,7 @@ import itertools
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
 
 from gemcore.models import Account, Book, Entry, ParserConfig
 
@@ -102,3 +103,8 @@ class Factory(object):
         if name is None:
             name = 'Parser %s' % i
         return ParserConfig.objects.create(name=name, **kwargs)
+
+    def make_token(self, user=None):
+        if user is None:
+            user = self.make_user()
+        return Token.objects.create(user=user)

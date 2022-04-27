@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
 
+import gemapi.urls
 import gemcore.views
 
 
@@ -16,4 +17,5 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(next_page='/'), name='logout'),
     path('book/', include('gemcore.urls')),
     path('admin/', admin.site.urls),
+    path('api/', include((gemapi.urls, 'api'))),
 ]

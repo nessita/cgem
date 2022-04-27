@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'gemcore',
     'django_countries',
+    'rest_framework',
+    'rest_framework.authtoken',
     'qurl_templatetag',
 ]
 
