@@ -1,8 +1,8 @@
 gem/local_settings.py
 gem*/__pycache__/
-gemcore/management/__pycache__/
-gemcore/management/commands/__pycache__/
-gemcore/migrations/__pycache__/
-gemcore/tests/__pycache__/
+gem*/management/__pycache__/
+gem*/management/commands/__pycache__/
+gem*/migrations/__pycache__/
+gem*/tests/__pycache__/
 env/
 .coverage
