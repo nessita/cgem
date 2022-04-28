@@ -10,8 +10,8 @@ class AddEntryViewTestCase(BaseTestCase):
 
     url = reverse('api:entry-list')
 
-    def make_auth_header(self):
-        token = self.factory.make_token()
+    def make_auth_header(self, user=None):
+        token = self.factory.make_token(user=user)
         return {'HTTP_AUTHORIZATION': 'Token ' + token.key}
 
     def test_authentication_required(self):
@@ -30,14 +30,13 @@ class AddEntryViewTestCase(BaseTestCase):
                 self.assertEqual(response.status_code, 405)
 
     def test_success(self):
-        auth = self.make_auth_header()
         self.factory.make_book(slug='test-book')
         self.factory.make_account(slug='test-account')
-        self.factory.make_user(username='test-user')
+        user = self.factory.make_user(username='test-user')
+        auth = self.make_auth_header(user=user)
         data = {
             'book': 'test-book',
             'account': 'test-account',
-            'who': 'test-user',
             'what': 'One Test',
             'amount': 555.56,
             'tags': ['food', 'imported'],

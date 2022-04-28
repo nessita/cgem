@@ -11,3 +11,8 @@ class AddEntryView(mixins.CreateModelMixin, viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Entry.objects.none()
     serializer_class = EntrySerializer
+
+    # https://www.django-rest-framework.org/tutorial/\
+    # 4-authentication-and-permissions/#associating-snippets-with-users
+    def perform_create(self, serializer):
+        serializer.save(who=self.request.user)
