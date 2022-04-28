@@ -2,9 +2,8 @@
 
 import operator
 import re
-
 from collections import defaultdict, OrderedDict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from functools import reduce
 
@@ -419,7 +418,7 @@ class Entry(models.Model):
 
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     who = models.ForeignKey(User, on_delete=models.CASCADE)
-    when = models.DateField(default=datetime.today)
+    when = models.DateField(default=date.today)
     what = models.TextField()
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     amount = models.DecimalField(

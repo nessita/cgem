@@ -3,5 +3,6 @@ dj-static
 Django
 django-countries
 django-qurl-templatetag
+djangorestframework
 gunicorn
 psycopg2-binary
