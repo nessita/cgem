@@ -4,11 +4,12 @@ import os
 from collections import defaultdict
 
 from django.contrib import messages
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from gemcore.tests.factory import Factory
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class BaseTestCase(TestCase):
 
     factory = Factory()
