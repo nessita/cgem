@@ -11,9 +11,7 @@ class EntrySerializer(serializers.ModelSerializer):
     account = serializers.SlugRelatedField(
         slug_field='slug', queryset=Account.objects.all()
     )
-    who = serializers.SlugRelatedField(
-        slug_field='username', queryset=User.objects.all()
-    )
+    who = serializers.ReadOnlyField(source='who.username')
 
     class Meta:
         model = Entry
