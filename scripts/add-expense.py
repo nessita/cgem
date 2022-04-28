@@ -25,7 +25,7 @@ def add_expense(
         'notes': notes,
     }
     if verbose:
-        print('\n*** About to POTS data to:', url)
+        print('\n*** About to POST data to:', url)
         print('*** with headers:', headers)
         pprint(data)
 
