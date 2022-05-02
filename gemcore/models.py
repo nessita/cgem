@@ -25,11 +25,12 @@ TAGS = [
     'bureaucracy',
     'car',
     'change',
+    'children',
     'food',
     'fun',
     'health',
     'house',
-    'maintainance',
+    'maintenance',
     'other',
     'rent',
     'taxes',
@@ -430,7 +431,8 @@ class Entry(models.Model):
     tags = ArrayField(
         base_field=models.CharField(
             choices=((i, i) for i in TAGS), max_length=256
-        )
+        ),
+        default=list,
     )
     country = models.CharField(max_length=2, choices=countries)
     notes = models.TextField(blank=True)
