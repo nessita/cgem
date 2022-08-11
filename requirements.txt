@@ -6,13 +6,11 @@
 #
 asgiref==3.5.0
     # via django
-backports-zoneinfo==0.2.1
-    # via django
 dj-database-url==0.5.0
     # via -r requirements.in
 dj-static==0.0.6
     # via -r requirements.in
-django==4.0.4
+django==4.0.7
     # via
     #   -r requirements.in
     #   djangorestframework
