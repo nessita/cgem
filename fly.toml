@@ -9,6 +9,8 @@ processes = []
   builder = "paketobuildpacks/builder:base"
 
 [env]
+  ALLOWED_HOSTS = "cgem.fly.dev"
+  DEBUG = "1"
   PORT = "8080"
 
 [experimental]
@@ -42,4 +44,4 @@ processes = []
     timeout = "2s"
 
 [deploy]
-  release_command = "bash -c \"python manage.py migrate && python manage.py collectstatic\""
+  release_command = "bash -c \"python manage.py migrate && python manage.py collectstatic --noinput\""
