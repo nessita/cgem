@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
+      fail-fast: false
       matrix:
         python-version: ['3.8', '3.9', '3.10']
 
@@ -45,6 +46,9 @@ jobs:
         pip install -r requirements.txt -r requirements-devel.txt
     - name: Check code style
       uses: psf/black@stable
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic
     - name: Run Tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432
