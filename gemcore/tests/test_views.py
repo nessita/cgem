@@ -32,7 +32,8 @@ class AddEntryTestCase(BaseTestCase):
         response = self.client.post(url, data=data, follow=True)
 
         error = 'There is already an entry for this data.'
-        self.assertFormError(response, 'form', '__all__', error)
+        form = response.context['form']
+        self.assertFormError(form, field=None, errors=[error])
 
 
 class BalanceViewTestCase(BaseTestCase):
