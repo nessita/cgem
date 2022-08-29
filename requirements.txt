@@ -12,8 +12,6 @@ backports-zoneinfo==0.2.1 ; python_version < "3.10"
     #   django
 dj-database-url==1.0.0
     # via -r requirements.in
-dj-static==0.0.6
-    # via -r requirements.in
 django==4.1
     # via
     #   -r requirements.in
@@ -33,10 +31,10 @@ pytz==2022.2.1
     # via djangorestframework
 sqlparse==0.4.2
     # via django
-static3==0.7.0
-    # via dj-static
 typing-extensions==4.3.0
     # via django-countries
+whitenoise==6.2.0
+    # via -r requirements.in
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
