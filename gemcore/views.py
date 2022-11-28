@@ -24,7 +24,7 @@ from gemcore.forms import (
     EntryForm,
     EntryMergeForm,
 )
-from gemcore.models import Account, Book, Entry
+from gemcore.models import TAG_CHOICES, Account, Book, Entry
 from gemcore.parser import CSVParser
 
 
@@ -185,8 +185,14 @@ def entries(request, book_slug):
     entries, filters, available = parse_request(request, book)
     accounts = Account.objects.by_book(book)
 
+    edit_account_form = ChooseForm(
+        queryset=accounts, data=request.POST, prefix='account'
+    )
+    edit_tags_form = ChooseForm(
+        choices=TAG_CHOICES, data=request.POST, prefix='tags'
+    )
+
     if request.method == 'POST':
-        edit_account_form = ChooseForm(queryset=accounts, data=request.POST)
         here = request.get_full_path()
 
         ids = [int(i) for i in request.POST.getlist('entry')]
@@ -210,7 +216,10 @@ def entries(request, book_slug):
                     )
                 else:
                     entries.update(account=target)
-                    msg = (', '.join(str(e) for e in entries), target)
+                    msg = (
+                        ', '.join(str(e) for e in entries.order_by('id')),
+                        target,
+                    )
                     messages.success(
                         request, 'Entries "%s" changed to account %s.' % msg
                     )
@@ -223,8 +232,28 @@ def entries(request, book_slug):
             return HttpResponseRedirect(here)
 
         if 'change-tags' in request.POST:
-            template = 'gemcore/change-tags.html'
-            raise NotImplementedError()
+            if edit_tags_form.is_valid():
+                target = edit_tags_form.cleaned_data['target']
+                if not target:
+                    messages.error(
+                        request, 'Invalid request, target tags are empty.'
+                    )
+                else:
+                    entries.update(tags=[target])
+                    msg = (
+                        ', '.join(str(e) for e in entries.order_by('id')),
+                        target,
+                    )
+                    messages.success(
+                        request, 'Entries "%s" changed with tags %s.' % msg
+                    )
+            else:
+                messages.error(
+                    request,
+                    'Invalid request for changing the tags: %s'
+                    % edit_tags_form.errors,
+                )
+            return HttpResponseRedirect(here)
 
         context = {'book': book, 'entries': entries, 'qs': filters['qs']}
         if 'merge-selected' in request.POST:
@@ -299,7 +328,8 @@ def entries(request, book_slug):
         'page_end': end,
         'page_range': range(start, end + 1),
         'page_start': start,
-        'edit_account_form': ChooseForm(queryset=accounts),
+        'edit_account_form': edit_account_form,
+        'edit_tags_form': edit_tags_form,
         'account_balance_form': AccountBalanceForm(queryset=accounts),
         'currency_balance_form': CurrencyBalanceForm(choices=currencies),
     }

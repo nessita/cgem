@@ -8,17 +8,22 @@ from gemcore.models import TAGS, Account, Book, Entry
 
 
 class ChooseForm(forms.Form):
-
-    target = forms.ModelChoiceField(
-        label='Choices',
-        queryset=None,
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-control input-sm'}),
-    )
-
-    def __init__(self, queryset, *args, **kwargs):
+    def __init__(self, queryset=None, choices=None, *args, **kwargs):
         super(ChooseForm, self).__init__(*args, **kwargs)
-        self.fields['target'].queryset = queryset
+        if choices:
+            self.fields['target'] = forms.ChoiceField(
+                label='Choices',
+                choices=choices,
+                required=False,
+                widget=forms.Select(attrs={'class': 'form-control input-sm'}),
+            )
+        else:
+            self.fields['target'] = forms.ModelChoiceField(
+                label='Choices',
+                queryset=queryset,
+                required=False,
+                widget=forms.Select(attrs={'class': 'form-control input-sm'}),
+            )
 
 
 class BalanceForm(forms.Form):

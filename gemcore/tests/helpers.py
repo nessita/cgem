@@ -4,6 +4,7 @@ import os
 from collections import defaultdict
 
 from django.contrib import messages
+from django.contrib.messages import constants as message_constants
 from django.test import TestCase, override_settings
 
 from gemcore.tests.factory import Factory
@@ -31,13 +32,12 @@ class BaseTestCase(TestCase):
         except AttributeError:
             user_messages = request_or_response.context['messages']
         for m in user_messages:
-            tags = m.tags.split()
-            if len(tags) > 1:
-                tags.pop()  # remove custom messages tag
-            msgs[' '.join(tags)].append(m.message)
+            level_tag = message_constants.DEFAULT_TAGS.get(m.level)
+            msgs[level_tag].append(m.message)
         for kind, expected in kwargs.items():
-            actual = msgs.get(kind, [])
-            self.assertCountEqual(actual, expected)
+            with self.subTest(kind=kind):
+                actual = msgs.get(kind, [])
+                self.assertCountEqual(actual, expected)
 
     def assert_no_messages(self, request_or_response):
         kwargs = {tag: [] for tag in messages.DEFAULT_TAGS.values()}

@@ -40,6 +40,7 @@ TAGS = [
     'imported',
     'trips',
 ]
+TAG_CHOICES = [(t, t) for t in TAGS]
 
 
 class DryRunError(Exception):
@@ -402,7 +403,7 @@ class TagRegex(models.Model):
 
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     regex = models.TextField()
-    tag = models.CharField(max_length=256, choices=((t, t) for t in TAGS))
+    tag = models.CharField(max_length=256, choices=TAG_CHOICES)
     transfer = models.ForeignKey(
         Account,
         related_name='transfers',
@@ -429,9 +430,7 @@ class Entry(models.Model):
     )
     is_income = models.BooleanField(default=False, verbose_name='Income?')
     tags = ArrayField(
-        base_field=models.CharField(
-            choices=((i, i) for i in TAGS), max_length=256
-        ),
+        base_field=models.CharField(choices=TAG_CHOICES, max_length=256),
         default=list,
     )
     country = models.CharField(max_length=2, choices=countries)
