@@ -20,7 +20,6 @@ def add_expense(
         'account': account,
         'what': what,
         'amount': amount,
-        'tags': tags,
         'country': country,
         'notes': notes,
     }
