@@ -16,7 +16,8 @@ class EntrySerializer(serializers.ModelSerializer):
     def validate(self, data):
         tags = data.get('tags')
         if tags is None:
-            data['tags'] = data['account'].tags_for(data['what']).keys() or ['imported']
+            tags = data['account'].tags_for(data['what']).keys()
+        data['tags'] = tags or ['imported']
         return data
 
     class Meta:
