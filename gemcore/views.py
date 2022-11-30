@@ -245,7 +245,7 @@ def entries(request, book_slug):
                         target,
                     )
                     messages.success(
-                        request, 'Entries "%s" changed with tags %s.' % msg
+                        request, 'Entries "%s" changed with tags "%s".' % msg
                     )
             else:
                 messages.error(

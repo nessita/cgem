@@ -175,7 +175,7 @@ class BulkChangeTagTestCase(BulkTestCaseMixin, BaseTestCase):
         self.assert_messages(
             response,
             error=[],
-            success=[f'Entries "{msg}" changed with tags {target_tag}.'],
+            success=[f'Entries "{msg}" changed with tags "{target_tag}".'],
         )
         for e in entries:
             e.refresh_from_db()
