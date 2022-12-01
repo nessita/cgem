@@ -2,6 +2,7 @@ backports-zoneinfo; python_version < "3.10"
 dj-database-url
 Django
 django-countries
+django-health-check
 django-qurl-templatetag
 djangorestframework
 gunicorn

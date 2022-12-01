@@ -16,8 +16,11 @@ django==4.1.3
     # via
     #   -r requirements.in
     #   dj-database-url
+    #   django-health-check
     #   djangorestframework
 django-countries==7.4.2
+    # via -r requirements.in
+django-health-check==3.17.0
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in
