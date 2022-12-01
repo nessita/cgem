@@ -23,8 +23,10 @@ class AddEntryView(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
 
 class VersionView(APIView):
-
     def get(self, request, format=None):
-        git_hash = subprocess.check_output(
-            ['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+        git_hash = (
+            subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'])
+            .decode('ascii')
+            .strip()
+        )
         return Response(git_hash)
