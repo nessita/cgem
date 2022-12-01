@@ -17,5 +17,6 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(next_page='/'), name='logout'),
     path('book/', include('gemcore.urls')),
     path('admin/', admin.site.urls),
+    path('status/', include('health_check.urls')),
     path('api/', include((gemapi.urls, 'api'))),
 ]
