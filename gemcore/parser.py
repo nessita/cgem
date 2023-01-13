@@ -1,6 +1,7 @@
 # /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import codecs
 import csv
 import logging
 import re
@@ -172,7 +173,8 @@ class CSVParser(object):
         self.name = getattr(fileobj, 'name', 'stream with no name')
         result = dict(entries=[], errors=[])
 
-        reader = csv.reader(fileobj)
+        delimiter = codecs.decode(self.config.delimiter, 'unicode_escape')
+        reader = csv.reader(fileobj, delimiter=delimiter)
         ignored = 0
         unprocessed = None
         for row in reader:

@@ -61,6 +61,7 @@ class ParserConfig(models.Model):
 
     name = models.TextField(unique=True)
     country = models.CharField(max_length=2, choices=countries)
+    delimiter = models.CharField(max_length=10, default=',')
     date_format = models.CharField(max_length=128, default='%Y-%m-%d')
     decimal_point = models.CharField(max_length=1, default='.')
     thousands_sep = models.CharField(max_length=1, default=',')
