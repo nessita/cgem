@@ -152,23 +152,13 @@ SESSION_COOKIE_SECURE = True
 SITE_ID = 1
 
 ENTRY_TAGS = [
-    'bureaucracy',
-    'car',
-    'change',
-    'children',
     'food',
     'fun',
-    'investments'
     'health',
-    'house',
     'maintenance',
     'other',
-    'rent',
     'taxes',
-    'transportation',
     'utilities',
-    'work-ish',
-    'imported',
     'trips',
 ]
 
