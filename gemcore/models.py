@@ -28,6 +28,7 @@ TAGS = [
     'children',
     'food',
     'fun',
+    'investments'
     'health',
     'house',
     'maintenance',

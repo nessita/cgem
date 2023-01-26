@@ -194,7 +194,8 @@ class CSVParser(object):
                     row=row, user=user, unprocessed=unprocessed
                 )
             except DataToBeProcessedError as e:
-                assert unprocessed is None, 'Unprocessed data should be None'
+                assert unprocessed is None, (
+                    f'Unprocessed data should be None, got {unprocessed=}')
                 unprocessed = e.data
                 continue
             except Exception as e:
