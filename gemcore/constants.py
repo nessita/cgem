@@ -1,3 +1,7 @@
+from django.conf import settings
+from django_countries import countries
+
+
 CURRENCIES = [
     'AED',
     'AFN',
@@ -178,3 +182,11 @@ CURRENCIES = [
     'ZMW',
     'ZWL',
 ]
+TAGS = settings.ENTRY_TAGS
+
+
+class ChoicesMixin:
+
+    TAG_CHOICES = tuple((t, t) for t in TAGS)
+    CURRENCY_CHOICES = tuple((t, t) for t in CURRENCIES)
+    COUNTRY_CHOICES = countries

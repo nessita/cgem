@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from gemcore.models import Account, Book, Entry, User
+from gemcore.models import Account, Book, Entry
 
 
 class EntrySerializer(serializers.ModelSerializer):

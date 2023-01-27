@@ -4,6 +4,8 @@ import datetime
 import django.contrib.postgres.fields
 from django.db import migrations, models
 
+from gemcore.constants import ChoicesMixin
+
 
 OLD = 'maintainance'
 NEW = 'maintenance'
@@ -34,7 +36,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='entry',
             name='tags',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(choices=[('bureaucracy', 'bureaucracy'), ('car', 'car'), ('change', 'change'), ('children', 'children'), ('food', 'food'), ('fun', 'fun'), ('health', 'health'), ('house', 'house'), ('maintenance', 'maintenance'), ('other', 'other'), ('rent', 'rent'), ('taxes', 'taxes'), ('transportation', 'transportation'), ('utilities', 'utilities'), ('work-ish', 'work-ish'), ('imported', 'imported'), ('trips', 'trips')], max_length=256), default=list, size=None),
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(choices=ChoicesMixin.TAG_CHOICES, max_length=256),
+                default=list,
+                size=None,
+            ),
         ),
         migrations.AlterField(
             model_name='entry',
@@ -44,7 +50,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='tagregex',
             name='tag',
-            field=models.CharField(choices=[('bureaucracy', 'bureaucracy'), ('car', 'car'), ('change', 'change'), ('children', 'children'), ('food', 'food'), ('fun', 'fun'), ('health', 'health'), ('house', 'house'), ('maintenance', 'maintenance'), ('other', 'other'), ('rent', 'rent'), ('taxes', 'taxes'), ('transportation', 'transportation'), ('utilities', 'utilities'), ('work-ish', 'work-ish'), ('imported', 'imported'), ('trips', 'trips')], max_length=256),
+            field=models.CharField(choices=ChoicesMixin.TAG_CHOICES, max_length=256),
         ),
         migrations.RunPython(migrate_tags_foward, migrate_tags_backward),
     ]

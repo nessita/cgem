@@ -151,6 +151,18 @@ SESSION_COOKIE_SECURE = True
 
 SITE_ID = 1
 
+ENTRY_TAGS = [
+    'food',
+    'fun',
+    'health',
+    'imported',
+    'maintenance',
+    'other',
+    'taxes',
+    'trips',
+    'utilities',
+]
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

@@ -4,7 +4,8 @@ from django import forms
 from django.db import IntegrityError, transaction
 from django_countries import countries
 
-from gemcore.models import TAGS, Account, Book, Entry
+from gemcore.constants import ChoicesMixin
+from gemcore.models import Account, Book, Entry
 
 
 class ChooseForm(forms.Form):
@@ -95,7 +96,8 @@ class EntryForm(forms.ModelForm):
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields['account'].queryset = Account.objects.by_book(book)
         self.fields['tags'] = forms.MultipleChoiceField(
-            choices=((i, i) for i in TAGS), widget=TagsCheckboxSelectMultiple()
+            choices=ChoicesMixin.TAG_CHOICES,
+            widget=TagsCheckboxSelectMultiple(),
         )
 
     def clean(self):

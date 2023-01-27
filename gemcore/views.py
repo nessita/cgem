@@ -14,6 +14,7 @@ from django.views.decorators.http import (
     require_http_methods,
 )
 
+from gemcore.constants import ChoicesMixin
 from gemcore.forms import (
     AccountBalanceForm,
     AccountTransferForm,
@@ -24,7 +25,7 @@ from gemcore.forms import (
     EntryForm,
     EntryMergeForm,
 )
-from gemcore.models import TAG_CHOICES, Account, Book, Entry
+from gemcore.models import Account, Book, Entry
 from gemcore.parser import CSVParser
 
 
@@ -189,7 +190,7 @@ def entries(request, book_slug):
         queryset=accounts, data=request.POST, prefix='account'
     )
     edit_tags_form = ChooseForm(
-        choices=TAG_CHOICES, data=request.POST, prefix='tags'
+        choices=ChoicesMixin.TAG_CHOICES, data=request.POST, prefix='tags'
     )
 
     if request.method == 'POST':
