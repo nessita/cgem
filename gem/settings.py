@@ -155,11 +155,12 @@ ENTRY_TAGS = [
     'food',
     'fun',
     'health',
+    'imported',
     'maintenance',
     'other',
     'taxes',
-    'utilities',
     'trips',
+    'utilities',
 ]
 
 LOGGING = {
