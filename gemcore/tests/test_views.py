@@ -10,13 +10,14 @@ class AddEntryTestCase(BaseTestCase):
         assert self.client.login(username=user.username, password='test')
         book = self.factory.make_book(users=[user])
         account = self.factory.make_account(users=[user])
+        tag = TAGS[0]
         existing = self.factory.make_entry(
             book=book,
             account=account,
             who=user,
             amount=10,
             what='test',
-            tags=['food'],
+            tags=[tag],
             country='US',
         )
         url = reverse('add-entry', kwargs={'book_slug': book.slug})
@@ -28,7 +29,7 @@ class AddEntryTestCase(BaseTestCase):
             country='US',
             when=existing.when.isoformat(),
             account=account.id,
-            tags=['food'],
+            tags=[tag],
         )
         response = self.client.post(url, data=data, follow=True)
 

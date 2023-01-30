@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 
 from gemcore.forms import EntryForm
@@ -97,7 +98,9 @@ class CSVParser(object):
         assert row, 'The given row %r is empty' % row
         amount = self.find_amount(row)
         what = self.find_what(row)
-        tags = list(self.account.tags_for(what).keys()) or ['imported']
+        tags = list(self.account.tags_for(what).keys()) or [
+            settings.ENTRY_DEFAULT_TAG
+        ]
         data = dict(
             account=self.account.id,
             amount=abs(amount),
