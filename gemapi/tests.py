@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.urls import reverse
 
 from gemcore.models import Entry
@@ -39,7 +40,7 @@ class AddEntryViewTestCase(BaseTestCase):
             'account': 'test-account',
             'what': 'One Test',
             'amount': 555.56,
-            'tags': ['food', 'imported'],
+            'tags': [settings.ENTRY_DEFAULT_TAG],
             'country': 'US',
         }
 
@@ -52,5 +53,5 @@ class AddEntryViewTestCase(BaseTestCase):
         self.assertEqual(entry.who.username, 'test-user')
         self.assertEqual(entry.what, 'One Test')
         self.assertEqual(entry.amount, Decimal('555.56'))
-        self.assertEqual(entry.tags, ['food', 'imported'])
+        self.assertEqual(entry.tags, [settings.ENTRY_DEFAULT_TAG])
         self.assertEqual(entry.country, 'US')

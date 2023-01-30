@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from django.conf import settings
+
 from gemcore.models import Account, Book, Entry
 
 
@@ -17,7 +19,7 @@ class EntrySerializer(serializers.ModelSerializer):
         tags = data.get('tags')
         if tags is None:
             tags = data['account'].tags_for(data['what']).keys()
-        data['tags'] = tags or ['imported']
+        data['tags'] = tags or [settings.ENTRY_DEFAULT_TAG]
         return data
 
     class Meta:
