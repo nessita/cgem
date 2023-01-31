@@ -152,16 +152,15 @@ SESSION_COOKIE_SECURE = True
 SITE_ID = 1
 
 ENTRY_TAGS = [
-    'food',
-    'fun',
-    'health',
-    'imported',
-    'maintenance',
-    'other',
-    'taxes',
-    'trips',
-    'utilities',
+    ('CL', 'Clothing'),
+    ('FD', 'Food'),
+    ('HE', 'Healthcare'),
+    ('HS', 'Housing'),
+    ('IM', 'Imported'),
+    ('TR', 'Transportation'),
+    ('UT', 'Utilities'),
 ]
+ENTRY_DEFAULT_TAG = 'IM'
 
 LOGGING = {
     'version': 1,

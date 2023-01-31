@@ -102,13 +102,13 @@ class BookTestCase(BaseTestCase):
             account = self.factory.make_account()
 
         # add some entries, $1 each, all but one the same day
-        when = now().date()
+        when = date(2020, 9, 11)
         self.factory.make_entry(book=self.book, account=account, when=when)
         self.factory.make_entry(book=self.book, account=account, when=when)
         self.factory.make_entry(
             book=self.book, account=account, when=when, is_income=True
         )
-        other_when = when + timedelta(days=31)
+        other_when = when + timedelta(days=30)
         self.factory.make_entry(
             book=self.book, account=account, when=other_when
         )
@@ -394,6 +394,7 @@ class BookTestCase(BaseTestCase):
 class AccountTestCase(BaseTestCase):
     def test_tags_for(self):
         account = self.factory.make_account()
+        tag1, tag2, tag3, tag4 = TAGS[:4]
         self.factory.make_tag_regex(
             regex=r'\d{2}', tag='house', account=account
         )

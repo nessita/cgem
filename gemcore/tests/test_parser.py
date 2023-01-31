@@ -4,6 +4,8 @@ from datetime import datetime
 from decimal import Decimal
 from io import StringIO
 
+from django.conf import settings
+
 from gemcore.models import Entry
 from gemcore.parser import CSVParser
 from gemcore.tests.helpers import BaseTestCase
@@ -65,7 +67,7 @@ class CSVParserTestCase(BaseTestCase):
             'country': 'US',
             'is_income': True,
             'notes': "source: 'stream with no name'",
-            'tags': ['imported'],
+            'tags': [settings.ENTRY_DEFAULT_TAG],
             'what': 'line 2',
             'when': datetime(2021, 10, 21, 0, 0),
             'who': user.pk,
