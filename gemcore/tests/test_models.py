@@ -7,7 +7,8 @@ from unittest.mock import patch
 from django.db import IntegrityError
 from django.utils.timezone import now
 
-from gemcore.models import TAGS, Entry
+from gemcore.constants import TAGS
+from gemcore.models import Entry
 from gemcore.tests.helpers import BaseTestCase
 
 

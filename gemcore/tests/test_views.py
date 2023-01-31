@@ -1,6 +1,6 @@
 from django.urls import reverse
 
-from gemcore.models import TAGS
+from gemcore.constants import TAGS
 from gemcore.tests.helpers import BaseTestCase
 
 

@@ -38,11 +38,11 @@
         <p>{% for k, i in available.tags %}
             {% if k not in filters.tags %}
             <a class="btn btn-xs btn-info" href="{% qurl request.get_full_path tag+=k %}">
-                {{ k }} <span class="badge">{{ i }}</span>
+                {{ i.0 }} <span class="badge">{{ i.1 }}</span>
             </a>
             {% else %}
             <a class="btn btn-xs btn-info filtered" href="{% qurl request.get_full_path tag-=k %}">
-                {{ k }} <span class="badge filtered">{{ i }}</span> &times;
+                {{ i.0 }} <span class="badge filtered">{{ i.1 }}</span> &times;
             </a>
             {% endif %}
         {% endfor %}</p>

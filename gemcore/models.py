@@ -17,7 +17,7 @@ from django.dispatch import receiver
 from django.utils.text import slugify
 from django.utils.timezone import now
 
-from gemcore.constants import TAGS, ChoicesMixin
+from gemcore.constants import ChoicesMixin
 
 
 class DryRunError(Exception):
@@ -184,10 +184,10 @@ class Book(models.Model):
             return {}
 
         result = OrderedDict()
-        for tag in TAGS:
+        for tag, label in ChoicesMixin.TAG_CHOICES:
             tag_count = entries.filter(tags__contains=[tag]).count()
             if tag_count:
-                result[tag] = tag_count
+                result[tag] = (label, tag_count)
 
         return result
 
