@@ -1,16 +1,10 @@
 import random
-
-from django.conf import settings
-
-from gemcore.constants import REVERSED_TAGS, TAGS, ChoicesMixin
-from gemcore.forms import EntryForm
-from gemcore.tests.helpers import BaseTestCase
-
 from decimal import Decimal
 
 from django.conf import settings
 from django.urls import reverse
 
+from gemcore.constants import TAGS, ChoicesMixin
 from gemcore.models import Entry
 from gemcore.tests.helpers import BaseTestCase
 
