@@ -11,14 +11,12 @@ from gemcore.models import (
 
 
 class TagRegexInline(admin.StackedInline):
-
     model = TagRegex
     extra = 1
     fk_name = 'account'
 
 
 class AccountAdmin(admin.ModelAdmin):
-
     list_display = (
         'name',
         'slug',
@@ -35,7 +33,6 @@ class AccountAdmin(admin.ModelAdmin):
 
 
 class BookAdmin(admin.ModelAdmin):
-
     prepopulated_fields = {'slug': ('name',)}
 
 
@@ -57,18 +54,15 @@ class TagListFilter(admin.SimpleListFilter):
 
 
 class EntryAdmin(admin.ModelAdmin):
-
     search_fields = ('what', 'when')
     list_filter = ('who', 'account', 'when', TagListFilter)
 
 
 class EntryHistoryAdmin(admin.ModelAdmin):
-
     pass
 
 
 class ParserConfigAdmin(admin.ModelAdmin):
-
     list_display = (
         'name',
         'date_format',
@@ -89,7 +83,6 @@ class ParserConfigAdmin(admin.ModelAdmin):
 
 
 class TagRegexAdmin(admin.ModelAdmin):
-
     list_display = ('regex', 'tag', 'account')
 
 

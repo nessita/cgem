@@ -65,7 +65,6 @@ class BalanceViewTestCase(BaseTestCase):
 
 
 class BulkTestCaseMixin:
-
     action_name = ''
     action_btn = None
 
@@ -96,7 +95,6 @@ class BulkTestCaseMixin:
 
 
 class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
-
     action_name = 'remove-selected'
     action_btn = (
         '<button type="submit" class="btn btn-sm btn-default" '
@@ -128,7 +126,6 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
 
 
 class BulkMergeTestCase(BulkTestCaseMixin, BaseTestCase):
-
     action_name = 'merge-selected'
     action_btn = (
         '<button type="submit" class="btn btn-sm btn-default" '
@@ -137,7 +134,6 @@ class BulkMergeTestCase(BulkTestCaseMixin, BaseTestCase):
 
 
 class BulkChangeAccountTestCase(BulkTestCaseMixin, BaseTestCase):
-
     action_name = 'change-account'
     action_btn = (
         '<button type="submit" class="btn btn-sm btn-default" '
@@ -146,7 +142,6 @@ class BulkChangeAccountTestCase(BulkTestCaseMixin, BaseTestCase):
 
 
 class BulkChangeTagTestCase(BulkTestCaseMixin, BaseTestCase):
-
     action_name = 'change-tags'
     action_btn = (
         '<button type="submit" class="btn btn-sm btn-default" '

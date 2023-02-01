@@ -28,7 +28,6 @@ class ChooseForm(forms.Form):
 
 
 class BalanceForm(forms.Form):
-
     start = forms.DateField(
         widget=forms.DateInput(
             attrs={
@@ -50,7 +49,6 @@ class BalanceForm(forms.Form):
 
 
 class AccountBalanceForm(BalanceForm):
-
     source = forms.ModelChoiceField(
         label='Account',
         queryset=None,
@@ -66,7 +64,6 @@ class AccountBalanceForm(BalanceForm):
 
 
 class CurrencyBalanceForm(BalanceForm):
-
     source = forms.ChoiceField(
         label='Currency',
         widget=forms.Select(attrs={'class': 'form-control input-sm'}),
@@ -153,7 +150,6 @@ class EntryForm(forms.ModelForm):
 
 
 class EntryMergeForm(forms.Form):
-
     when = forms.DateField(
         widget=forms.DateInput(
             attrs={'class': 'form-control input-sm datepicker'}
@@ -162,7 +158,6 @@ class EntryMergeForm(forms.Form):
 
 
 class CSVExpenseForm(forms.Form):
-
     account = forms.ModelChoiceField(
         label='Account',
         queryset=Account.objects.none(),
@@ -192,7 +187,6 @@ class CSVExpenseForm(forms.Form):
 
 
 class AccountTransferForm(forms.Form):
-
     source_account = forms.ModelChoiceField(
         label='From',
         queryset=Account.objects.none(),

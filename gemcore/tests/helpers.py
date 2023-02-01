@@ -12,7 +12,6 @@ from gemcore.tests.factory import Factory
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class BaseTestCase(TestCase):
-
     factory = Factory()
     maxDiff = None
 

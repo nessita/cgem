@@ -6,7 +6,6 @@ from gemcore.models import Account, Book, Entry
 
 
 class EntrySerializer(serializers.ModelSerializer):
-
     book = serializers.SlugRelatedField(
         slug_field='slug', queryset=Book.objects.all()
     )

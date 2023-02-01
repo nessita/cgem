@@ -186,7 +186,6 @@ TAGS = [i[0] for i in settings.ENTRY_TAGS]
 
 
 class ChoicesMixin:
-
     TAG_CHOICES = settings.ENTRY_TAGS
     CURRENCY_CHOICES = tuple((t, t) for t in CURRENCIES)
     COUNTRY_CHOICES = countries

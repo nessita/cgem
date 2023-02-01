@@ -11,7 +11,6 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-
     help = 'Parse a csv files of expense/income entries.'
 
     def add_arguments(self, parser):
