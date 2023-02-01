@@ -349,7 +349,7 @@ def entry(request, book_slug, entry_id=None):
     if request.method == 'POST':
         form = EntryForm(instance=entry, book=book, data=request.POST)
         if form.is_valid():
-            entry = form.save(book=book)
+            entry = form.save()
             if entry is not None:
                 # decide where to redirecr next
                 kwargs = dict(book_slug=book_slug)

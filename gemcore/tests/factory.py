@@ -2,8 +2,10 @@
 
 import itertools
 
+from datetime import date
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
@@ -66,37 +68,46 @@ class Factory(object):
             account = self.make_account()
         return account.tagregex_set.create(regex=regex, tag=tag)
 
-    def make_entry(
+    def make_entry_data(
         self,
         book=None,
         account=None,
         who=None,
+        when=None,
         amount=Decimal('1.0'),
         what=None,
         country='AR',
         **kwargs
     ):
         i = self.make_integer()
-        if book is None:
-            book = self.make_book()
-        if account is None:
-            account = self.make_account()
         if who is None:
             who = self.make_user()
+        if book is None:
+            book = self.make_book(users=[who])
+        if account is None:
+            account = self.make_account(users=[who])
         if what is None:
             what = 'Description of entry %i' % i
-        tags = kwargs.pop('tags', [])
-        result = Entry.objects.create(
+        if when is None:
+            when = date.today()
+        tags = kwargs.pop('tags', [settings.ENTRY_DEFAULT_TAG])
+
+        result = dict(
             book=book,
             account=account,
             who=who,
             what=what,
+            when=when,
             amount=amount,
             tags=tags,
             country=country,
             **kwargs
         )
         return result
+
+    def make_entry(self, **kwargs):
+        data = self.make_entry_data(**kwargs)
+        return Entry.objects.create(**data)
 
     def make_parser_config(self, name=None, **kwargs):
         i = self.make_integer()

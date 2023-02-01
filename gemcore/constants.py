@@ -183,6 +183,7 @@ CURRENCIES = [
     'ZWL',
 ]
 TAGS = [i[0] for i in settings.ENTRY_TAGS]
+REVERSED_TAGS = {v.lower(): k for k, v in settings.ENTRY_TAGS}
 
 
 class ChoicesMixin:

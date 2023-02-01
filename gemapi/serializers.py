@@ -2,7 +2,14 @@ from rest_framework import serializers
 
 from django.conf import settings
 
+from gemcore.constants import REVERSED_TAGS, ChoicesMixin
 from gemcore.models import Account, Book, Entry
+
+
+class BackwardCompatibleTagField(serializers.ChoiceField):
+    def to_internal_value(self, data):
+        data = REVERSED_TAGS.get(data.lower(), data)
+        return super().to_internal_value(data)
 
 
 class EntrySerializer(serializers.ModelSerializer):
@@ -35,3 +42,10 @@ class EntrySerializer(serializers.ModelSerializer):
             'country',
             'notes',
         ]
+        extra_kwargs = {
+            'tags': {
+                'child': BackwardCompatibleTagField(
+                    choices=ChoicesMixin.TAG_CHOICES
+                )
+            }
+        }
