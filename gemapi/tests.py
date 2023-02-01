@@ -8,7 +8,6 @@ from gemcore.tests.helpers import BaseTestCase
 
 
 class AddEntryViewTestCase(BaseTestCase):
-
     url = reverse('api:entry-list')
 
     def make_auth_header(self, user=None):

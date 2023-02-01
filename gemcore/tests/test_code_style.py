@@ -7,7 +7,6 @@ PACKAGES = ['gem', 'gemcore']
 
 
 class Flake8ConformanceTestCase(TestCase):
-
     excludes = ['gemcore/migrations']
 
     def test_lint(self):

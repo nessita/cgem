@@ -17,7 +17,7 @@ from django.dispatch import receiver
 from django.utils.text import slugify
 from django.utils.timezone import now
 
-from gemcore.constants import TAGS, ChoicesMixin
+from gemcore.constants import ChoicesMixin
 
 
 class DryRunError(Exception):
@@ -35,7 +35,6 @@ def month_year_iter(start, end):
 
 
 class ParserConfig(models.Model):
-
     name = models.TextField(unique=True)
     country = models.CharField(
         max_length=2, choices=ChoicesMixin.COUNTRY_CHOICES
@@ -77,7 +76,6 @@ class ParserConfig(models.Model):
 
 
 class Book(models.Model):
-
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
@@ -184,10 +182,10 @@ class Book(models.Model):
             return {}
 
         result = OrderedDict()
-        for tag in TAGS:
+        for tag, label in ChoicesMixin.TAG_CHOICES:
             tag_count = entries.filter(tags__contains=[tag]).count()
             if tag_count:
-                result[tag] = tag_count
+                result[tag] = (label, tag_count)
 
         return result
 
@@ -342,7 +340,6 @@ class AccountManager(models.Manager):
 
 
 class Account(models.Model):
-
     name = models.CharField(max_length=256)
     slug = models.SlugField(unique=True)
     users = models.ManyToManyField(User)
@@ -380,7 +377,6 @@ class Account(models.Model):
 
 
 class TagRegex(models.Model):
-
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     regex = models.TextField()
     tag = models.CharField(max_length=256, choices=ChoicesMixin.TAG_CHOICES)
@@ -397,7 +393,6 @@ class TagRegex(models.Model):
 
 
 class Entry(models.Model):
-
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     who = models.ForeignKey(User, on_delete=models.CASCADE)
     when = models.DateField(default=date.today)
@@ -447,7 +442,6 @@ class Entry(models.Model):
 
 
 class EntryHistory(models.Model):
-
     DELETE = 'delete'
     MERGE = 'merge'
 
