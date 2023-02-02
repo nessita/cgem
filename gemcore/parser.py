@@ -135,7 +135,7 @@ class CSVParser(object):
             if dry_run:
                 entry = data
             else:
-                entry = form.save(book=book)
+                entry = form.save()
         logger.debug(
             'CSVParser._validate_and_save_entry dry_run: %r data: %r '
             'form is valid: %r form.errors: %r',

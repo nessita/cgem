@@ -90,6 +90,7 @@ class TagsCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
 
 class EntryForm(forms.ModelForm):
     def __init__(self, book, *args, **kwargs):
+        self.book = book
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields['account'].queryset = Account.objects.by_book(book)
         self.fields['tags'] = forms.MultipleChoiceField(
@@ -104,8 +105,8 @@ class EntryForm(forms.ModelForm):
         return cleaned_data
 
     @transaction.atomic
-    def save(self, *args, book, **kwargs):
-        self.instance.book = book
+    def save(self, *args, **kwargs):
+        self.instance.book = self.book
         try:
             self.instance = super(EntryForm, self).save(*args, **kwargs)
         except IntegrityError:
