@@ -1,12 +1,13 @@
 name: 'Create reminders'
 
-permissions:
-  issues: write
-
 on:
   workflow_dispatch:
   issue_comment:
     types: [created, edited]
+
+permissions:
+  pull-requests: write
+  issues: write
 
 jobs:
   reminder:
