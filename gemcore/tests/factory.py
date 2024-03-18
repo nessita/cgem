@@ -105,9 +105,12 @@ class Factory(object):
         )
         return result
 
-    def make_entry(self, **kwargs):
+    def make_entry(self, save=True, **kwargs):
         data = self.make_entry_data(**kwargs)
-        return Entry.objects.create(**data)
+        result = Entry(**data)
+        if save:
+            result.save()
+        return result
 
     def make_parser_config(self, name=None, **kwargs):
         i = self.make_integer()
