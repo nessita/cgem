@@ -36,7 +36,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Dependencies
@@ -55,11 +55,4 @@ jobs:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432
         SECRET_KEY: testkey
       run: |
-        coverage run manage.py test -v 3
-    - name: Generate coverage XML report
-      run: |
-        coverage xml
-    - name: Upload coverage report to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-        fail_ci_if_error: false
+        python -Wall manage.py test -v 3
