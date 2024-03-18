@@ -10,7 +10,7 @@ asgiref==3.7.2
     #   django-countries
 dj-database-url==2.1.0
     # via -r requirements.in
-django==5.0.1
+django==5.0.3
     # via
     #   -r requirements.in
     #   dj-database-url
@@ -18,23 +18,21 @@ django==5.0.1
     #   djangorestframework
 django-countries==7.5.1
     # via -r requirements.in
-django-health-check==3.17.0
+django-health-check==3.18.1
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in
-djangorestframework==3.14.0
+djangorestframework==3.15.0
     # via -r requirements.in
 gunicorn==21.2.0
     # via -r requirements.in
-packaging==23.2
+packaging==24.0
     # via gunicorn
 psycopg2-binary==2.9.9
     # via -r requirements.in
-pytz==2023.3.post1
-    # via djangorestframework
 sqlparse==0.4.4
     # via django
-typing-extensions==4.9.0
+typing-extensions==4.10.0
     # via
     #   dj-database-url
     #   django-countries
