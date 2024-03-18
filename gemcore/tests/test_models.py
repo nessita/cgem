@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-
+import os
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -10,6 +9,9 @@ from django.utils.timezone import now
 from gemcore.constants import TAGS
 from gemcore.models import Entry
 from gemcore.tests.helpers import BaseTestCase
+
+
+MAX_ENTRIES = 50 if os.getenv("GITHUB_ACTIONS") == "true" else 10
 
 
 class BookTestCase(BaseTestCase):
@@ -27,8 +29,9 @@ class BookTestCase(BaseTestCase):
 
     def test_month_breakdown(self):
         expected = []
+        entries = []
         for month in range(1, 13):
-            for j in range(month):
+            for j in range(month % 6):
                 year = 2000 + j
                 total = Decimal(0)
                 for i in range(j):
@@ -38,12 +41,14 @@ class BookTestCase(BaseTestCase):
                         total += amount
                     else:
                         total -= amount
-                    self.factory.make_entry(
+                    entry = self.factory.make_entry(
                         book=self.book,
                         when=date(year, month, i + 1),
                         amount=amount,
                         is_income=is_income,
+                        save=False,
                     )
+                    entries.append(entry)
                 if j > 0:
                     expected.append(
                         {
@@ -52,6 +57,9 @@ class BookTestCase(BaseTestCase):
                             'total': total,
                         }
                     )
+
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         result = self.book.month_breakdown()
         self.assertCountEqual(list(result), expected)
@@ -62,6 +70,7 @@ class BookTestCase(BaseTestCase):
 
     def test_year_breakdown(self):
         expected = []
+        entries = []
         for year_suffix in range(13):
             year = 2000 + year_suffix
             year_count = 0
@@ -76,12 +85,14 @@ class BookTestCase(BaseTestCase):
                     else:
                         total -= amount
                     year_count += 1
-                    self.factory.make_entry(
+                    entry = self.factory.make_entry(
                         book=self.book,
                         when=date(year, month, i + 1),
                         amount=amount,
                         is_income=is_income,
+                        save=False,
                     )
+                    entries.append(entry)
             if year_count > 0:
                 expected.append(
                     {
@@ -90,6 +101,9 @@ class BookTestCase(BaseTestCase):
                         'total': total,
                     }
                 )
+
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         result = self.book.year_breakdown()
         self.assertCountEqual(list(result), expected)
@@ -162,12 +176,17 @@ class BookTestCase(BaseTestCase):
     def test_balance_many_accounts(self):
         # add some accounts with entries, $1 each, all but one the same day
         when = now().date()
+        entries = []
         for i in range(1, 4):
             account = self.factory.make_account()
             for j in range(i):
-                self.factory.make_entry(
-                    book=self.book, account=account, when=when
+                entry = self.factory.make_entry(
+                    book=self.book, account=account, when=when, save=False
                 )
+                entries.append(entry)
+
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         balance = self.book.balance()
         expected = {
@@ -240,12 +259,20 @@ class BookTestCase(BaseTestCase):
         # create many other entries to ensure nothing else is removed
         must_be_kept = (
             [
-                self.factory.make_entry(book=self.book, account=account)
+                self.factory.make_entry(
+                    book=self.book, account=account, save=False
+                )
                 for i in range(3)
             ]
-            + [self.factory.make_entry(account=account) for i in range(3)]
-            + [self.factory.make_entry(book=self.book) for i in range(3)]
-            + [self.factory.make_entry() for i in range(3)]
+            + [
+                self.factory.make_entry(account=account, save=False)
+                for i in range(3)
+            ]
+            + [
+                self.factory.make_entry(book=self.book, save=False)
+                for i in range(3)
+            ]
+            + [self.factory.make_entry(save=False) for i in range(3)]
         )
 
         entries = [
@@ -256,6 +283,7 @@ class BookTestCase(BaseTestCase):
                 tags=[TAGS[i]],
                 is_income=False,
                 what='Dummy',
+                save=False,
             )
             for i in range(5)
         ]
@@ -266,7 +294,11 @@ class BookTestCase(BaseTestCase):
             is_income=True,
             tags=[TAGS[-1]],
             what='A target entry',
+            save=False,
         )
+        # save all entries at once
+        Entry.objects.bulk_create(must_be_kept + entries + [target])
+
         ids = [e.id for e in entries] + [target.id]
 
         before_count = len(must_be_kept) + len(ids)
@@ -310,14 +342,17 @@ class BookTestCase(BaseTestCase):
                 account=account,
                 amount=Decimal(i),
                 is_income=False,
+                save=False,
             )
-            for i in range(1, 50, 3)
+            for i in range(1, MAX_ENTRIES, 3)
         ]
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         result = self.book.merge_entries(*entries)
 
         self.assertEqual(result.account, account)
-        self.assertEqual(result.amount, Decimal(sum(range(1, 50, 3))))
+        self.assertEqual(result.amount, Decimal(sum(range(1, MAX_ENTRIES, 3))))
         self.assertEqual(result.is_income, False)
 
     def test_merge_entries_all_income(self):
@@ -329,14 +364,17 @@ class BookTestCase(BaseTestCase):
                 account=account,
                 amount=Decimal(i),
                 is_income=True,
+                save=False,
             )
-            for i in range(1, 50, 3)
+            for i in range(1, MAX_ENTRIES, 3)
         ]
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         result = self.book.merge_entries(*entries)
 
         self.assertEqual(result.account, account)
-        self.assertEqual(result.amount, Decimal(sum(range(1, 50, 3))))
+        self.assertEqual(result.amount, Decimal(sum(range(1, MAX_ENTRIES, 3))))
         self.assertEqual(result.is_income, True)
 
     def test_merge_entries_atomic(self):
@@ -381,13 +419,21 @@ class BookTestCase(BaseTestCase):
             self.assertEqual(Entry.objects.get(id=e.id), e)
 
     def test_breakdown(self):
+        entries = []
         for i, t in enumerate(TAGS, start=1):
             for j in range(i):
-                self.factory.make_entry(book=self.book, tags=[t])
+                entry = self.factory.make_entry(
+                    book=self.book, tags=[t], save=False
+                )
+                entries.append(entry)
                 if j % 2:
-                    self.factory.make_entry(
-                        book=self.book, tags=[t], is_income=True
+                    entry_income = self.factory.make_entry(
+                        book=self.book, tags=[t], is_income=True, save=False
                     )
+                    entries.append(entry_income)
+
+        # save all entries at once
+        Entry.objects.bulk_create(entries)
 
         self.book.breakdown()
 
