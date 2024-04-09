@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import operator
 import re
 from collections import defaultdict, OrderedDict
@@ -392,12 +390,39 @@ class TagRegex(models.Model):
         unique_together = ('account', 'regex', 'tag')
 
 
+class Asset(models.Model):
+    name = models.CharField(max_length=4096)
+    slug = models.SlugField(unique=True)
+    since = models.DateField()
+    until = models.DateField(null=True, blank=True)
+    category = models.CharField(
+        max_length=256,
+        choices=ChoicesMixin.ASSET_CHOICES,
+        default='',
+        blank=True,
+    )
+    users = models.ManyToManyField(User)
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        until = self.until if self.until else 'present'
+        return f"{self.name} ({self.since} - {until})"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super(Asset, self).save(*args, **kwargs)
+
+
 class Entry(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     who = models.ForeignKey(User, on_delete=models.CASCADE)
     when = models.DateField(default=date.today)
     what = models.TextField()
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
+    asset = models.ForeignKey(
+        Asset, null=True, blank=True, on_delete=models.SET_NULL
+    )
     amount = models.DecimalField(
         decimal_places=2,
         max_digits=12,

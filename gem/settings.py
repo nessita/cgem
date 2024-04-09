@@ -155,6 +155,14 @@ SESSION_COOKIE_SECURE = True
 
 SITE_ID = 1
 
+ASSET_CATEGORIES = [
+    ('cash', 'Cash'),
+    ('commodities', 'Commodities'),
+    ('fixed-income', 'Fixed Income'),
+    ('funds', 'Funds'),
+    ('real-state', 'Real State'),
+    ('stocks', 'Stocks'),
+]
 ENTRY_TAGS = [
     ('CL', 'Clothing'),
     ('FD', 'Food'),

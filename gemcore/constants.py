@@ -187,6 +187,7 @@ REVERSED_TAGS = {v.lower(): k for k, v in settings.ENTRY_TAGS}
 
 
 class ChoicesMixin:
+    ASSET_CHOICES = settings.ASSET_CATEGORIES
     TAG_CHOICES = settings.ENTRY_TAGS
     CURRENCY_CHOICES = tuple((t, t) for t in CURRENCIES)
     COUNTRY_CHOICES = countries

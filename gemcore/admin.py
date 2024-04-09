@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from gemcore.models import (
     Account,
+    Asset,
     Book,
     Entry,
     EntryHistory,
@@ -25,8 +26,25 @@ class AccountAdmin(admin.ModelAdmin):
         'people',
         'parser_config',
     )
+    list_filter = (
+        'active',
+        'currency',
+    )
     prepopulated_fields = {'slug': ('name',)}
     inlines = (TagRegexInline,)
+
+    def people(self, instance):
+        return ', '.join(u.username for u in instance.users.all())
+
+
+class AssetAdmin(admin.ModelAdmin):
+    list_display = (
+        'name',
+        'slug',
+        'people',
+    )
+    list_filter = ('category',)
+    prepopulated_fields = {'slug': ('name',)}
 
     def people(self, instance):
         return ', '.join(u.username for u in instance.users.all())
@@ -87,6 +105,7 @@ class TagRegexAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Account, AccountAdmin)
+admin.site.register(Asset, AssetAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Entry, EntryAdmin)
 admin.site.register(EntryHistory, EntryHistoryAdmin)
