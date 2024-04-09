@@ -1,5 +1,4 @@
 import csv
-
 from datetime import datetime
 from decimal import Decimal
 from io import StringIO
@@ -32,12 +31,12 @@ class CSVParserTestCase(BaseTestCase):
 
     def assert_result(self, result, errors, entries, all_entries=None):
         self.assertEqual(
-            len(result['errors']),
+            len(result["errors"]),
             errors,
-            'Expected %r errors (got %s %s instead).'
-            % (errors, len(result['errors']), result['errors']),
+            "Expected %r errors (got %s %s instead)."
+            % (errors, len(result["errors"]), result["errors"]),
         )
-        self.assertEqual(len(result['entries']), entries)
+        self.assertEqual(len(result["entries"]), entries)
         if all_entries is None:
             all_entries = entries
         self.assertEqual(Entry.objects.all().count(), all_entries)
@@ -48,7 +47,7 @@ class CSVParserTestCase(BaseTestCase):
 
     def test_duplicated_entry(self):
         account = self.make_account_with_parser(
-            when=[0], what=[1], amount=[2, 3], country='US'
+            when=[0], what=[1], amount=[2, 3], country="US"
         )
         user = account.users.get()
         book = self.factory.make_book(users=[user])
@@ -62,26 +61,26 @@ class CSVParserTestCase(BaseTestCase):
 
         self.assert_result(result, errors=1, entries=0, all_entries=2)
         data = {
-            'account': account.pk,
-            'amount': Decimal('20'),
-            'country': 'US',
-            'is_income': True,
-            'notes': "source: 'stream with no name'",
-            'tags': [settings.ENTRY_DEFAULT_TAG],
-            'what': 'line 2',
-            'when': datetime(2021, 10, 21, 0, 0),
-            'who': user.pk,
+            "account": account.pk,
+            "amount": Decimal("20"),
+            "country": "US",
+            "is_income": True,
+            "notes": "source: 'stream with no name'",
+            "tags": [settings.ENTRY_DEFAULT_TAG],
+            "what": "line 2",
+            "when": datetime(2021, 10, 21, 0, 0),
+            "who": user.pk,
         }
         error = {
-            'exception': 'ValueError',
-            'message': '__all__: There is already an entry for this data.',
-            'data': data,
+            "exception": "ValueError",
+            "message": "__all__: There is already an entry for this data.",
+            "data": data,
         }
-        self.assertEqual(result['errors'], [error])
+        self.assertEqual(result["errors"], [error])
 
     def test_index_error(self):
         account = self.make_account_with_parser(
-            when=[0], what=[1], amount=[2, 3], country='ES'
+            when=[0], what=[1], amount=[2, 3], country="ES"
         )
 
         f = StringIO(
@@ -94,15 +93,15 @@ class CSVParserTestCase(BaseTestCase):
 
         self.assert_result(result, errors=1, entries=2)
         error = {
-            'exception': 'IndexError',
-            'message': 'list index out of range',
-            'data': ['hola mono'],
+            "exception": "IndexError",
+            "message": "list index out of range",
+            "data": ["hola mono"],
         }
-        self.assertEqual(result['errors'], [error])
+        self.assertEqual(result["errors"], [error])
 
     def test_what_concatenates_columns(self):
         account = self.make_account_with_parser(
-            when=[0], what=[2, 5, 4], amount=[1], country='ES'
+            when=[0], what=[2, 5, 4], amount=[1], country="ES"
         )
         f = StringIO(
             "2022-05-01,12,col 12, col 13, col 14, col 15,ignored\n"
@@ -114,8 +113,8 @@ class CSVParserTestCase(BaseTestCase):
         result, rows = self.do_parse(account, f)
 
         self.assert_result(result, errors=0, entries=4)
-        for i, entry in enumerate(result['entries'], start=1):
-            self.assertEqual(entry.what, f'col {i}2 | col {i}5 | col {i}4')
+        for i, entry in enumerate(result["entries"], start=1):
+            self.assertEqual(entry.what, f"col {i}2 | col {i}5 | col {i}4")
 
     def test_bank1(self):
         # Fecha / Hora Mov.,Concepto,Importe,Comentarios,Saldo Parcial
@@ -124,12 +123,12 @@ class CSVParserTestCase(BaseTestCase):
             what=[1],
             amount=[2],
             notes=[3, 4],
-            date_format='%d/%m/%Y',
-            country='FR',
+            date_format="%d/%m/%Y",
+            country="FR",
             ignore_rows=1,
         )
 
-        fname = self.data_file('bank1.csv')
+        fname = self.data_file("bank1.csv")
         with open(fname) as f:
             result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=225)
@@ -161,14 +160,14 @@ class CSVParserTestCase(BaseTestCase):
             what=[3],
             amount=[5, 6],
             notes=[0, 4, 7],
-            date_format='%d/%m/%Y',
-            country='ES',
+            date_format="%d/%m/%Y",
+            country="ES",
             ignore_rows=1,
-            thousands_sep='.',
-            decimal_point=',',
+            thousands_sep=".",
+            decimal_point=",",
         )
 
-        fname = self.data_file('bank2.csv')
+        fname = self.data_file("bank2.csv")
         with open(fname) as f:
             result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=78)
@@ -178,10 +177,10 @@ class CSVParserTestCase(BaseTestCase):
         for row in rows:
             if not row:
                 continue
-            when = datetime.strptime(row[1], '%d/%m/%Y')
+            when = datetime.strptime(row[1], "%d/%m/%Y")
             what = row[3]
             amount = row[5] if row[5] else row[6]
-            amount = Decimal(amount.replace('.', '').replace(',', '.'))
+            amount = Decimal(amount.replace(".", "").replace(",", "."))
             is_income = amount > 0
             self.assert_entry_correct(
                 account=account,
@@ -199,12 +198,12 @@ class CSVParserTestCase(BaseTestCase):
             what=[3],
             amount=[8, 9],
             notes=[4, 5, 6],
-            date_format='%d/%m/%Y',
-            country='IT',
+            date_format="%d/%m/%Y",
+            country="IT",
             ignore_rows=6,
         )
 
-        fname = self.data_file('bank3.csv')
+        fname = self.data_file("bank3.csv")
         with open(fname) as f:
             result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=21)
@@ -214,13 +213,13 @@ class CSVParserTestCase(BaseTestCase):
         for row in rows:
             if not row:
                 continue
-            when = datetime.strptime(row[1], '%d/%m/%Y')
+            when = datetime.strptime(row[1], "%d/%m/%Y")
             what = row[3].strip()
             if row[8]:
-                amount = Decimal(row[8].replace(',', ''))
+                amount = Decimal(row[8].replace(",", ""))
                 is_income = False
             else:
-                amount = Decimal(row[9].replace(',', ''))
+                amount = Decimal(row[9].replace(",", ""))
                 is_income = True
             self.assert_entry_correct(
                 account=account,
@@ -233,20 +232,20 @@ class CSVParserTestCase(BaseTestCase):
 
     def test_bank4(self):
         defer = [
-            'INTERNATIONAL PURCHASE TRANSACTION FEE',
-            'NON-WELLS FARGO ATM TRANSACTION FEE',
+            "INTERNATIONAL PURCHASE TRANSACTION FEE",
+            "NON-WELLS FARGO ATM TRANSACTION FEE",
         ]
         account = self.make_account_with_parser(
             when=[0],
             what=[4],
             amount=[1],
-            date_format='%m/%d/%Y',
-            country='NZ',
+            date_format="%m/%d/%Y",
+            country="NZ",
             defer_processing=defer,
             ignore_rows=0,
         )
 
-        fname = self.data_file('bank4.csv')
+        fname = self.data_file("bank4.csv")
         with open(fname) as f:
             result, rows = self.do_parse(account, f)
         self.assert_result(result, errors=0, entries=54)
@@ -255,7 +254,7 @@ class CSVParserTestCase(BaseTestCase):
         for row in rows:
             if not row:
                 continue
-            when = datetime.strptime(row[0], '%m/%d/%Y')
+            when = datetime.strptime(row[0], "%m/%d/%Y")
             what = row[4]
             amount = Decimal(row[1])
             is_income = amount > 0

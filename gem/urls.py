@@ -5,7 +5,6 @@ from django.urls import include, path
 import gemapi.urls
 import gemcore.views
 
-
 login_view = LoginView.as_view(
     template_name='login.html', redirect_authenticated_user=True)
 

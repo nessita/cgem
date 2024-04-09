@@ -4,12 +4,13 @@ from __future__ import unicode_literals
 
 import datetime
 from decimal import Decimal
-from django.conf import settings
+
 import django.contrib.postgres.fields
 import django.core.validators
-from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
+from django.conf import settings
+from django.db import migrations, models
 
 from gemcore.constants import ChoicesMixin
 

@@ -47,6 +47,11 @@ jobs:
         black --version
     - name: Check code style
       uses: psf/black@stable
+    - name: Check linting
+      run: |
+        pip install flake8 isort
+        flake8 --exclude=gemcore/migrations .
+        isort --check .
     - name: Collect static files
       run: |
         python manage.py collectstatic

@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/1.6/howto/deployment/wsgi/
 # flake8: noqa
 
 import os
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gem.settings")
 
 from django.core.wsgi import get_wsgi_application
