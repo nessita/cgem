@@ -1,6 +1,6 @@
 import subprocess
 
-from rest_framework import viewsets, mixins
+from rest_framework import mixins, viewsets
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -25,8 +25,8 @@ class AddEntryView(mixins.CreateModelMixin, viewsets.GenericViewSet):
 class VersionView(APIView):
     def get(self, request, format=None):
         git_hash = (
-            subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'])
-            .decode('ascii')
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode("ascii")
             .strip()
         )
         return Response(git_hash)

@@ -16,20 +16,20 @@ class BaseTestCase(TestCase):
     maxDiff = None
 
     def data_file(self, filename):
-        return os.path.join(os.path.dirname(__file__), 'data', filename)
+        return os.path.join(os.path.dirname(__file__), "data", filename)
 
     def assert_messages(self, request_or_response, **kwargs):
         tags = sorted(messages.DEFAULT_TAGS.values())
         assert set(kwargs).intersection(
             set(tags)
-        ), 'At least one of "%s" has to be given as kwargs' % ', '.join(tags)
+        ), 'At least one of "%s" has to be given as kwargs' % ", ".join(tags)
         msgs = defaultdict(list)
         # Attempt to retrieve messages from a request object
         try:
             # Do not use `getattr` so `.context` is lazy.
             user_messages = request_or_response._messages
         except AttributeError:
-            user_messages = request_or_response.context['messages']
+            user_messages = request_or_response.context["messages"]
         for m in user_messages:
             level_tag = message_constants.DEFAULT_TAGS.get(m.level)
             msgs[level_tag].append(m.message)

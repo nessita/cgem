@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import itertools
-
 from datetime import date
 from decimal import Decimal
 
@@ -10,7 +9,6 @@ from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
 from gemcore.models import Account, Book, Entry, ParserConfig
-
 
 User = get_user_model()
 
@@ -23,12 +21,12 @@ class Factory(object):
     def make_integer(self):
         return next(self.counter)
 
-    def make_slug(self, prefix='slug'):
-        return '%s-%s' % (prefix, self.make_integer())
+    def make_slug(self, prefix="slug"):
+        return "%s-%s" % (prefix, self.make_integer())
 
-    def make_user(self, username=None, password='test', **kwargs):
+    def make_user(self, username=None, password="test", **kwargs):
         if username is None:
-            username = 'user-%s' % self.make_integer()
+            username = "user-%s" % self.make_integer()
         return User.objects.create_user(
             username=username, password=password, **kwargs
         )
@@ -36,9 +34,9 @@ class Factory(object):
     def make_book(self, slug=None, name=None, users=None, **kwargs):
         i = self.make_integer()
         if name is None:
-            name = 'Book %s' % i
+            name = "Book %s" % i
         if slug is None:
-            slug = 'book-%s' % i
+            slug = "book-%s" % i
         book = Book.objects.create(name=name, slug=slug, **kwargs)
         if users:
             for u in users:
@@ -47,13 +45,13 @@ class Factory(object):
         return book
 
     def make_account(
-        self, name=None, slug=None, currency='USD', users=None, **kwargs
+        self, name=None, slug=None, currency="USD", users=None, **kwargs
     ):
         i = self.make_integer()
         if name is None:
-            name = 'Account %s (%s)' % (i, currency)
+            name = "Account %s (%s)" % (i, currency)
         if slug is None:
-            slug = 'account-%s-%s' % (currency, i)
+            slug = "account-%s-%s" % (currency, i)
         account = Account.objects.create(
             name=name, slug=slug, currency=currency, **kwargs
         )
@@ -74,9 +72,9 @@ class Factory(object):
         account=None,
         who=None,
         when=None,
-        amount=Decimal('1.0'),
+        amount=Decimal("1.0"),
         what=None,
-        country='AR',
+        country="AR",
         **kwargs
     ):
         i = self.make_integer()
@@ -87,10 +85,10 @@ class Factory(object):
         if account is None:
             account = self.make_account(users=[who])
         if what is None:
-            what = 'Description of entry %i' % i
+            what = "Description of entry %i" % i
         if when is None:
             when = date.today()
-        tags = kwargs.pop('tags', [settings.ENTRY_DEFAULT_TAG])
+        tags = kwargs.pop("tags", [settings.ENTRY_DEFAULT_TAG])
 
         result = dict(
             book=book,
@@ -115,7 +113,7 @@ class Factory(object):
     def make_parser_config(self, name=None, **kwargs):
         i = self.make_integer()
         if name is None:
-            name = 'Parser %s' % i
+            name = "Parser %s" % i
         return ParserConfig.objects.create(name=name, **kwargs)
 
     def make_token(self, user=None):
