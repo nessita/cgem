@@ -26,10 +26,12 @@
     {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
     {% include 'gemcore/_form_field.html' with field=form.account sronly=True %}
     {% include 'gemcore/_form_field.html' with field=form.amount sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.notes sronly=True %}
-
     <div class="form-group checkbox">{{ form.is_income }} Income?</div>
+
+    <br/>
+    {% include 'gemcore/_form_field.html' with field=form.notes sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
+    {% include 'gemcore/_form_field.html' with field=form.asset %}
 
     <div id="id_tags" class="form-group tags btn-group" data-toggle="buttons">
       {% for i in form.tags %}

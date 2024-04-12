@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
-from django.db.models.functions import TruncMonth, TruncYear
+from django.db.models.functions import Now, TruncMonth, TruncYear
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
@@ -390,6 +390,25 @@ class TagRegex(models.Model):
         unique_together = ("account", "regex", "tag")
 
 
+class AssetManager(models.Manager):
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                active=models.Case(
+                    models.When(until=None, then=models.Value(True)),
+                    models.When(until__gt=Now(), then=models.Value(True)),
+                    default=models.Value(False),
+                ),
+            )
+        )
+
+    def by_book(self, book, **kwargs):
+        return self.filter(users__book=book, active=True, **kwargs).distinct()
+
+
 class Asset(models.Model):
     name = models.CharField(max_length=4096)
     slug = models.SlugField(unique=True)
@@ -403,6 +422,8 @@ class Asset(models.Model):
     )
     users = models.ManyToManyField(User)
     notes = models.TextField(blank=True)
+
+    objects = AssetManager()
 
     def __str__(self):
         until = self.until if self.until else "present"
