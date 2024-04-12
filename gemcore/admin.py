@@ -42,12 +42,18 @@ class AssetAdmin(admin.ModelAdmin):
         "name",
         "slug",
         "people",
+        "category",
+        "active",
     )
     list_filter = ("category",)
     prepopulated_fields = {"slug": ("name",)}
 
     def people(self, instance):
         return ", ".join(u.username for u in instance.users.all())
+
+    @admin.display(boolean=True)
+    def active(self, obj):
+        return obj.active
 
 
 class BookAdmin(admin.ModelAdmin):
@@ -74,6 +80,10 @@ class TagListFilter(admin.SimpleListFilter):
 class EntryAdmin(admin.ModelAdmin):
     search_fields = ("what", "when")
     list_filter = ("who", "account", "when", TagListFilter)
+    list_display = (
+        "__str__",
+        "asset",
+    )
 
 
 class EntryHistoryAdmin(admin.ModelAdmin):

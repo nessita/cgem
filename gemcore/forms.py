@@ -5,7 +5,7 @@ from django.db import IntegrityError, transaction
 from django_countries import countries
 
 from gemcore.constants import ChoicesMixin
-from gemcore.models import Account, Book, Entry
+from gemcore.models import Account, Asset, Book, Entry
 
 
 class ChooseForm(forms.Form):
@@ -93,6 +93,7 @@ class EntryForm(forms.ModelForm):
         self.book = book
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields["account"].queryset = Account.objects.by_book(book)
+        self.fields["asset"].queryset = Asset.objects.by_book(book)
         self.fields["tags"] = forms.MultipleChoiceField(
             choices=ChoicesMixin.TAG_CHOICES,
             widget=TagsCheckboxSelectMultiple(),
@@ -137,6 +138,7 @@ class EntryForm(forms.ModelForm):
                 }
             ),
             account=forms.Select(attrs={"class": "form-control"}),
+            asset=forms.Select(attrs={"class": "form-control"}),
             country=forms.Select(
                 attrs={"class": "form-control", "placeholder": "where"}
             ),
