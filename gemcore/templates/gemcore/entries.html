@@ -158,7 +158,7 @@
                 <th>$$$</th>
                 <th>From</th>
                 <th>Tags</th>
-                <th></th>
+                <th>Asset</th>
             </tr>
         </thead>
         <tbody>
@@ -185,6 +185,9 @@
                     {% for t in entry.tags %}
                     {{ t }}<br/>
                     {% endfor %}
+                </td>
+                <td>
+                    {{ entry.asset.name|default_if_none:"" }}
                 </td>
             </tr>
             {% endfor %}

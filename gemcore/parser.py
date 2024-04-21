@@ -96,9 +96,12 @@ class CSVParser(object):
         assert row, "The given row %r is empty" % row
         amount = self.find_amount(row)
         what = self.find_what(row)
-        tags = list(self.account.tags_for(what).keys()) or [
-            settings.ENTRY_DEFAULT_TAG
-        ]
+
+        tags_dict = self.account.tags_for(what)
+        tags = list(tags_dict.keys()) or [settings.ENTRY_DEFAULT_TAG]
+        assets = {t[1] for t in tags_dict.values() if t[1] is not None}
+        assert len(assets) < 2, f"{tags_dict=} produce confusing asset list."
+
         data = dict(
             account=self.account.id,
             amount=abs(amount),
@@ -109,6 +112,7 @@ class CSVParser(object):
             what=what,
             when=self.find_when(row),
             who=user.id,
+            asset=None if not assets else assets.pop(),
         )
 
         if what in self.config.defer_processing:
@@ -151,11 +155,13 @@ class CSVParser(object):
 
     @transaction.atomic
     def make_entry(self, data, book, dry_run=False):
+        tags = self.account.tags_for(data["what"])
+
         entry = self._validate_and_save_entry(data, book, dry_run=dry_run)
 
         # Needs a transfer?
         tags = self.account.tags_for(data["what"])
-        for transfer in filter(None, tags.values()):
+        for transfer in [t[0] for t in tags.values() if t[0] is not None]:
             data["is_income"] = not data["is_income"]
             data["account"] = transfer.id
             self._validate_and_save_entry(data, book, dry_run=dry_run)

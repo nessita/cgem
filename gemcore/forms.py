@@ -178,7 +178,9 @@ class CSVExpenseForm(forms.Form):
     def __init__(self, book, *args, **kwargs):
         super(CSVExpenseForm, self).__init__(*args, **kwargs)
         accounts = Account.objects.by_book(book).exclude(parser_config=None)
-        self.fields["account"].queryset = accounts
+        self.fields["account"].queryset = accounts.select_related(
+            "parser_config"
+        ).prefetch_related("tagregex_set")
 
     def clean(self):
         data = super(CSVExpenseForm, self).clean()
