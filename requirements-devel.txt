@@ -4,9 +4,9 @@
 #
 #    pip-compile requirements-devel.in
 #
-black==24.3.0
+black==24.4.0
     # via -r requirements-devel.in
-build==1.1.1
+build==1.2.1
     # via pip-tools
 click==8.1.7
     # via
