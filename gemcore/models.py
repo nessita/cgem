@@ -367,27 +367,11 @@ class Account(models.Model):
 
     def tags_for(self, value):
         tags = {}
-        for i in self.tagregex_set.all():
-            pattern = re.compile(i.regex)
+        for tagregex in self.tagregex_set.all():
+            pattern = re.compile(tagregex.regex)
             if pattern.match(value):
-                tags[i.tag] = i.transfer
+                tags[tagregex.tag] = (tagregex.transfer, tagregex.asset)
         return tags
-
-
-class TagRegex(models.Model):
-    account = models.ForeignKey(Account, on_delete=models.CASCADE)
-    regex = models.TextField()
-    tag = models.CharField(max_length=256, choices=ChoicesMixin.TAG_CHOICES)
-    transfer = models.ForeignKey(
-        Account,
-        related_name="transfers",
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-    )
-
-    class Meta:
-        unique_together = ("account", "regex", "tag")
 
 
 class AssetManager(models.Manager):
@@ -425,6 +409,9 @@ class Asset(models.Model):
 
     objects = AssetManager()
 
+    class Meta:
+        ordering = ("since", "name")
+
     def __str__(self):
         until = self.until if self.until else "present"
         return f"{self.name} ({self.since} - {until})"
@@ -433,6 +420,25 @@ class Asset(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         return super(Asset, self).save(*args, **kwargs)
+
+
+class TagRegex(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
+    asset = models.ForeignKey(
+        Asset, on_delete=models.CASCADE, null=True, blank=True
+    )
+    regex = models.TextField()
+    tag = models.CharField(max_length=256, choices=ChoicesMixin.TAG_CHOICES)
+    transfer = models.ForeignKey(
+        Account,
+        related_name="transfers",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        unique_together = ("account", "regex", "tag")
 
 
 class Entry(models.Model):

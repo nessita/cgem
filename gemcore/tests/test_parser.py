@@ -62,6 +62,7 @@ class CSVParserTestCase(BaseTestCase):
         self.assert_result(result, errors=1, entries=0, all_entries=2)
         data = {
             "account": account.pk,
+            "asset": None,
             "amount": Decimal("20"),
             "country": "US",
             "is_income": True,
