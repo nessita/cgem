@@ -25,7 +25,7 @@ from gemcore.forms import (
     EntryForm,
     EntryMergeForm,
 )
-from gemcore.models import Account, Book, Entry
+from gemcore.models import Account, Asset, Book, Entry
 from gemcore.parser import CSVParser
 
 ENTRIES_PER_PAGE = 25
@@ -184,12 +184,21 @@ def entries(request, book_slug):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     entries, filters, available = parse_request(request, book)
     accounts = Account.objects.by_book(book)
+    assets = Asset.objects.by_book(book)
 
     edit_account_form = ChooseForm(
         queryset=accounts, data=request.POST, prefix="account"
     )
+    edit_asset_form = ChooseForm(
+        queryset=assets, data=request.POST, prefix="asset"
+    )
     edit_tags_form = ChooseForm(
         choices=ChoicesMixin.TAG_CHOICES, data=request.POST, prefix="tags"
+    )
+    edit_country_form = ChooseForm(
+        choices=ChoicesMixin.COUNTRY_CHOICES,
+        data=request.POST,
+        prefix="country",
     )
 
     if request.method == "POST":
@@ -231,6 +240,30 @@ def entries(request, book_slug):
                 )
             return HttpResponseRedirect(here)
 
+        if "change-asset" in request.POST:
+            if edit_asset_form.is_valid():
+                target = edit_asset_form.cleaned_data["target"]
+                if not target:
+                    messages.error(
+                        request, "Invalid request, target asset is empty."
+                    )
+                else:
+                    entries.update(asset=target)
+                    msg = (
+                        ", ".join(str(e) for e in entries.order_by("id")),
+                        target,
+                    )
+                    messages.success(
+                        request, 'Entries "%s" changed to asset %s.' % msg
+                    )
+            else:
+                messages.error(
+                    request,
+                    "Invalid request for changing the asset: %s"
+                    % edit_asset_form.errors,
+                )
+            return HttpResponseRedirect(here)
+
         if "change-tags" in request.POST:
             if edit_tags_form.is_valid():
                 target = edit_tags_form.cleaned_data["target"]
@@ -252,6 +285,31 @@ def entries(request, book_slug):
                     request,
                     "Invalid request for changing the tags: %s"
                     % edit_tags_form.errors,
+                )
+            return HttpResponseRedirect(here)
+
+        if "change-country" in request.POST:
+            if edit_country_form.is_valid():
+                target = edit_country_form.cleaned_data["target"]
+                if not target:
+                    messages.error(
+                        request, "Invalid request, target country are empty."
+                    )
+                else:
+                    entries.update(country=target)
+                    msg = (
+                        ", ".join(str(e) for e in entries.order_by("id")),
+                        target,
+                    )
+                    messages.success(
+                        request,
+                        'Entries "%s" changed with country "%s".' % msg,
+                    )
+            else:
+                messages.error(
+                    request,
+                    "Invalid request for changing the country: %s"
+                    % edit_country_form.errors,
                 )
             return HttpResponseRedirect(here)
 
@@ -329,7 +387,9 @@ def entries(request, book_slug):
         "page_range": range(start, end + 1),
         "page_start": start,
         "edit_account_form": edit_account_form,
+        "edit_asset_form": edit_asset_form,
         "edit_tags_form": edit_tags_form,
+        "edit_country_form": edit_country_form,
         "account_balance_form": AccountBalanceForm(queryset=accounts),
         "currency_balance_form": CurrencyBalanceForm(choices=currencies),
     }
