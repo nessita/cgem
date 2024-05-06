@@ -112,6 +112,8 @@ class ParserConfigAdmin(admin.ModelAdmin):
 
 class TagRegexAdmin(admin.ModelAdmin):
     list_display = ("regex", "tag", "account")
+    list_filter = ("account", "asset", "tag")
+    search_fields = ("regex",)
 
 
 admin.site.register(Account, AccountAdmin)
