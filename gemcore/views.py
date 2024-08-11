@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
-from io import StringIO, TextIOWrapper
+from io import StringIO
 from urllib.parse import urlencode
 
+import chardet
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
@@ -537,14 +538,12 @@ def load_from_file(request, book_slug):
             book=book, data=request.POST, files=request.FILES
         )
         if form.is_valid():
-            csv_file = form.cleaned_data.get("csv_file")
-            if csv_file:
-                # Hack around: "iterator should return strings, not bytes
-                # (did you open the file in text mode?)"
-                csv_file.readable = lambda: True
-                csv_file.writable = lambda: False
-                csv_file = TextIOWrapper(csv_file, encoding="utf-8")
-                # end hack
+            uploaded_file = form.cleaned_data.get("csv_file")
+            if uploaded_file:
+                csv_content = uploaded_file.file.read()
+                encoding = chardet.detect(csv_content)["encoding"]
+                csv_file = StringIO(csv_content.decode(encoding))
+                csv_file.name = uploaded_file.name
             else:
                 csv_content = form.cleaned_data.get("csv_content")
                 csv_file = StringIO(csv_content)
