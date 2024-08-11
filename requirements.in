@@ -1,4 +1,5 @@
 backports-zoneinfo; python_version < "3.10"
+chardet
 dj-database-url
 Django
 django-countries
