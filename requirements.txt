@@ -30,7 +30,7 @@ gunicorn==23.0.0
     # via -r requirements.in
 packaging==24.1
     # via gunicorn
-psycopg2-binary==2.9.9
+psycopg==3.2.1
     # via -r requirements.in
 sqlparse==0.5.1
     # via django
@@ -38,5 +38,6 @@ typing-extensions==4.12.2
     # via
     #   dj-database-url
     #   django-countries
+    #   psycopg
 whitenoise==6.7.0
     # via -r requirements.in
