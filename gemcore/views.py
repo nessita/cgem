@@ -112,6 +112,10 @@ def parse_request(request, book, **kwargs):
     if account:
         entries = entries.filter(account__slug=account)
 
+    asset = params.get("asset")
+    if asset:
+        entries = entries.filter(asset__slug=asset)
+
     currency = params.get("currency")
     if currency:
         entries = entries.filter(account__currency=currency)
