@@ -6,5 +6,5 @@ django-health-check
 django-qurl-templatetag
 djangorestframework
 gunicorn
-psycopg
+psycopg[binary]
 whitenoise

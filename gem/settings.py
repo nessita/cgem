@@ -161,6 +161,7 @@ ASSET_CATEGORIES = [
     ("funds", "Funds"),
     ("real-state", "Real State"),
     ("stocks", "Stocks"),
+    ("vehicle", "Vehicle"),
 ]
 ENTRY_TAGS = [
     ("CL", "Clothing"),

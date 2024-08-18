@@ -30,8 +30,10 @@ gunicorn==23.0.0
     # via -r requirements.in
 packaging==24.1
     # via gunicorn
-psycopg==3.2.1
+psycopg[binary]==3.2.1
     # via -r requirements.in
+psycopg-binary==3.2.1
+    # via psycopg
 sqlparse==0.5.1
     # via django
 typing-extensions==4.12.2
