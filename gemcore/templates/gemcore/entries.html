@@ -3,8 +3,6 @@
 {% load static %}
 
 {% block head-extra %}
-    <link rel="stylesheet" href="{% static 'css/datepicker3.css' %}" />
-    <script src="{% static 'js/bootstrap-datepicker.js' %}"></script>
     <script src="{% static 'js/add-entry.js' %}"></script>
 {% endblock head-extra %}
 
@@ -113,7 +111,7 @@
                       class="glyphicon glyphicon-remove form-control-feedback"></span>
             </div>
             <div class="col-xs-5 has-feedback">
-                <input type="text" class="form-control input-sm datepicker" name="when"
+                <input type="date" class="form-control input-sm" name="when"
                        id="search-date" placeholder="When"
                        {% if filters.when %}value="{{ filters.when|date }}"{% endif %} />
                 <span style="cursor: pointer;" id="clear-search-date"

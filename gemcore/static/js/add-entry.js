@@ -6,11 +6,6 @@ var currency_mapping = {
 }
 
 $(document).ready(function() {
-    $('input.datepicker').datepicker({
-        format: "yyyy-mm-dd",
-        autoclose: true,
-        todayHighlight: true
-    });
 
     function strip(str){
         return str.replace(/^\s+|\s+$/g, '');

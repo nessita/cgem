@@ -31,8 +31,9 @@ class BalanceForm(forms.Form):
     start = forms.DateField(
         widget=forms.DateInput(
             attrs={
-                "class": "form-control input-sm datepicker",
+                "class": "form-control input-sm",
                 "placeholder": "Start",
+                "type": "date",
             }
         ),
         required=False,
@@ -40,8 +41,9 @@ class BalanceForm(forms.Form):
     end = forms.DateField(
         widget=forms.DateInput(
             attrs={
-                "class": "form-control input-sm datepicker",
+                "class": "form-control input-sm",
                 "placeholder": "End",
+                "type": "date",
             }
         ),
         required=False,
@@ -119,7 +121,9 @@ class EntryForm(forms.ModelForm):
         model = Entry
         exclude = ("book",)
         widgets = dict(
-            when=forms.DateInput(attrs={"class": "form-control datepicker"}),
+            when=forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}
+            ),
             who=forms.Select(
                 attrs={"class": "form-control", "placeholder": "who"}
             ),
@@ -155,7 +159,7 @@ class EntryForm(forms.ModelForm):
 class EntryMergeForm(forms.Form):
     when = forms.DateField(
         widget=forms.DateInput(
-            attrs={"class": "form-control input-sm datepicker"}
+            attrs={"class": "form-control input-sm", "type": "date"}
         )
     )
 
@@ -224,7 +228,9 @@ class AccountTransferForm(forms.Form):
     )
     when = forms.DateField(
         initial=date.today(),
-        widget=forms.DateInput(attrs={"class": "form-control datepicker"}),
+        widget=forms.DateInput(
+            attrs={"class": "form-control", "type": "date"}
+        ),
     )
     country = forms.ChoiceField(
         choices=countries,
