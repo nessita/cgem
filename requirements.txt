@@ -8,6 +8,7 @@ asgiref==3.8.1
     # via
     #   django
     #   django-countries
+    #   django-htmx
 chardet==5.2.0
     # via -r requirements.in
 dj-database-url==2.2.0
@@ -17,10 +18,13 @@ django==5.1
     #   -r requirements.in
     #   dj-database-url
     #   django-health-check
+    #   django-htmx
     #   djangorestframework
 django-countries==7.6.1
     # via -r requirements.in
 django-health-check==3.18.3
+    # via -r requirements.in
+django-htmx==1.19.0
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in

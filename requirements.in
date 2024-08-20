@@ -3,6 +3,7 @@ dj-database-url
 Django
 django-countries
 django-health-check
+django-htmx
 django-qurl-templatetag
 djangorestframework
 gunicorn
