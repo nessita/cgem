@@ -1,0 +1,30 @@
+{% load qurl %}
+        <table class="table">
+            <thead>
+            <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+            {% for item in balance.months %}
+            <tr>
+                <td class="">
+                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start|date:"Y" month=item.start|date:"b" account=account_slug currency=currency %}{% if filters.qs %}&{{ filters.qs }}{% endif %}">
+                        {{ item.start|date:"Y M" }}
+                    </a>
+                </td>
+                <td class="balance">{{ item.income }}</td>
+                <td class="balance expense">-{{ item.expense }}</td>
+                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            {% with item=balance.complete %}
+            <tr>
+                <td class="text-left">Total</td>
+                <td class="balance">{{ item.income }}</td>
+                <td class="balance expense">-{{ item.expense }}</td>
+                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
+            </tr>
+            {% endwith %}
+            </tfoot>
+        </table>
