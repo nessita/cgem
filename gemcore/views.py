@@ -208,17 +208,22 @@ def entries(request, book_slug):
 
     if request.method == "POST":
         here = request.get_full_path()
+        error = None
 
         ids = [int(i) for i in request.POST.getlist("entry")]
         if len(ids) == 0:
-            messages.error(request, "Invalid request, no entries selected.")
-            return HttpResponseRedirect(here)
+            error = "Invalid request, no entries selected."
 
         entries = entries.filter(id__in=ids)
         if entries.count() != len(ids):
-            messages.error(
-                request, "Invalid request, invalid choices for entries."
-            )
+            error = "Invalid request, invalid choices for entries."
+
+        if error:
+            if request.htmx:
+                msg = messages.Message(messages.ERROR, error)
+                return render(request, "_messages.html", {"messages": [msg]})
+
+            messages.error(request, error)
             return HttpResponseRedirect(here)
 
         if "change-account" in request.POST:
@@ -335,6 +340,23 @@ def entries(request, book_slug):
 
         elif "remove-selected" in request.POST:
             template = "gemcore/remove-entries.html"
+
+        elif "calculate-balance" in request.POST:
+            entries = entries.select_related("account")
+            currencies = entries.values_list(
+                "account__currency", flat=True
+            ).distinct()
+            if len(currencies) < 2:
+                template = "gemcore/_balance_result.html"
+                context["balance"] = book.balance(entries)
+            else:
+                template = "gemcore/_balance_multiple_currency.html"
+                context["balances"] = {
+                    currency: book.balance(
+                        entries.filter(account__currency=currency)
+                    )
+                    for currency in currencies
+                }
 
         else:
             raise Http404()

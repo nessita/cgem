@@ -1,0 +1,7 @@
+{% load qurl %}
+{% for currency, balance in balances.items %}
+<div class="row">
+    <h3>For {{ currency }}</h3>
+    {% include 'gemcore/_balance_result.html' %}
+</div>
+{% endfor %}

@@ -12,51 +12,20 @@
 
 <div class="row">
     <div class="col-md-7">
-        <h3></h3>
-        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-primary' %}
-        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-7">
         {% if balance %}
         <h3>From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
-
-        <table class="table table-condensed">
-            <thead>
-            <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total</th></tr>
-            </thead>
-            <tbody>
-            {% for item in balance.months %}
-            <tr>
-                <td class="">
-                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start|date:"Y" month=item.start|date:"b" account=account_slug currency=currency %}{% if filters.qs %}&{{ filters.qs }}{% endif %}">
-                        {{ item.start|date:"Y M" }}
-                    </a>
-                </td>
-                <td class="balance">{{ item.income }}</td>
-                <td class="balance expense">-{{ item.expense }}</td>
-                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-            <tfoot>
-            {% with item=balance.complete %}
-            <tr>
-                <td class="text-left">Total</td>
-                <td class="balance">{{ item.income }}</td>
-                <td class="balance expense">-{{ item.expense }}</td>
-                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
-            </tr>
-            {% endwith %}
-            </tfoot>
-        </table>
-
+        {% include 'gemcore/_balance_result.html' %}
         {% else %}
         <h3>No entries.</h3>
         {% endif %}
     </div>
 </div>
 
+<div class="row">
+    <div class="col-md-7">
+        <h3>New Balance</h3>
+        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-primary' %}
+        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
+    </div>
+</div>
 {% endblock content %}
