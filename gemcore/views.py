@@ -366,7 +366,12 @@ def entries(request, book_slug):
     # Process GET.
     entries = entries.order_by("-when", "what", "id")
 
-    paginator = Paginator(entries, ENTRIES_PER_PAGE)
+    try:
+        page_size = abs(int(request.GET.get("page_size")))
+    except (ValueError, TypeError):
+        page_size = ENTRIES_PER_PAGE
+
+    paginator = Paginator(entries, page_size)
     page = request.GET.get("page")
     try:
         entries = paginator.page(page)
@@ -412,6 +417,7 @@ def entries(request, book_slug):
         "when_prev": when_prev,
         "page_end": end,
         "page_range": range(start, end + 1),
+        "page_size": page_size,
         "page_start": start,
         "edit_account_form": edit_account_form,
         "edit_asset_form": edit_asset_form,
