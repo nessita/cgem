@@ -2,3 +2,4 @@ black
 coverage
 pip-tools
 flake8
+isort
