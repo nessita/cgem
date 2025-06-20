@@ -141,6 +141,7 @@ class BookTestCase(BaseTestCase):
             },
             "months": [
                 {
+                    "acc": Decimal("-1.00"),
                     "expense": Decimal("2.00"),
                     "income": Decimal("1.00"),
                     "result": Decimal("-1.00"),
@@ -148,6 +149,7 @@ class BookTestCase(BaseTestCase):
                     "end": other_first_of_month - timedelta(days=1),
                 },
                 {
+                    "acc": Decimal("-2.00"),
                     "expense": Decimal("1.00"),
                     "income": Decimal("0"),
                     "result": Decimal("-1.00"),
@@ -198,6 +200,7 @@ class BookTestCase(BaseTestCase):
             },
             "months": [
                 {
+                    "acc": Decimal("-6.00"),
                     "expense": Decimal("6.00"),
                     "income": Decimal("0"),
                     "result": Decimal("-6.00"),
