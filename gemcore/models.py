@@ -235,24 +235,31 @@ class Book(models.Model):
         if not result:
             return
 
+        def add_to_acc(month_balance, months):
+            if months:
+                month_balance["acc"] = (
+                    months[-1]["acc"] + month_balance["result"]
+                )
+            else:
+                month_balance["acc"] = month_balance["result"]
+
         months = []
         last_month = None
-        sanity_check = Decimal(0)
         for next_month in month_year_iter(result["start"], result["end"]):
             if last_month is not None:
                 end_of_month = next_month - timedelta(days=1)
                 month_balance = self.calculate_balance(
                     entries, start=last_month, end=end_of_month
                 )
-                sanity_check += month_balance["result"]
+                add_to_acc(month_balance, months)
                 months.append(month_balance)
             last_month = next_month
 
         month_balance = self.calculate_balance(entries, last_month, end)
-        sanity_check += month_balance["result"]
+        add_to_acc(month_balance, months)
         months.append(month_balance)
-
-        assert sanity_check == result["result"]
+        # cross check totals
+        assert months[-1]["acc"] == result["result"]
 
         return {"complete": result, "months": months}
 
