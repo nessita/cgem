@@ -4,45 +4,43 @@
 #
 #    pip-compile requirements.in
 #
-asgiref==3.8.1
+asgiref==3.11.0
     # via
     #   django
     #   django-countries
     #   django-htmx
 chardet==5.2.0
     # via -r requirements.in
-dj-database-url==3.0.0
+dj-database-url==3.0.1
     # via -r requirements.in
-django==5.2.3
+django==5.2.9
     # via
     #   -r requirements.in
     #   dj-database-url
     #   django-health-check
     #   django-htmx
     #   djangorestframework
-django-countries==7.6.1
+django-countries==8.2.0
     # via -r requirements.in
 django-health-check==3.20.0
     # via -r requirements.in
-django-htmx==1.23.0
+django-htmx==1.27.0
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in
-djangorestframework==3.16.0
+djangorestframework==3.16.1
     # via -r requirements.in
 gunicorn==23.0.0
     # via -r requirements.in
 packaging==25.0
     # via gunicorn
-psycopg[binary]==3.2.9
+psycopg[binary]==3.3.1
     # via -r requirements.in
-psycopg-binary==3.2.9
+psycopg-binary==3.3.1
     # via psycopg
-sqlparse==0.5.3
+sqlparse==0.5.4
     # via django
-typing-extensions==4.14.0
-    # via
-    #   dj-database-url
-    #   django-countries
-whitenoise==6.9.0
+typing-extensions==4.15.0
+    # via django-countries
+whitenoise==6.11.0
     # via -r requirements.in
