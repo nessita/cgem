@@ -45,11 +45,7 @@ INSTALLED_APPS = [
     "django_countries",
     "django_htmx",
     "gemcore",
-    "health_check",                             # required
-    "health_check.db",                          # stock Django health checkers
-    "health_check.cache",
-    "health_check.storage",
-    "health_check.contrib.migrations",
+    "health_check",
     "rest_framework",
     "rest_framework.authtoken",
     "qurl_templatetag",
@@ -141,7 +137,6 @@ STORAGES = {
 # Honor the "X-Forwarded-Proto" header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-ADMINS = [("Admin", os.environ.get("ADMINS"))]
 DATE_FORMAT = "Y-m-d"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "/"
