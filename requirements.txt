@@ -9,7 +9,7 @@ asgiref==3.11.1
     #   django
     #   django-countries
     #   django-htmx
-chardet==7.0.1
+chardet==7.1.0
     # via -r requirements.in
 dj-database-url==3.1.2
     # via -r requirements.in
