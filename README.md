@@ -45,6 +45,7 @@ ENTRY_TAGS = {
     ],
     "default": "IMPD",
     "transfer": "CHNG",
+    "planning": None,
 }
 ```
 
@@ -52,6 +53,8 @@ ENTRY_TAGS = {
 fallback for imported or API-created entries when account rules do not assign
 a category. `transfer` identifies currency-change movements. Both must reference
 codes in `choices`, and they must differ.
+
+`planning` configures the optional [planning report](#planning-report).
 
 Tailwind CSS (standalone CLI)
 ----------------------------
@@ -196,6 +199,35 @@ already-created entries will be reported as duplicates.
 
 The `scripts/add-expense.py` client selects an explicit book with `--book`.
 Omitting it uses the default or sole accessible book.
+
+Planning report
+---------------
+
+The optional planning report uses the entry categories configured above to
+identify salary, rental income, and investment movements. Enable it in
+`gem/local_settings.py` by assigning the corresponding category codes:
+
+```python
+ENTRY_TAGS["planning"] = {
+    "salary": "WORK",
+    "rental": "RENT",
+    "investment": "INVS",
+}
+```
+
+All three codes must exist in `ENTRY_TAGS["choices"]`, be distinct, and differ
+from the transfer code. This mapping replaces the separate `PLANNING_TAGS`
+setting.
+
+Leave `planning` as `None` to keep the report unconfigured. Other pages remain
+available, and the report displays a configuration message instead of totals.
+The Planning button is hidden in this case; saved planning drilldown URLs
+return 400 when their category mapping is unavailable.
+
+The report uses the same filters as entries and balances. Date, year, month,
+and date bounds combine to restrict the reporting period. Invalid dates,
+out-of-range years, reversed date bounds, and invalid boolean filter values
+return 400.
 
 Contributing
 ------------

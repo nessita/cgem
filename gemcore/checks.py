@@ -39,6 +39,33 @@ def tag_configuration_errors():
             )
     if not errors and config["default"] == config["transfer"]:
         errors.append("The default and transfer categories must be distinct.")
+
+    planning = config.get("planning")
+    if planning is None:
+        return errors
+    roles = {"salary", "rental", "investment"}
+    if not isinstance(planning, dict) or set(planning) != roles:
+        errors.append(
+            "ENTRY_TAGS['planning'] must map salary, rental, and investment "
+            "to category codes."
+        )
+        return errors
+    for role, code in planning.items():
+        if not isinstance(code, str) or code not in codes:
+            errors.append(
+                f"The planning {role} category {code!r} "
+                "is not in ENTRY_TAGS['choices']."
+            )
+
+    if errors:
+        return errors
+    if len(set(planning.values())) != len(roles):
+        errors.append("Planning categories must be distinct.")
+    if config["transfer"] in planning.values():
+        errors.append(
+            "Planning categories must differ from the currency-change one."
+        )
+
     return errors
 
 

@@ -173,6 +173,7 @@ ENTRY_TAGS = {
     ],
     "default": "IM",
     "transfer": "CH",
+    "planning": None,
 }
 
 LOGGING = {

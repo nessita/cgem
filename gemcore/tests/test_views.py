@@ -1,12 +1,15 @@
 from datetime import UTC, date, datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
+from django.utils.formats import date_format
 from django.utils.html import escape
 from django.utils.timezone import override
 from django_htmx.middleware import HtmxMiddleware
@@ -21,10 +24,24 @@ from gemcore.forms import (
     EntryMergeForm,
 )
 from gemcore.middleware import HtmxRedirectMiddleware
-from gemcore.models import Entry, TagRegex
+from gemcore.models import Asset, Entry, TagRegex
+from gemcore.planning import get_planning_tags
 from gemcore.tests.helpers import BaseTestCase, ElementCollector
 
 DEFAULT_PASSWORD = "test"
+PLANNING_ENTRY_TAGS = {
+    "choices": [
+        ("PAY", "Salary"),
+        ("LEASE", "Rent"),
+        ("YIELD", "Investments"),
+        ("FX", "Currency change"),
+        ("FD", "Food"),
+        ("OTHER", "Other"),
+    ],
+    "default": "OTHER",
+    "transfer": "FX",
+    "planning": {"salary": "PAY", "rental": "LEASE", "investment": "YIELD"},
+}
 
 
 @override_settings(
@@ -70,6 +87,88 @@ class EntryTagConfigurationTestCase(SimpleTestCase):
                 )
                 self.assertIn(message, errors[0].msg)
 
+
+@override_settings(ENTRY_TAGS=PLANNING_ENTRY_TAGS)
+class PlanningConfigurationTestCase(SimpleTestCase):
+    def test_valid_mapping_uses_settings(self):
+        mapping = {"salary": "PAY", "rental": "LEASE", "investment": "YIELD"}
+        with override_settings(
+            ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
+        ):
+            self.assertEqual(get_planning_tags(), mapping)
+            self.assertEqual(check_entry_tags(None), [])
+
+    def test_invalid_mappings_are_rejected(self):
+        valid = {"salary": "PAY", "rental": "LEASE", "investment": "YIELD"}
+        for mapping, message in (
+            (None, "must map salary, rental, and investment"),
+            ({}, "must map salary, rental, and investment"),
+            ({"salary": "PAY"}, "must map salary, rental, and investment"),
+            (
+                {**valid, "extra": "PAY"},
+                "must map salary, rental, and investment",
+            ),
+            ({**valid, "salary": "missing"}, "not in ENTRY_TAGS"),
+            ({**valid, "investment": ["YIELD"]}, "not in ENTRY_TAGS"),
+            ({**valid, "investment": "PAY"}, "must be distinct"),
+            ({**valid, "investment": "FX"}, "currency-change one"),
+        ):
+            with (
+                self.subTest(mapping=mapping),
+                override_settings(
+                    ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
+                ),
+                self.assertRaisesMessage(ImproperlyConfigured, message),
+            ):
+                get_planning_tags()
+            if mapping is not None:
+                with override_settings(
+                    ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
+                ):
+                    errors = check_entry_tags(None)
+                    self.assertIn(
+                        message, " ".join(error.msg for error in errors)
+                    )
+
+    def test_system_checks_allow_optional_planning(self):
+        with override_settings(
+            ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": None}
+        ):
+            self.assertEqual(check_entry_tags(None), [])
+
+    def test_system_checks_reject_invalid_configuration(self):
+        for config, message in (
+            ([], "must be a dictionary"),
+            ({}, "must contain nonempty category codes"),
+            ({**PLANNING_ENTRY_TAGS, "choices": [("X",)]}, "must contain"),
+            (
+                {**PLANNING_ENTRY_TAGS, "choices": [("X", "A"), ("X", "B")]},
+                "unique",
+            ),
+            ({**PLANNING_ENTRY_TAGS, "default": "missing"}, "['default']"),
+            ({**PLANNING_ENTRY_TAGS, "transfer": "missing"}, "['transfer']"),
+            (
+                {
+                    key: value
+                    for key, value in PLANNING_ENTRY_TAGS.items()
+                    if key != "transfer"
+                },
+                "['transfer']",
+            ),
+            ({**PLANNING_ENTRY_TAGS, "default": "FX"}, "must be distinct"),
+            ({**PLANNING_ENTRY_TAGS, "planning": {}}, "must map"),
+        ):
+            with (
+                self.subTest(config=config),
+                override_settings(ENTRY_TAGS=config),
+            ):
+                errors = check_entry_tags(None)
+                self.assertGreater(len(errors), 0)
+                self.assertEqual(
+                    {error.id for error in errors}, {"gemcore.E001"}
+                )
+                self.assertIn(message, errors[0].msg)
+
     def test_choices_follow_settings_overrides(self):
         first = settings.ENTRY_TAGS
         second = {
@@ -102,7 +201,8 @@ class EntryTagConfigurationTestCase(SimpleTestCase):
                 )
                 field = EntryFilterSerializer().fields["tag"].child
                 self.assertEqual(list(field.choices), codes)
-                self.assertEqual(field.run_validation("food"), codes[0])
+                for code, label in choices:
+                    self.assertEqual(field.run_validation(label.lower()), code)
 
 
 class HtmxRedirectMiddlewareTestCase(SimpleTestCase):
@@ -972,6 +1072,26 @@ class BalanceViewTestCase(BaseTestCase):
 
 class BookPagesTestCase(BaseTestCase):
     @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        tags = {"salary": "WORK", "rental": "RENT", "investment": "INVS"}
+        available = {code for code, label in settings.ENTRY_TAGS["choices"]}
+        choices = [
+            (code, role.title())
+            for role, code in tags.items()
+            if code not in available
+        ]
+        cls.enterClassContext(
+            override_settings(
+                ENTRY_TAGS={
+                    **settings.ENTRY_TAGS,
+                    "choices": [*settings.ENTRY_TAGS["choices"], *choices],
+                    "planning": tags,
+                }
+            )
+        )
+
+    @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
         cls.user = cls.factory.make_user()
@@ -987,12 +1107,599 @@ class BookPagesTestCase(BaseTestCase):
             ("entries", [self.book.slug]),
             ("add-entry", [self.book.slug]),
             ("balance", [self.book.slug]),
+            ("planning", [self.book.slug]),
             ("load-from-file", [self.book.slug]),
             ("account-transfer", [self.book.slug]),
         ):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertEqual(response.status_code, 200)
+
+    def test_planning_navigation_follows_configuration(self):
+        self.client.force_login(self.user)
+        planning_path = reverse("planning", args=[self.book.slug])
+        for name, args in (
+            ("books", []),
+            ("entries", [self.book.slug]),
+        ):
+            for params in ({}, {"year": "2026", "country": "US"}):
+                for mapping in (settings.ENTRY_TAGS["planning"], None):
+                    with (
+                        self.subTest(
+                            page=name, params=params, planning=mapping
+                        ),
+                        override_settings(
+                            ENTRY_TAGS={
+                                **settings.ENTRY_TAGS,
+                                "planning": mapping,
+                            }
+                        ),
+                    ):
+                        response = self.client.get(
+                            reverse(name, args=args), params
+                        )
+                        self.assertEqual(response.status_code, 200)
+                        elements = ElementCollector(
+                            response.content.decode()
+                        ).elements
+                        links = [
+                            urlsplit(attrs["href"])
+                            for tag, attrs in elements
+                            if tag == "a"
+                            and "href" in attrs
+                            and urlsplit(attrs["href"]).path == planning_path
+                        ]
+                        self.assertEqual(len(links), int(mapping is not None))
+                        for link in links:
+                            self.assertEqual(
+                                parse_qs(link.query),
+                                {
+                                    key: [value]
+                                    for key, value in params.items()
+                                },
+                            )
+                        self.assertContains(response, "New entry")
+
+    def test_entry_filters_reject_invalid_values(self):
+        self.client.force_login(self.user)
+        for name in ("planning", "entries", "balance"):
+            for params in (
+                {"when": "2026-02-30"},
+                {"start": "not-a-date"},
+                {"end": "2026-02-30"},
+                {"year": "not-a-year"},
+                {"year": 0},
+                {"year": 10000},
+                {"month": "not-a-month"},
+                {"start": "2026-12-01", "end": "2026-11-01"},
+                {"is_income": "garbage"},
+                {"asset_present": "garbage"},
+                {"investment_related": "garbage"},
+            ):
+                with self.subTest(page=name, params=params):
+                    response = self.client.get(
+                        reverse(name, args=[self.book.slug]), params
+                    )
+                    self.assertEqual(response.status_code, 400)
+
+    def test_boolean_and_any_tag_filters_return_matching_entries(self):
+        self.client.force_login(self.user)
+        asset = Asset.objects.create(name="Fund", since=date(2020, 1, 1))
+        asset.users.add(self.user)
+        salary = self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            tags=["WORK"],
+            is_income=True,
+        )
+        investment = self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            tags=["INVS"],
+            asset=asset,
+            is_income=True,
+        )
+        expense = self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            tags=["FD"],
+            is_income=False,
+        )
+        all_ids = {salary.pk, investment.pk, expense.pk}
+        for name, true_ids, false_ids in (
+            ("is_income", {salary.pk, investment.pk}, {expense.pk}),
+            ("asset_present", {investment.pk}, {salary.pk, expense.pk}),
+            ("investment_related", {investment.pk}, {salary.pk, expense.pk}),
+        ):
+            for value, expected in (
+                (None, None),
+                ("", None),
+                ("1", True),
+                ("true", True),
+                ("True", True),
+                ("0", False),
+                ("false", False),
+                ("False", False),
+            ):
+                with self.subTest(name=name, value=value):
+                    response = self.client.get(
+                        reverse("entries", args=[self.book.slug]),
+                        {} if value is None else {name: value},
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIs(response.context["filters"][name], expected)
+                    expected_ids = all_ids
+                    if expected is not None:
+                        expected_ids = true_ids if expected else false_ids
+                    self.assertEqual(
+                        {entry.pk for entry in response.context["entries"]},
+                        expected_ids,
+                    )
+        response = self.client.get(
+            reverse("entries", args=[self.book.slug]),
+            {"tag_any": ["WORK", "INVS"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            {entry.pk for entry in response.context["entries"]},
+            {salary.pk, investment.pk},
+        )
+
+    def test_day_navigation_handles_calendar_boundaries(self):
+        self.client.force_login(self.user)
+        for when, unavailable in (
+            (date.min, "when_prev"),
+            (date.max, "when_next"),
+        ):
+            with self.subTest(when=when):
+                response = self.client.get(
+                    reverse("entries", args=[self.book.slug]),
+                    {"when": when.isoformat()},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertIsNone(response.context[unavailable])
+
+    def test_planning_filters_require_configuration(self):
+        self.client.force_login(self.user)
+        for mapping in (None, {"salary": "missing"}):
+            for name in ("entries", "balance"):
+                for params in (
+                    {},
+                    {"planning_group": "income_total"},
+                    {"investment_related": "1"},
+                    {"investment_related": "0"},
+                ):
+                    with (
+                        self.subTest(
+                            mapping=mapping, page=name, params=params
+                        ),
+                        override_settings(
+                            ENTRY_TAGS={
+                                **settings.ENTRY_TAGS,
+                                "planning": mapping,
+                            }
+                        ),
+                    ):
+                        response = self.client.get(
+                            reverse(name, args=[self.book.slug]), params
+                        )
+                        self.assertEqual(
+                            response.status_code, 400 if params else 200
+                        )
+
+    def test_unknown_planning_groups_are_rejected(self):
+        self.client.force_login(self.user)
+        for name in ("planning", "entries", "balance"):
+            with self.subTest(page=name):
+                response = self.client.get(
+                    reverse(name, args=[self.book.slug]),
+                    {"planning_group": "unknown"},
+                )
+                self.assertEqual(response.status_code, 400)
+
+    def test_planning_period_displays_all_date_restrictions(self):
+        self.client.force_login(self.user)
+        for when, amount in (
+            (date(2025, 11, 15), "1000"),
+            (date(2026, 11, 1), "100"),
+            (date(2026, 11, 15), "20"),
+            (date(2026, 12, 15), "500"),
+        ):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=when,
+                amount=Decimal(amount),
+                tags=["INVS"],
+                is_income=True,
+            )
+        response = self.client.get(
+            reverse("planning", args=[self.book.slug]),
+            {
+                "year": 2026,
+                "month": "NOV",
+                "start": "2026-11-10",
+                "end": "2026-12-31",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["planning"]["USD"]["investment_net"]["amount"],
+            Decimal("20"),
+        )
+        for text in (
+            "Year: 2026",
+            "Month: Nov",
+            "From: " + date_format(date(2026, 11, 10)),
+            "Until: " + date_format(date(2026, 12, 31)),
+        ):
+            self.assertContains(response, f"<span>{text}</span>", html=True)
+
+    def test_planning_drilldown_accepts_category_named_untagged(self):
+        self.client.force_login(self.user)
+        with override_settings(
+            ENTRY_TAGS={
+                **settings.ENTRY_TAGS,
+                "choices": [
+                    *settings.ENTRY_TAGS["choices"],
+                    ("UNTAGGED", "Uncategorized"),
+                ],
+            }
+        ):
+            entry = self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                tags=["UNTAGGED"],
+            )
+            response = self.client.get(
+                reverse("entries", args=[self.book.slug]),
+                {"planning_group": "expenses", "planning_tag": "UNTAGGED"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["entries"]), [entry])
+
+    def test_planning_warns_for_narrowed_scope_and_distinguishes_zero(self):
+        self.client.force_login(self.user)
+        url = reverse("planning", args=[self.book.slug])
+        for tags, amount, is_income, country in (
+            (["RENT"], "1500", True, "US"),
+            (["FD"], "2000", False, "US"),
+            (["FD"], "0", False, "BR"),
+        ):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=date(2026, 11, 1),
+                tags=tags,
+                amount=Decimal(amount),
+                is_income=is_income,
+                country=country,
+            )
+        response = self.client.get(url, {"year": 2026, "currency": "USD"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(response.context["narrowed"], False)
+        self.assertNotContains(response, "Showing a filtered selection")
+        self.assertEqual(
+            response.context["planning"]["USD"]["coverage_gap"]["amount"],
+            Decimal("-500"),
+        )
+        response = self.client.get(
+            url, {"tag": "RENT", "year": 2026, "currency": "USD"}
+        )
+        self.assertIs(response.context["narrowed"], True)
+        self.assertContains(response, "Showing a filtered selection")
+        self.assertContains(
+            response, "No expense entries match these filters."
+        )
+        self.assertEqual(
+            parse_qs(urlsplit(response.context["period_url"]).query),
+            {"year": ["2026"], "currency": ["USD"]},
+        )
+        self.assertEqual(
+            response.context["planning"]["USD"]["coverage_gap"]["amount"],
+            Decimal("1500"),
+        )
+        response = self.client.get(url, {"country": "BR"})
+        self.assertEqual(
+            response.context["planning"]["USD"]["expenses"]["amount"], 0
+        )
+        self.assertNotContains(
+            response, "No expense entries match these filters."
+        )
+        response = self.client.get(url, {"country": "CA"})
+        self.assertContains(response, "No entries match these filters.")
+        self.assertContains(response, 'aria-label="Filtered report scope"')
+
+    def test_planning_year_redirects_to_query_filters(self):
+        self.client.force_login(self.user)
+        url = reverse("planning-year", args=[self.book.slug, 2026])
+        response = self.client.get(
+            url, {"year": 2025, "tag": TAGS[:2], "country": "US"}
+        )
+        self.assertEqual(response.status_code, 302)
+        destination = urlsplit(response.url)
+        self.assertEqual(
+            destination.path, reverse("planning", args=[self.book.slug])
+        )
+        self.assertEqual(
+            parse_qs(destination.query),
+            {"year": ["2026"], "tag": TAGS[:2], "country": ["US"]},
+        )
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'aria-labelledby="filters-heading"')
+        for year in (0, 10000):
+            with self.subTest(year=year):
+                response = self.client.get(
+                    reverse("planning-year", args=[self.book.slug, year])
+                )
+                self.assertEqual(response.status_code, 404)
+
+    def test_planning_requires_book_access(self):
+        url = reverse("planning", args=[self.book.slug])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.client.force_login(self.user)
+        private = self.factory.make_book()
+        for name, args in (
+            ("planning", [private.slug]),
+            ("planning-year", [private.slug, 2026]),
+        ):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, args=args))
+                self.assertEqual(response.status_code, 404)
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 405)
+
+    def test_planning_shows_configuration_errors_without_totals(self):
+        self.client.force_login(self.user)
+        for mapping in (None, {"salary": "missing"}):
+            with (
+                self.subTest(mapping=mapping),
+                override_settings(
+                    ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
+                ),
+            ):
+                response = self.client.get(
+                    reverse("planning", args=[self.book.slug])
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(
+                    response, "Planning categories need configuration"
+                )
+                self.assertNotContains(
+                    response, 'aria-label="Planning results"'
+                )
+                self.assertNotIn("planning", response.context)
+
+    @override_settings(ENTRY_TAGS=PLANNING_ENTRY_TAGS)
+    def test_planning_uses_configured_categories_in_totals_and_drilldowns(
+        self,
+    ):
+        self.client.force_login(self.user)
+        for tag, amount, income in (
+            ("PAY", "3000", True),
+            ("LEASE", "1500", True),
+            ("YIELD", "400", True),
+            ("YIELD", "50", False),
+            ("FD", "1000", False),
+            ("FX", "500", False),
+            ("OTHER", "20", True),
+        ):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                tags=[tag],
+                amount=Decimal(amount),
+                is_income=income,
+            )
+        response = self.client.get(reverse("planning", args=[self.book.slug]))
+        self.assertEqual(response.status_code, 200)
+        summary = response.context["planning"]["USD"]
+        expected = {
+            "income_salary": Decimal("3000"),
+            "income_rental": Decimal("1500"),
+            "investment_net": Decimal("350"),
+            "non_salary_net": Decimal("1870"),
+        }
+        self.assertEqual(summary["coverage_gap"]["amount"], Decimal("870"))
+        self.assertEqual(summary["ignored_change"]["amount"], Decimal("500"))
+        for row in summary["overview_rows"] + summary["coverage_rows"]:
+            if "url" not in row:
+                continue
+            group = parse_qs(urlsplit(row["url"]).query)["planning_group"][-1]
+            if group not in expected:
+                continue
+            with self.subTest(group=group):
+                self.assertEqual(row["amount"], expected[group])
+                detail = self.client.get(row["url"])
+                self.assertEqual(detail.status_code, 200)
+                self.assertEqual(
+                    sum(
+                        (entry.money for entry in detail.context["entries"]),
+                        Decimal("0"),
+                    ),
+                    expected[group],
+                )
+
+    def test_planning_drilldowns_match_totals_and_preserve_scope(self):
+        self.client.force_login(self.user)
+        asset = Asset.objects.create(name="Flat", since=date(2020, 1, 1))
+        asset.users.add(self.user)
+        for tags, amount, income, linked_asset in (
+            (["FD"], "2000", False, None),
+            (["WORK"], "3000", True, None),
+            (["RENT"], "1500", True, asset),
+            (["INVS"], "100", True, asset),
+            (["INVS"], "500", False, asset),
+            (["FD"], "25", False, asset),
+            (["INVS"], "10", False, None),
+            ([settings.ENTRY_TAGS["transfer"]], "900", False, None),
+            ([settings.ENTRY_TAGS["default"]], "5", False, None),
+            ([settings.ENTRY_TAGS["default"]], "20", True, None),
+        ):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=date(2026, 11, 1),
+                tags=tags,
+                amount=Decimal(amount),
+                is_income=income,
+                asset=linked_asset,
+                country="US",
+            )
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            when=date(2025, 11, 1),
+            tags=["FD"],
+            amount=Decimal("999"),
+            country="US",
+        )
+        euro_account = self.factory.make_account(
+            users=[self.user], currency="EUR"
+        )
+        self.factory.make_entry(
+            book=self.book,
+            account=euro_account,
+            who=self.user,
+            when=date(2026, 11, 1),
+            tags=["FD"],
+            amount=Decimal("7000"),
+            country="US",
+        )
+        for params in (
+            {"year": 2026, "country": "US"},
+            {
+                "year": 2026,
+                "country": "US",
+                "tag": ["FD"],
+                "page": 2,
+                "page_size": 1,
+            },
+        ):
+            response = self.client.get(
+                reverse("planning", args=[self.book.slug]), params
+            )
+            self.assertEqual(response.status_code, 200)
+            summary = response.context["planning"]["USD"]
+            if "tag" not in params:
+                self.assertEqual(
+                    summary["expenses"]["amount"], Decimal("2030")
+                )
+                self.assertEqual(
+                    summary["income_total"]["amount"], Decimal("4620")
+                )
+                self.assertEqual(
+                    summary["investment_outflows"]["amount"], Decimal("510")
+                )
+                self.assertEqual(
+                    summary["investment_net"]["amount"], Decimal("-410")
+                )
+                self.assertEqual(
+                    summary["non_salary_net"]["amount"], Decimal("1110")
+                )
+                self.assertEqual(
+                    summary["coverage_gap"]["amount"], Decimal("-920")
+                )
+                self.assertEqual(
+                    summary["net_result"]["amount"], Decimal("2080")
+                )
+                self.assertEqual(
+                    summary["ignored_change"]["amount"], Decimal("900")
+                )
+            rows = summary["overview_rows"] + summary["coverage_rows"]
+            rows += [
+                row
+                for section in summary["breakdowns"]
+                for row in section["rows"]
+            ]
+            for row in rows:
+                if "url" not in row:
+                    continue
+                with self.subTest(params=params, row=row["label"]):
+                    query = parse_qs(urlsplit(row["url"]).query)
+                    self.assertEqual(query["year"], ["2026"])
+                    self.assertEqual(query["country"], ["US"])
+                    self.assertNotIn("page", query)
+                    self.assertNotIn("page_size", query)
+                    if "tag" in params:
+                        self.assertEqual(query["tag"], params["tag"])
+                    detail = self.client.get(row["url"])
+                    self.assertEqual(detail.status_code, 200)
+                    self.assertEqual(
+                        sum(
+                            (
+                                (
+                                    entry.money
+                                    if row.get("signed")
+                                    else entry.amount
+                                )
+                                for entry in detail.context["entries"]
+                            ),
+                            Decimal("0"),
+                        ),
+                        row["amount"],
+                    )
+
+    def test_planning_nets_savings_movements_and_costs_without_assets(self):
+        self.client.force_login(self.user)
+        for tag, amount, income, month in (
+            ("INVS", "10000", False, 1),
+            ("INVS", "10500", True, 2),
+            ("INVS", "50", False, 2),
+            ("INVS", "60", False, 2),
+            ("RENT", "1000", True, 2),
+            (settings.ENTRY_TAGS["default"], "100", True, 2),
+            ("WORK", "3000", True, 2),
+            ("FD", "1000", False, 2),
+        ):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=date(2026, month, 1),
+                tags=[tag],
+                amount=Decimal(amount),
+                is_income=income,
+            )
+        url = reverse("planning", args=[self.book.slug])
+        response = self.client.get(url, {"year": 2026})
+        self.assertEqual(response.status_code, 200)
+        summary = response.context["planning"]["USD"]
+        self.assertEqual(summary["investment_net"]["amount"], Decimal("390"))
+        self.assertEqual(summary["non_salary_net"]["amount"], Decimal("1490"))
+        self.assertEqual(summary["expenses"]["amount"], Decimal("1000"))
+        self.assertEqual(summary["coverage_gap"]["amount"], Decimal("490"))
+        self.assertEqual(summary["net_result"]["amount"], Decimal("3490"))
+        self.assertContains(response, "Net investment cash flow")
+        self.assertContains(
+            response,
+            "Approximates investment income when those movements balance "
+            "within the selected period.",
+        )
+        self.assertContains(
+            response,
+            "Asset breakdowns exclude entries without an assigned asset.",
+        )
+        for month, expected in (("jan", "-10000"), ("feb", "10390")):
+            with self.subTest(month=month):
+                response = self.client.get(url, {"year": 2026, "month": month})
+                self.assertEqual(
+                    response.context["planning"]["USD"]["investment_net"][
+                        "amount"
+                    ],
+                    Decimal(expected),
+                )
 
     def test_pagination_preserves_filters_and_bulk_selection(self):
         for index in range(3):
