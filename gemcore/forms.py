@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django import forms
 from django.db import IntegrityError, transaction
 from django_countries import countries
@@ -48,6 +50,59 @@ class BalanceForm(forms.Form):
         ),
         required=False,
     )
+
+
+class EntryFilterForm(forms.Form):
+    BOOLEAN_CHOICES = (
+        ("1", "Yes"),
+        ("true", "Yes"),
+        ("True", "Yes"),
+        ("0", "No"),
+        ("false", "No"),
+        ("False", "No"),
+    )
+
+    when = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    start = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    end = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    year = forms.IntegerField(required=False, min_value=1, max_value=9999)
+    month = forms.CharField(required=False)
+    is_income = forms.TypedChoiceField(
+        choices=BOOLEAN_CHOICES,
+        coerce=lambda value: value in {"1", "true", "True"},
+        empty_value=None,
+        required=False,
+    )
+    asset_present = forms.TypedChoiceField(
+        choices=BOOLEAN_CHOICES,
+        coerce=lambda value: value in {"1", "true", "True"},
+        empty_value=None,
+        required=False,
+    )
+    investment_related = forms.TypedChoiceField(
+        choices=BOOLEAN_CHOICES,
+        coerce=lambda value: value in {"1", "true", "True"},
+        empty_value=None,
+        required=False,
+    )
+
+    def clean_month(self):
+        month = self.cleaned_data["month"]
+        if not month:
+            return month
+        try:
+            return datetime.strptime(month, "%b").strftime("%b").lower()
+        except ValueError:
+            raise forms.ValidationError(
+                "Enter a three-letter month."
+            ) from None
+
+    def clean(self):
+        data = super().clean()
+        start, end = data.get("start"), data.get("end")
+        if start and end and start > end:
+            self.add_error("end", "End must be on or after start.")
+        return data
 
 
 class AccountBalanceForm(BalanceForm):

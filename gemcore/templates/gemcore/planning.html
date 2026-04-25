@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load gemcore_tags %}
+
+{% partialdef metrics %}
+<section class="flex flex-col gap-3 min-w-0" aria-label="{{ title }} in {{ currency }}">
+    <h3 class="font-semibold text-lg">{{ title }}</h3>
+    {% if rows %}
+    <div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400" tabindex="0" role="region" aria-label="{{ title }} table in {{ currency }}">
+        <table class="divide-stone-200 divide-y min-w-full text-sm">
+            <caption class="sr-only">{{ title }} in {{ currency }}</caption>
+            <tbody class="divide-stone-200 divide-y">
+                {% for row in rows %}
+                <tr class="bg-stone-50 even:bg-stone-100 hover:bg-sky-50">
+                    <th scope="row" class="font-medium px-4 py-3 text-left">
+                        {{ row.label }}
+                        {% if row.no_expenses %}
+                        <span class="block font-normal text-stone-600 text-xs">{% if narrowed %}No expense entries match these filters.{% else %}No expense entries in this period.{% endif %}</span>
+                        {% endif %}
+                    </th>
+                    <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap {% if row.amount < 0 %}text-red-700{% endif %}">
+                        {% if row.url %}<a class="hover:text-sky-700 text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 rounded-sm" href="{{ row.url }}">{{ row.amount|money:"" }}</a>{% else %}{{ row.amount|money:"" }}{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-stone-600">No matching entries.</p>
+    {% endif %}
+</section>
+{% endpartialdef %}
+
+{% block html-title %}Planning for {{ book }}{% endblock html-title %}
+
+{% block content %}
+<h1 class="font-bold text-2xl">Planning for {{ book }}</h1>
+<div class="flex flex-row flex-wrap gap-2">
+    {% querystring as query %}
+    {% url 'entries' book.slug as entries_url %}
+    {% include "components/button.html" with label="Entries" href=entries_url|add:query variant="secondary" only %}
+    {% url 'balance' book.slug as balance_url %}
+    {% include "components/button.html" with label="Balances" href=balance_url|add:query variant="secondary" only %}
+</div>
+{% include "gemcore/_list_controls.html#active_filters" %}
+
+{% if planning_error %}
+<section class="bg-amber-50 border border-amber-200 flex flex-col gap-2 p-4 rounded-lg text-amber-950" aria-label="Planning configuration">
+    <h2 class="font-semibold">Planning categories need configuration</h2>
+    <p>{{ planning_error }}</p>
+</section>
+{% else %}
+<div class="flex flex-col gap-6 xl:flex-row xl:items-start">
+    {% include "gemcore/_list_controls.html#filters" %}
+    <section class="flex flex-col gap-6 min-w-0 flex-1" aria-label="Planning results">
+        <div class="flex flex-row flex-wrap gap-2 text-sm text-stone-600" aria-label="Reporting period">
+            <span>Reporting period:</span>
+            {% if filters.when %}<span>Date: {{ filters.when|date }}</span>{% endif %}
+            {% if filters.year %}<span>Year: {{ filters.year }}</span>{% endif %}
+            {% if filters.month %}<span>Month: {{ filters.month|capfirst }}</span>{% endif %}
+            {% if filters.start %}<span>From: {{ filters.start|date }}</span>{% endif %}
+            {% if filters.end %}<span>Until: {{ filters.end|date }}</span>{% endif %}
+            {% if not filters.when and not filters.year and not filters.month and not filters.start and not filters.end %}<span>All recorded dates</span>{% endif %}
+        </div>
+        <aside class="bg-stone-100 border border-stone-300 flex flex-col gap-2 p-4 rounded-lg text-stone-700 text-sm" aria-label="Investment cash flow assumption">
+            <h2 class="font-semibold">About net investment cash flow</h2>
+            <p>Includes money placed into and withdrawn from savings or investments. Approximates investment income when those movements balance within the selected period.</p>
+            <p>Uses recorded net amounts; separately recorded investment fees and tax withholding are deducted.</p>
+        </aside>
+        {% if narrowed %}
+        <aside class="bg-amber-50 border border-amber-200 flex flex-col gap-2 p-4 rounded-lg text-amber-950 text-sm" aria-label="Filtered report scope">
+            <h2 class="font-semibold">Showing a filtered selection</h2>
+            <p>These totals include only entries matching the active filters. Income coverage may exclude some expenses or investment costs.</p>
+            <a class="font-medium hover:underline underline" href="{{ period_url }}">Show full period</a>
+        </aside>
+        {% endif %}
+        {% for currency, summary in planning.items %}
+        <details{% if planning|length == 1 %} open{% endif %} aria-label="Planning in {{ currency }}">
+            <summary class="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">
+                <h2 class="inline font-semibold text-xl">{{ currency }} <span class="font-normal text-sm text-stone-600">{{ summary.entries_count }} entr{{ summary.entries_count|pluralize:"y,ies" }} considered</span></h2>
+            </summary>
+            <div class="flex flex-col gap-6 pt-4">
+                {% with title="Income coverage" rows=summary.coverage_rows %}{% partial metrics %}{% endwith %}
+                {% with title="Cash flow" rows=summary.overview_rows %}{% partial metrics %}{% endwith %}
+                <div class="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2">
+                    <p class="text-sm text-stone-600 2xl:col-span-2">Asset breakdowns exclude entries without an assigned asset.</p>
+                    {% for breakdown in summary.breakdowns %}
+                        {% with title=breakdown.title rows=breakdown.rows %}{% partial metrics %}{% endwith %}
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+        {% empty %}
+        <p class="bg-stone-50 border border-stone-300 p-4 rounded-lg text-stone-600">No entries match these filters.</p>
+        {% endfor %}
+    </section>
+</div>
+{% endif %}
+{% endblock content %}

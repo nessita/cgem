@@ -1,3 +1,5 @@
+{% load gemcore_tags %}
+{% planning_enabled as show_planning %}
         <div class="flex flex-row flex-wrap gap-2">
             {% querystring as query %}
             {% url 'add-entry' book.slug as add_url %}
@@ -6,6 +8,10 @@
             {% include "components/button.html" with label="Account transfer" href=transfer_url|add:query variant="secondary" only %}
             {% url 'balance' book.slug as balance_url %}
             {% include "components/button.html" with label="Balances" href=balance_url variant="secondary" only %}
+            {% if show_planning %}
+                {% url 'planning' book.slug as planning_url %}
+                {% include "components/button.html" with label="Planning" href=planning_url|add:query variant="secondary" only %}
+            {% endif %}
             {% url 'load-from-file' book.slug as load_url %}
             {% include "components/button.html" with label="Load file" href=load_url variant="secondary" only %}
         </div>

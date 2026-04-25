@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 
 import chardet
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import BadRequest, ImproperlyConfigured
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import (
@@ -30,11 +31,18 @@ from gemcore.forms import (
     ChooseForm,
     CSVExpenseForm,
     CurrencyBalanceForm,
+    EntryFilterForm,
     EntryForm,
     EntryMergeForm,
 )
 from gemcore.models import Account, Asset, Book, Entry
 from gemcore.parser import CSVParser
+from gemcore.planning import (
+    PLANNING_GROUPS,
+    build_planning_summary,
+    get_planning_tags,
+    planning_group_query,
+)
 
 ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
@@ -89,34 +97,27 @@ def book(request, book_slug=None):
 
 def parse_request(request, book, **kwargs):
     params = request.GET
+    filter_form = EntryFilterForm(params)
+    if not filter_form.is_valid():
+        raise BadRequest(filter_form.errors.as_text())
     q = params.get("q")
     if q:
         entries = book.by_text(q)
     else:
         entries = book.entry_set.all()
 
-    try:
-        when = datetime.strptime(params.get("when"), "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        when = None
-    else:
+    when = filter_form.cleaned_data["when"]
+    if when:
         entries = entries.filter(when=when)
 
-    try:
-        year = int(params.get("year"))
-    except (ValueError, TypeError):
-        year = None
-    else:
+    year = filter_form.cleaned_data["year"]
+    if year:
         entries = entries.filter(when__year=year)
 
-    month = params.get("month")
+    month = filter_form.cleaned_data["month"]
     if month:
-        try:
-            month_int = int(datetime.strptime(month, "%b").month)
-        except (ValueError, TypeError):
-            month_int = None
-        else:
-            entries = entries.filter(when__month=month_int)
+        month_int = datetime.strptime(month, "%b").month
+        entries = entries.filter(when__month=month_int)
 
     who = params.get("who")
     if who:
@@ -138,9 +139,21 @@ def parse_request(request, book, **kwargs):
     if currency:
         entries = entries.filter(account__currency=currency)
 
+    is_income = filter_form.cleaned_data["is_income"]
+    if is_income is not None:
+        entries = entries.filter(is_income=is_income)
+
+    asset_present = filter_form.cleaned_data["asset_present"]
+    if asset_present is not None:
+        entries = entries.filter(asset__isnull=not asset_present)
+
     used_tags = list(params.getlist("tag", []))
     if used_tags:
         entries = entries.filter(tags__contains=used_tags)
+
+    any_tags = list(params.getlist("tag_any", []))
+    if any_tags:
+        entries = entries.filter(tags__overlap=any_tags)
 
     include_tags = request.GET.getlist("include_tag")
     if include_tags:
@@ -150,23 +163,35 @@ def parse_request(request, book, **kwargs):
     if exclude_tags:
         entries = entries.exclude(tags__contained_by=exclude_tags)
 
-    start = request.GET.get("start")
-    if start:
+    planning_group = [
+        group for group in params.getlist("planning_group") if group
+    ]
+    if any(group not in PLANNING_GROUPS for group in planning_group):
+        raise BadRequest("Unknown planning category.")
+    investment_related = filter_form.cleaned_data["investment_related"]
+    if planning_group or investment_related is not None:
         try:
-            start = datetime.strptime(start, "%Y-%m-%d").date()
-        except ValueError:
-            start = None
-        else:
-            entries = entries.filter(when__gte=start)
+            planning_tags = get_planning_tags()
+        except ImproperlyConfigured as error:
+            raise BadRequest(str(error)) from error
+    if investment_related is True:
+        entries = entries.filter(tags__contains=[planning_tags["investment"]])
+    elif investment_related is False:
+        entries = entries.exclude(tags__contains=[planning_tags["investment"]])
 
-    end = request.GET.get("end")
+    for group in planning_group:
+        entries = entries.filter(planning_group_query(group))
+    planning_tag = params.get("planning_tag")
+    if planning_tag:
+        entries = entries.filter(tags__0=planning_tag)
+
+    start = filter_form.cleaned_data["start"]
+    if start:
+        entries = entries.filter(when__gte=start)
+
+    end = filter_form.cleaned_data["end"]
     if end:
-        try:
-            end = datetime.strptime(end, "%Y-%m-%d").date()
-        except ValueError:
-            end = None
-        else:
-            entries = entries.filter(when__lte=end)
+        entries = entries.filter(when__lte=end)
 
     if kwargs:
         entries = entries.filter(**kwargs)
@@ -179,7 +204,13 @@ def parse_request(request, book, **kwargs):
         "end": end,
         "exclude_tags": exclude_tags,
         "include_tags": include_tags,
+        "is_income": is_income,
+        "investment_related": investment_related,
         "month": month,
+        "asset_present": asset_present,
+        "any_tags": any_tags,
+        "planning_group": planning_group,
+        "planning_tag": planning_tag,
         "q": q,
         "qs": params.urlencode(),
         "start": start,
@@ -238,8 +269,8 @@ def paginate_results(request, objects):
 def list_filter_context(request, filters):
     when = filters["when"]
     if when:
-        when_next = when + timedelta(days=1)
-        when_prev = when - timedelta(days=1)
+        when_next = when + timedelta(days=1) if when < date.max else None
+        when_prev = when - timedelta(days=1) if when > date.min else None
     else:
         when_next = None
         when_prev = None
@@ -257,6 +288,12 @@ def list_filter_context(request, filters):
         ("asset", "Asset"),
         ("include_tag", "Include tag"),
         ("exclude_tag", "Exclude tag"),
+        ("is_income", "Income"),
+        ("investment_related", "Investment related"),
+        ("asset_present", "Has asset"),
+        ("tag_any", "Any tag"),
+        ("planning_group", "Report category"),
+        ("planning_tag", "Report tag"),
         ("start", "From"),
         ("end", "Until"),
     ):
@@ -268,6 +305,11 @@ def list_filter_context(request, filters):
                 name, [item for item in params.getlist(name) if item != value]
             )
             display_value = value
+            if name == "planning_group":
+                display_value = PLANNING_GROUPS.get(value, value)
+            if name in {"is_income", "investment_related", "asset_present"}:
+                if filters[name] is not None:
+                    display_value = "Yes" if filters[name] else "No"
             if name in {"when", "start", "end"} and filters[name]:
                 display_value = date_format(filters[name], "M j, y")
             active_filters.append(
@@ -963,3 +1005,156 @@ def balance(
     context.update(pagination)
     context.update(list_filter_context(request, filters))
     return render(request, "gemcore/balance.html", context)
+
+
+@require_GET
+@login_required
+def planning(request, book_slug, year=None):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    entries_url = reverse("entries", args=[book.slug])
+    planning_url = reverse("planning", args=[book.slug])
+    if year is not None:
+        if not 1 <= year <= 9999:
+            raise Http404
+        params = request.GET.copy()
+        params["year"] = year
+        return HttpResponseRedirect(planning_url + "?" + params.urlencode())
+
+    try:
+        get_planning_tags()
+    except ImproperlyConfigured as error:
+        return render(
+            request,
+            "gemcore/planning.html",
+            {"book": book, "planning_error": str(error)},
+        )
+
+    entries, filters, available = parse_request(request, book)
+    planning = build_planning_summary(entries)
+    controls = list_filter_context(request, filters)
+    scope_names = {
+        "q",
+        "account",
+        "asset",
+        "country",
+        "who",
+        "tag",
+        "include_tag",
+        "exclude_tag",
+        "is_income",
+        "asset_present",
+        "tag_any",
+        "investment_related",
+        "planning_group",
+        "planning_tag",
+    }
+    narrowed = any(
+        item["name"] in scope_names for item in controls["active_filters"]
+    )
+    period_params = request.GET.copy()
+    for name in scope_names | {"page", "page_size"}:
+        period_params.pop(name, None)
+    period_url = planning_url
+    if period_params:
+        period_url += "?" + period_params.urlencode()
+
+    def entry_link(currency, group, **extra):
+        params = request.GET.copy()
+        params.pop("page", None)
+        params.pop("page_size", None)
+        params["currency"] = currency
+        groups = params.getlist("planning_group")
+        if group not in groups:
+            params.setlist("planning_group", [*groups, group])
+        for name, value in extra.items():
+            params[name] = value
+        return entries_url + "?" + params.urlencode()
+
+    for currency, summary in planning.items():
+        summary["overview_rows"] = [
+            {
+                "label": label,
+                "amount": summary[key]["amount"],
+                "url": entry_link(currency, key),
+                "no_expenses": (
+                    key == "expenses" and not summary[key].get("count")
+                ),
+            }
+            for key, label in PLANNING_GROUPS.items()
+            if key not in {"investment_net", "non_salary_net"}
+        ]
+        summary["coverage_rows"] = [
+            {
+                "label": PLANNING_GROUPS["investment_net"],
+                "amount": summary["investment_net"]["amount"],
+                "url": entry_link(currency, "investment_net"),
+                "signed": True,
+            },
+            {
+                "label": PLANNING_GROUPS["non_salary_net"],
+                "amount": summary["non_salary_net"]["amount"],
+                "url": entry_link(currency, "non_salary_net"),
+                "signed": True,
+            },
+            {
+                "label": "Net non-salary cash flow minus expenses",
+                "amount": summary["coverage_gap"]["amount"],
+            },
+            {
+                "label": "Net cash flow from all sources minus expenses",
+                "amount": summary["net_result"]["amount"],
+            },
+        ]
+        summary["breakdowns"] = []
+        for key, label in (
+            ("expenses", "Expenses"),
+            ("income_total", "Income"),
+            ("investment_outflows", "Investment outflows"),
+            ("ignored_change", "Ignored transfer movements"),
+        ):
+            breakdown = (
+                "income_by_tag" if key == "income_total" else key + "_by_tag"
+            )
+            rows = [
+                {
+                    "label": dict(ChoicesMixin.TAG_CHOICES).get(tag, tag),
+                    "amount": amount,
+                    "url": entry_link(currency, key, planning_tag=tag),
+                }
+                for tag, amount in summary[breakdown].items()
+            ]
+            summary["breakdowns"].append(
+                {"title": label + " by tag", "rows": rows}
+            )
+        for key, label in (
+            ("income_rental", "Rental income"),
+            ("income_other_investment", "Investment inflows"),
+            ("investment_outflows", "Investment outflows"),
+        ):
+            breakdown = {
+                "income_rental": "rental_income_by_asset",
+                "income_other_investment": "other_investment_income_by_asset",
+                "investment_outflows": "investment_outflows_by_asset",
+            }[key]
+            rows = [
+                {
+                    "label": name,
+                    "amount": amount,
+                    "url": entry_link(currency, key, asset=slug),
+                }
+                for (slug, name), amount in summary[breakdown].items()
+            ]
+            summary["breakdowns"].append(
+                {"title": label + " by asset", "rows": rows}
+            )
+
+    context = {
+        "available": available,
+        "book": book,
+        "filters": filters,
+        "planning": planning,
+        "narrowed": narrowed,
+        "period_url": period_url,
+        **controls,
+    }
+    return render(request, "gemcore/planning.html", context)
