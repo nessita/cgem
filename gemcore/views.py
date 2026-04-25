@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 from urllib.parse import urlencode
 
@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db import models
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -29,6 +30,7 @@ from gemcore.forms import (
 )
 from gemcore.models import Account, Asset, Book, Entry
 from gemcore.parser import CSVParser
+from gemcore.planning import build_planning_summary
 
 ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
@@ -121,9 +123,36 @@ def parse_request(request, book, **kwargs):
     if currency:
         entries = entries.filter(account__currency=currency)
 
+    is_income = params.get("is_income")
+    if is_income in {"1", "true", "True"}:
+        is_income = True
+        entries = entries.filter(is_income=True)
+    elif is_income in {"0", "false", "False"}:
+        is_income = False
+        entries = entries.filter(is_income=False)
+    else:
+        is_income = None
+
+    asset_present = params.get("asset_present")
+    if asset_present in {"1", "true", "True"}:
+        asset_present = True
+        entries = entries.filter(asset__isnull=False)
+    elif asset_present in {"0", "false", "False"}:
+        asset_present = False
+        entries = entries.filter(asset__isnull=True)
+    else:
+        asset_present = None
+
     used_tags = list(params.getlist("tag", []))
     if used_tags:
         entries = entries.filter(tags__contains=used_tags)
+
+    any_tags = list(params.getlist("tag_any", []))
+    if any_tags:
+        tag_query = models.Q()
+        for tag in any_tags:
+            tag_query |= models.Q(tags__contains=[tag])
+        entries = entries.filter(tag_query)
 
     include_tags = request.GET.getlist("include_tag")
     if include_tags:
@@ -132,6 +161,16 @@ def parse_request(request, book, **kwargs):
     exclude_tags = request.GET.getlist("exclude_tag")
     if exclude_tags:
         entries = entries.exclude(tags__contained_by=exclude_tags)
+
+    investment_related = params.get("investment_related")
+    if investment_related in {"1", "true", "True"}:
+        investment_related = True
+        entries = entries.filter(tags__contains=["INVS"], asset__isnull=False)
+    elif investment_related in {"0", "false", "False"}:
+        investment_related = False
+        entries = entries.exclude(tags__contains=["INVS"], asset__isnull=False)
+    else:
+        investment_related = None
 
     start = request.GET.get("start")
     if start:
@@ -162,7 +201,11 @@ def parse_request(request, book, **kwargs):
         "end": end,
         "exclude_tags": exclude_tags,
         "include_tags": include_tags,
+        "is_income": is_income,
+        "investment_related": investment_related,
         "month": month,
+        "asset_present": asset_present,
+        "any_tags": any_tags,
         "q": q,
         "qs": urlencode(params),
         "start": start,
@@ -763,3 +806,221 @@ def balance(
         "available": available,
     }
     return render(request, "gemcore/balance.html", context)
+
+
+@require_GET
+@login_required
+def planning(request, book_slug, year=None):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    entries, filters, available = parse_request(request, book)
+    if year is not None:
+        start = date(year, 1, 1)
+        end = date(year, 12, 31)
+        entries = entries.filter(when__gte=start, when__lte=end)
+        filters["start"] = start
+        filters["end"] = end
+        available = {
+            "assets": book.assets(entries),
+            "countries": sorted(book.countries(entries).items()),
+            "currencies": sorted(book.currencies(entries).items()),
+            "months": [
+                (d.strftime("%b").lower(), i)
+                for d, i in sorted(book.months(entries).items())
+            ],
+            "tags": sorted(book.tags(entries).items()),
+            "users": sorted(book.who(entries).items()),
+            "years": sorted(book.years(entries).items()),
+        }
+    planning = build_planning_summary(entries)
+
+    base_params = {
+        key: values
+        for key, values in request.GET.lists()
+        if key not in {"page", "page_size"}
+    }
+    if year is not None:
+        base_params["start"] = [filters["start"].isoformat()]
+        base_params["end"] = [filters["end"].isoformat()]
+
+    entries_url = reverse("entries", args=(book.slug,))
+
+    def make_entries_url(currency, **extra_params):
+        params = {key: list(values) for key, values in base_params.items()}
+        params["currency"] = [currency]
+        for key, value in extra_params.items():
+            if value is None:
+                params.pop(key, None)
+            elif isinstance(value, list):
+                params[key] = value
+            else:
+                params[key] = [value]
+        return entries_url + "?" + urlencode(params, doseq=True)
+
+    for currency, summary in planning.items():
+        summary["links"] = {
+            "household_expenses": make_entries_url(
+                currency,
+                is_income="0",
+                exclude_tag="CHNG",
+                investment_related="0",
+            ),
+            "investment_outflows": make_entries_url(
+                currency,
+                is_income="0",
+                tag="INVS",
+                investment_related="1",
+            ),
+            "income_total": make_entries_url(
+                currency, is_income="1", exclude_tag="CHNG"
+            ),
+            "income_salary": make_entries_url(
+                currency, is_income="1", tag="WORK"
+            ),
+            "income_rental": make_entries_url(
+                currency, is_income="1", tag="RENT"
+            ),
+            "income_other_investment": make_entries_url(
+                currency, is_income="1", tag="INVS"
+            ),
+            "income_other": make_entries_url(
+                currency,
+                is_income="1",
+                exclude_tag=["CHNG", "WORK", "RENT", "INVS"],
+            ),
+            "income_investment_total": make_entries_url(
+                currency, is_income="1", tag_any=["RENT", "INVS"]
+            ),
+            "ignored_change": make_entries_url(
+                currency, tag="CHNG"
+            ),
+        }
+        expense_rows_by_tag = []
+        for tag in summary["expenses_by_tag"].keys():
+            expense_rows_by_tag.append(
+                {
+                    "tag": tag,
+                    "amount": summary["expenses_by_tag"][tag],
+                    "url": make_entries_url(
+                        currency,
+                        tag=tag,
+                        is_income="0",
+                        investment_related=None,
+                    ),
+                }
+            )
+        summary["expenses_by_tag_rows"] = expense_rows_by_tag
+
+        income_rows_by_tag = []
+        for tag in summary["income_by_tag"].keys():
+            income_rows_by_tag.append(
+                {
+                    "tag": tag,
+                    "amount": summary["income_by_tag"][tag],
+                    "url": make_entries_url(
+                        currency,
+                        tag=tag,
+                        is_income="1",
+                    ),
+                }
+            )
+        summary["income_by_tag_rows"] = income_rows_by_tag
+
+        investment_outflow_rows_by_tag = []
+        for tag in summary["investment_outflows_by_tag"].keys():
+            investment_outflow_rows_by_tag.append(
+                {
+                    "tag": tag,
+                    "amount": summary["investment_outflows_by_tag"][tag],
+                    "url": make_entries_url(
+                        currency,
+                        tag=tag,
+                        is_income="0",
+                        asset_present="1",
+                        investment_related=None,
+                    ),
+                }
+            )
+        summary["investment_outflows_by_tag_rows"] = (
+            investment_outflow_rows_by_tag
+        )
+
+        ignored_change_rows_by_tag = []
+        for tag in summary["ignored_change_by_tag"].keys():
+            ignored_change_rows_by_tag.append(
+                {
+                    "tag": tag,
+                    "amount": summary["ignored_change_by_tag"][tag],
+                    "url": make_entries_url(currency, tag=tag),
+                }
+            )
+        summary["ignored_change_by_tag_rows"] = ignored_change_rows_by_tag
+
+        rental_income_rows_by_asset = []
+        for (asset_slug, asset_name), amount in summary[
+            "rental_income_by_asset"
+        ].items():
+            rental_income_rows_by_asset.append(
+                {
+                    "asset_slug": asset_slug,
+                    "asset_name": asset_name,
+                    "amount": amount,
+                    "url": make_entries_url(
+                        currency,
+                        asset=asset_slug,
+                        is_income="1",
+                        tag="RENT",
+                    ),
+                }
+            )
+        summary["rental_income_by_asset_rows"] = rental_income_rows_by_asset
+
+        other_investment_income_rows_by_asset = []
+        for (asset_slug, asset_name), amount in summary[
+            "other_investment_income_by_asset"
+        ].items():
+            other_investment_income_rows_by_asset.append(
+                {
+                    "asset_slug": asset_slug,
+                    "asset_name": asset_name,
+                    "amount": amount,
+                    "url": make_entries_url(
+                        currency,
+                        asset=asset_slug,
+                        is_income="1",
+                        tag="INVS",
+                    ),
+                }
+            )
+        summary["other_investment_income_by_asset_rows"] = (
+            other_investment_income_rows_by_asset
+        )
+
+        investment_outflows_rows_by_asset = []
+        for (asset_slug, asset_name), amount in summary[
+            "investment_outflows_by_asset"
+        ].items():
+            investment_outflows_rows_by_asset.append(
+                {
+                    "asset_slug": asset_slug,
+                    "asset_name": asset_name,
+                    "amount": amount,
+                    "url": make_entries_url(
+                        currency,
+                        asset=asset_slug,
+                        is_income="0",
+                        tag="INVS",
+                        asset_present="1",
+                    ),
+                }
+            )
+        summary["investment_outflows_by_asset_rows"] = (
+            investment_outflows_rows_by_asset
+        )
+
+    context = {
+        "available": available,
+        "book": book,
+        "filters": filters,
+        "planning": planning,
+    }
+    return render(request, "gemcore/planning.html", context)

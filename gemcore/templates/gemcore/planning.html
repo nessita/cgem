@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load qurl %}
+{% load gemcore_tags %}
+
+{% block html-title %}Planning Summary{% endblock html-title %}
+
+{% block content %}
+{% with down_icon='<span class="text-danger">&#9660;</span>' up_icon='<span class="text-success">&#9650;</span>' total_icon='<span class="text-primary">&#9670;</span>' neutral_icon='<span class="text-muted">&#8596;</span>' %}
+<style>
+  .planning-subitem {
+    display: inline-block;
+    padding-left: 24px;
+  }
+</style>
+<div class="row">
+  <div class="col-md-12">
+    <h2>Planning Summary</h2>
+    <p class="text-muted">{{ book.name }}</p>
+
+    {% if filters.asset %}
+    <div class="alert alert-info">
+      Asset filter:
+      <a href="{% qurl request.get_full_path asset-=filters.asset %}">{{ filters.asset }} &times;</a>
+    </div>
+    {% endif %}
+
+    {% if filters.start or filters.end %}
+    <p>
+      <strong>Period:</strong> {{ filters.start|default:"-" }} to {{ filters.end|default:"-" }}
+    </p>
+    {% endif %}
+
+    {% if filters.year or filters.month or filters.when or filters.account or filters.currency or filters.country or filters.who or filters.asset or filters.q or filters.tags or filters.include_tags or filters.exclude_tags %}
+    <p class="text-muted">Additional filters applied.</p>
+    {% endif %}
+
+    {% if available.assets %}
+    <div class="panel panel-default">
+      <div class="panel-heading"><strong>Assets</strong></div>
+      <div class="panel-body">
+        {% for k, i in available.assets %}
+          {% if k != filters.asset %}
+          <a class="btn btn-xs btn-primary" href="{% qurl request.get_full_path asset=k %}">
+            {{ i.0 }} <span class="badge">{{ i.1 }}</span>
+          </a>
+          {% else %}
+          <a class="btn btn-xs btn-primary filtered" href="{% qurl request.get_full_path asset-=k %}">
+            {{ i.0 }} <span class="badge filtered">{{ i.1 }}</span> &times;
+          </a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if planning %}
+  {% for currency, summary in planning.items %}
+  <div class="row">
+    <div class="col-md-12">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">{{ currency }}</h3>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h4>Overview</h4>
+              <table class="table table-condensed table-striped">
+                <tbody>
+                  <tr><th>Entries considered</th><td class="text-right">{{ summary.entries_count }}</td></tr>
+                  <tr><th>{{ down_icon|safe }} Expenses</th><td class="text-right"><a href="{{ summary.links.household_expenses }}">{{ summary.household_expenses.amount|money }}</a></td></tr>
+                  <tr><th>{{ down_icon|safe }} Investment outflows</th><td class="text-right"><a href="{{ summary.links.investment_outflows }}">{{ summary.investment_outflows.amount|money }}</a></td></tr>
+                  <tr><th>{{ up_icon|safe }} Total income</th><td class="text-right"><a href="{{ summary.links.income_total }}">{{ summary.income_total.amount|money }}</a></td></tr>
+                  <tr><th><span class="planning-subitem">{{ up_icon|safe }} Salary income</span></th><td class="text-right"><a href="{{ summary.links.income_salary }}">{{ summary.income_salary.amount|money }}</a></td></tr>
+                  <tr><th><span class="planning-subitem">{{ up_icon|safe }} Rental income</span></th><td class="text-right"><a href="{{ summary.links.income_rental }}">{{ summary.income_rental.amount|money }}</a></td></tr>
+                  <tr><th><span class="planning-subitem">{{ up_icon|safe }} Other investment income</span></th><td class="text-right"><a href="{{ summary.links.income_other_investment }}">{{ summary.income_other_investment.amount|money }}</a></td></tr>
+                  <tr><th><span class="planning-subitem">{{ up_icon|safe }} Other income</span></th><td class="text-right"><a href="{{ summary.links.income_other }}">{{ summary.income_other.amount|money }}</a></td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Investment income total</th><td class="text-right"><a href="{{ summary.links.income_investment_total }}">{{ summary.income_investment_total.amount|money }}</a></td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Net result</th><td class="text-right">{{ summary.net_result.amount|money }}</td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Investment income minus expenses</th><td class="text-right">{{ summary.investment_coverage_gap.amount|money }}</td></tr>
+                  <tr><th>{{ neutral_icon|safe }} Ignored change movements</th><td class="text-right"><a href="{{ summary.links.ignored_change }}">{{ summary.ignored_change.amount|money }}</a></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="col-md-6">
+              <h4>Sustainability</h4>
+              <table class="table table-condensed table-striped">
+                <tbody>
+                  <tr><th>{{ down_icon|safe }} Expenses</th><td class="text-right">{{ summary.sustainability.household_expenses.amount|money }}</td></tr>
+                  <tr><th>{{ up_icon|safe }} Salary income</th><td class="text-right"><a href="{{ summary.links.income_salary }}">{{ summary.sustainability.salary_income.amount|money }}</a></td></tr>
+                  <tr><th>{{ up_icon|safe }} Rental income</th><td class="text-right"><a href="{{ summary.links.income_rental }}">{{ summary.sustainability.rental_income.amount|money }}</a></td></tr>
+                  <tr><th>{{ up_icon|safe }} Other investment income</th><td class="text-right"><a href="{{ summary.links.income_other_investment }}">{{ summary.sustainability.other_investment_income.amount|money }}</a></td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Investment income total</th><td class="text-right"><a href="{{ summary.links.income_investment_total }}">{{ summary.sustainability.investment_income_total.amount|money }}</a></td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Investment minus expenses</th><td class="text-right">{{ summary.sustainability.investment_minus_household_expenses.amount|money }}</td></tr>
+                  <tr class="active"><th>{{ total_icon|safe }} Total income minus expenses</th><td class="text-right">{{ summary.sustainability.total_income_minus_household_expenses.amount|money }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4">
+              <h4>{{ down_icon|safe }} Expenses By Tag</h4>
+              {% if summary.expenses_by_tag_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.expenses_by_tag_rows %}
+                  <tr>
+                    <th>{{ row.tag }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No expense entries.</p>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <h4>{{ up_icon|safe }} Income By Tag</h4>
+              {% if summary.income_by_tag_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.income_by_tag_rows %}
+                  <tr>
+                    <th>{{ row.tag }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No income entries.</p>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <h4>{{ down_icon|safe }} Investment Outflows By Tag</h4>
+              {% if summary.investment_outflows_by_tag_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.investment_outflows_by_tag_rows %}
+                  <tr>
+                    <th>{{ row.tag }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No investment outflow entries.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4">
+              <h4>{{ up_icon|safe }} Rental Income By Asset</h4>
+              {% if summary.rental_income_by_asset_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.rental_income_by_asset_rows %}
+                  <tr>
+                    <th>{{ row.asset_name }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No asset-linked rental income entries.</p>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <h4>{{ up_icon|safe }} Other Investment Income By Asset</h4>
+              {% if summary.other_investment_income_by_asset_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.other_investment_income_by_asset_rows %}
+                  <tr>
+                    <th>{{ row.asset_name }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No other investment income entries linked to assets.</p>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <h4>{{ down_icon|safe }} Investment Outflows By Asset</h4>
+              {% if summary.investment_outflows_by_asset_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.investment_outflows_by_asset_rows %}
+                  <tr>
+                    <th>{{ row.asset_name }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No investment outflow entries linked to assets.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4">
+              <h4>{{ neutral_icon|safe }} Ignored Change Movements By Tag</h4>
+              {% if summary.ignored_change_by_tag_rows %}
+              <table class="table table-condensed table-hover">
+                <tbody>
+                  {% for row in summary.ignored_change_by_tag_rows %}
+                  <tr>
+                    <th>{{ row.tag }}</th>
+                    <td class="text-right"><a href="{{ row.url }}">{{ row.amount|money }}</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">No ignored change entries.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="alert alert-warning">No entries matched the selected scope.</div>
+  </div>
+</div>
+{% endif %}
+{% endwith %}
+{% endblock content %}

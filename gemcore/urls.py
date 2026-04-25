@@ -42,6 +42,16 @@ urlpatterns = [
     ),
     path("<slug:book_slug>/balance/", gemcore.views.balance, name="balance"),
     path(
+        "<slug:book_slug>/planning/",
+        gemcore.views.planning,
+        name="planning",
+    ),
+    path(
+        "<slug:book_slug>/planning/<int:year>/",
+        gemcore.views.planning,
+        name="planning-year",
+    ),
+    path(
         "<slug:book_slug>/balance/<slug:account_slug>/",
         gemcore.views.balance,
         name="balance",
