@@ -9,11 +9,11 @@ asgiref==3.11.1
     #   django
     #   django-countries
     #   django-htmx
-chardet==7.1.0
+chardet==7.4.3
     # via -r requirements.in
 dj-database-url==3.1.2
     # via -r requirements.in
-django==6.0.3
+django==6.0.4
     # via
     #   -r requirements.in
     #   dj-database-url
@@ -22,23 +22,23 @@ django==6.0.3
     #   djangorestframework
 django-countries==8.2.0
     # via -r requirements.in
-django-health-check==4.1.2
+django-health-check==4.4.0
     # via -r requirements.in
 django-htmx==1.27.0
     # via -r requirements.in
 django-qurl-templatetag==0.0.14
     # via -r requirements.in
-djangorestframework==3.16.1
+djangorestframework==3.17.1
     # via -r requirements.in
 dnspython==2.8.0
     # via django-health-check
-gunicorn==25.1.0
+gunicorn==25.3.0
     # via -r requirements.in
-packaging==26.0
+packaging==26.2
     # via gunicorn
-psycopg[binary]==3.3.3
+psycopg[binary]==3.3.4
     # via -r requirements.in
-psycopg-binary==3.3.3
+psycopg-binary==3.3.4
     # via psycopg
 sqlparse==0.5.5
     # via django
