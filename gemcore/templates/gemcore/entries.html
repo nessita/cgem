@@ -99,6 +99,17 @@
             </a>
             {% endif %}
         {% endfor %}</p>
+        <p>{% for k, i in available.assets %}
+            {% if k != filters.asset %}
+            <a class="btn btn-xs btn-primary" href="{% qurl request.get_full_path asset=k %}">
+                {{ i.0 }} <span class="badge">{{ i.1 }}</span>
+            </a>
+            {% else %}
+            <a class="btn btn-xs btn-primary filtered" href="{% qurl request.get_full_path asset-=k %}">
+                {{ i.0 }} <span class="badge filtered">{{ i.1 }}</span> &times;
+            </a>
+            {% endif %}
+        {% endfor %}</p>
     </div>
 
     <div class="row">
@@ -185,7 +196,9 @@
                     {% endfor %}
                 </td>
                 <td>
-                    {{ entry.asset.name|default_if_none:"" }}
+                    {% if entry.asset %}
+                    <a href="{% qurl request.get_full_path asset=entry.asset.slug %}">{{ entry.asset.name }}</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

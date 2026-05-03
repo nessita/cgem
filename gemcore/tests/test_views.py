@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import reverse
 
 from gemcore.constants import TAGS
@@ -36,6 +37,43 @@ class AddEntryTestCase(BaseTestCase):
         error = "There is already an entry for this data."
         form = response.context["form"]
         self.assertFormError(form, field=None, errors=[error])
+
+
+class AccountTransferTestCase(BaseTestCase):
+    def test_transfer_entries_use_correct_tag(self):
+        user = self.factory.make_user()
+        book = self.factory.make_book(users=[user])
+        source_account = self.factory.make_account(users=[user])
+        target_account = self.factory.make_account(users=[user])
+        url = reverse("account-transfer", args=[book.slug])
+
+        data = {
+            "source_account": source_account.id,
+            "source_amount": "10.00",
+            "target_account": target_account.id,
+            "target_amount": "11.00",
+            "what": "Transfer test",
+            "when": "2026-05-03",
+            "country": "US",
+        }
+
+        assert self.client.login(username=user.username, password="test")
+        response = self.client.post(url, data=data)
+
+        self.assertRedirects(response, reverse("entries", args=[book.slug]))
+        entries = list(book.entry_set.order_by("id"))
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(
+            entries[0].tags, [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
+        )
+        self.assertEqual(entries[0].amount, 10.00)
+        self.assertEqual(entries[0].what, "Transfer test (source)")
+
+        self.assertEqual(
+            entries[1].tags, [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
+        )
+        self.assertEqual(entries[1].amount, 11.00)
+        self.assertEqual(entries[1].what, "Transfer test (target)")
 
 
 class BalanceViewTestCase(BaseTestCase):

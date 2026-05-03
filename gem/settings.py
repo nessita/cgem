@@ -162,6 +162,7 @@ ASSET_CATEGORIES = [
 ]
 ENTRY_TAGS = [
     ("CL", "Clothing"),
+    ("CH", "Change"),
     ("FD", "Food"),
     ("HE", "Healthcare"),
     ("HS", "Housing"),
@@ -170,6 +171,7 @@ ENTRY_TAGS = [
     ("UT", "Utilities"),
 ]
 ENTRY_DEFAULT_TAG = "IM"
+ENTRY_ACCOUNT_TRANSFER_TAG = "CH"
 
 LOGGING = {
     "version": 1,
