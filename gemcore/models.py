@@ -132,6 +132,18 @@ class Book(models.Model):
             result[d] += 1
         return dict(result)
 
+    def assets(self, entries=None):
+        if entries is None:
+            entries = self.entry_set.all()
+
+        return [
+            ((item["asset__slug"]), (item["asset__name"], item["count"]))
+            for item in entries.filter(asset__isnull=False)
+            .values("asset__slug", "asset__name")
+            .annotate(count=models.Count("id"))
+            .order_by("asset__name")
+        ]
+
     def month_breakdown(self, entries=None):
         if entries is None:
             entries = self.entry_set.all()

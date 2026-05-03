@@ -3,6 +3,7 @@ from io import StringIO
 from urllib.parse import urlencode
 
 import chardet
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
@@ -155,6 +156,7 @@ def parse_request(request, book, **kwargs):
 
     filters = {
         "account": account,
+        "asset": asset,
         "country": country,
         "currency": currency,
         "end": end,
@@ -170,6 +172,7 @@ def parse_request(request, book, **kwargs):
         "year": year,
     }
     available = {
+        "assets": book.assets(entries),
         "countries": sorted(book.countries(entries).items()),
         "currencies": sorted(book.currencies(entries).items()),
         "months": [
@@ -645,29 +648,36 @@ def account_transfer(request, book_slug):
             when = form.cleaned_data.get("when")
             what = form.cleaned_data.get("what")
             country = form.cleaned_data.get("country")
+            tags = [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
 
-            Entry.objects.create(
-                book=book,
-                who=request.user,
-                when=when,
-                what=what + " (source)",
-                account=source_account,
-                amount=source_amount,
-                is_income=False,
-                country=country,
-                tags=["change"],
-            )
-            Entry.objects.create(
-                book=book,
-                who=request.user,
-                when=when,
-                what=what + " (target)",
-                account=target_account,
-                amount=target_amount,
-                is_income=True,
-                country=country,
-                tags=["change"],
-            )
+            entries = [
+                Entry(
+                    book=book,
+                    who=request.user,
+                    when=when,
+                    what=what + " (source)",
+                    account=source_account,
+                    amount=source_amount,
+                    is_income=False,
+                    country=country,
+                    tags=tags,
+                ),
+                Entry(
+                    book=book,
+                    who=request.user,
+                    when=when,
+                    what=what + " (target)",
+                    account=target_account,
+                    amount=target_amount,
+                    is_income=True,
+                    country=country,
+                    tags=tags,
+                ),
+            ]
+            for e in entries:
+                e.full_clean()
+
+            Entry.objects.bulk_create(entries)
 
             return HttpResponseRedirect(
                 reverse("entries", kwargs=dict(book_slug=book_slug))
