@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     "health_check",
     "rest_framework",
     "rest_framework.authtoken",
-    "qurl_templatetag",
 ]
 
 MIDDLEWARE = [
