@@ -1,4 +1,3 @@
-{% load qurl %}
         <table class="table">
             <thead>
             <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total/month</th><th>Total/acc</th></tr>
@@ -7,7 +6,7 @@
             {% for item in balance.months reversed %}
             <tr>
                 <td class="">
-                    <a href="{% url 'entries' book.slug %}{% qurl . year=item.start|date:"Y" month=item.start|date:"b" account=account_slug currency=currency %}{% if filters.qs %}&{{ filters.qs }}{% endif %}">
+                    <a href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug currency=currency %}">
                         {{ item.start|date:"Y M" }}
                     </a>
                 </td>
