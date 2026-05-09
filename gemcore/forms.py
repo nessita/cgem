@@ -86,26 +86,54 @@ class BookForm(forms.ModelForm):
         )
 
 
-class TagsCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
-    option_template_name = "gemcore/checkbox_option.html"
-
-
 class EntryForm(forms.ModelForm):
     def __init__(self, book, *args, **kwargs):
         self.book = book
+        data = kwargs.get("data")
+        if data is not None:
+            data = data.copy()
+            if hasattr(data, "getlist"):
+                tags = [tag for tag in data.getlist("tags") if tag]
+            else:
+                tags = data.get("tags")
+                if isinstance(tags, str):
+                    tags = [tags] if tags else []
+                elif isinstance(tags, (list, tuple)):
+                    tags = [tag for tag in tags if tag]
+                else:
+                    tags = []
+            if len(tags) > 1:
+                raise ValueError("EntryForm expects exactly one tag.")
+            data["tags"] = tags[0] if tags else ""
+            kwargs["data"] = data
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields["account"].queryset = Account.objects.by_book(book)
         self.fields["asset"].queryset = Asset.objects.by_book(book)
-        self.fields["tags"] = forms.MultipleChoiceField(
+        self.fields["tags"] = forms.ChoiceField(
+            label="Tag",
             choices=ChoicesMixin.TAG_CHOICES,
-            widget=TagsCheckboxSelectMultiple(),
+            widget=forms.RadioSelect(),
         )
+        if self.instance.pk and len(self.instance.tags) > 1:
+            raise ValueError("Entry instances must not have multiple tags.")
+        if self.instance.pk and self.instance.tags:
+            self.initial["tags"] = self.instance.tags[0]
 
-    def clean(self):
-        cleaned_data = super(EntryForm, self).clean()
-        if not cleaned_data.get("tags"):
+    def clean_tags(self):
+        value = self.cleaned_data["tags"]
+
+        if not value:
             raise forms.ValidationError("Missing tags, choose at least one.")
-        return cleaned_data
+
+        if isinstance(value, str):
+            return [value]
+
+        if isinstance(value, (list, tuple)):
+            if len(value) != 1:
+                raise forms.ValidationError("Choose exactly one tag.")
+            return list(value)
+
+        raise forms.ValidationError("Invalid tag value.")
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -150,7 +178,7 @@ class EntryForm(forms.ModelForm):
                 attrs={
                     "class": "form-control",
                     "placeholder": "notes",
-                    "rows": 3,
+                    "rows": 2,
                 }
             ),
         )

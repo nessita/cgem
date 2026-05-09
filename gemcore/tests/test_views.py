@@ -4,32 +4,40 @@ from django.urls import reverse
 from gemcore.constants import TAGS
 from gemcore.tests.helpers import BaseTestCase
 
+DEFAULT_PASSWORD = "test"
+
 
 class AddEntryTestCase(BaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
+        cls.book = cls.factory.make_book(users=[cls.user])
+        cls.account = cls.factory.make_account(users=[cls.user])
+
     def test_integrity_error_handled(self):
-        user = self.factory.make_user()
-        assert self.client.login(username=user.username, password="test")
-        book = self.factory.make_book(users=[user])
-        account = self.factory.make_account(users=[user])
+        assert self.client.login(
+            username=self.user.username, password=DEFAULT_PASSWORD
+        )
         tag = TAGS[0]
         existing = self.factory.make_entry(
-            book=book,
-            account=account,
-            who=user,
+            book=self.book,
+            account=self.account,
+            who=self.user,
             amount=10,
             what="test",
             tags=[tag],
             country="US",
         )
-        url = reverse("add-entry", kwargs={"book_slug": book.slug})
+        url = reverse("add-entry", kwargs={"book_slug": self.book.slug})
 
         data = dict(
-            who=user.id,
+            who=self.user.id,
             amount=10,
             what="test",
             country="US",
             when=existing.when.isoformat(),
-            account=account.id,
+            account=self.account.id,
             tags=[tag],
         )
         response = self.client.post(url, data=data, follow=True)
@@ -40,28 +48,36 @@ class AddEntryTestCase(BaseTestCase):
 
 
 class AccountTransferTestCase(BaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
+        cls.book = cls.factory.make_book(users=[cls.user])
+        cls.source_account = cls.factory.make_account(users=[cls.user])
+        cls.target_account = cls.factory.make_account(users=[cls.user])
+
     def test_transfer_entries_use_correct_tag(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
-        source_account = self.factory.make_account(users=[user])
-        target_account = self.factory.make_account(users=[user])
-        url = reverse("account-transfer", args=[book.slug])
+        url = reverse("account-transfer", args=[self.book.slug])
 
         data = {
-            "source_account": source_account.id,
+            "source_account": self.source_account.id,
             "source_amount": "10.00",
-            "target_account": target_account.id,
+            "target_account": self.target_account.id,
             "target_amount": "11.00",
             "what": "Transfer test",
             "when": "2026-05-03",
             "country": "US",
         }
 
-        assert self.client.login(username=user.username, password="test")
+        assert self.client.login(
+            username=self.user.username, password=DEFAULT_PASSWORD
+        )
         response = self.client.post(url, data=data)
 
-        self.assertRedirects(response, reverse("entries", args=[book.slug]))
-        entries = list(book.entry_set.order_by("id"))
+        self.assertRedirects(
+            response, reverse("entries", args=[self.book.slug])
+        )
+        entries = list(self.book.entry_set.order_by("id"))
         self.assertEqual(len(entries), 2)
         self.assertEqual(
             entries[0].tags, [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
@@ -77,57 +93,71 @@ class AccountTransferTestCase(BaseTestCase):
 
 
 class BalanceViewTestCase(BaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
+        cls.book = cls.factory.make_book(users=[cls.user])
+        cls.account = cls.factory.make_account(users=[cls.user])
+
     def test_get_by_account(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
-        account = self.factory.make_account(users=[user])
-        kwargs = {"book_slug": book.slug, "account_slug": account.slug}
+        kwargs = {
+            "book_slug": self.book.slug,
+            "account_slug": self.account.slug,
+        }
         url = reverse("balance", kwargs=kwargs)
 
-        assert self.client.login(username=user.username, password="test")
+        assert self.client.login(
+            username=self.user.username, password=DEFAULT_PASSWORD
+        )
         response = self.client.get(url)
 
-        self.assertContains(response, "Balances for %s" % book.name)
+        self.assertContains(response, "Balances for %s" % self.book.name)
 
     def test_get_by_currency(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
-        account = self.factory.make_account(users=[user])
-        kwargs = {"book_slug": book.slug, "currency": account.currency}
+        kwargs = {
+            "book_slug": self.book.slug,
+            "currency": self.account.currency,
+        }
         url = reverse("balance", kwargs=kwargs)
 
-        assert self.client.login(username=user.username, password="test")
+        assert self.client.login(
+            username=self.user.username, password=DEFAULT_PASSWORD
+        )
         response = self.client.get(url)
 
-        self.assertContains(response, "Balances for %s" % book.name)
+        self.assertContains(response, "Balances for %s" % self.book.name)
 
 
 class BulkTestCaseMixin:
     action_name = ""
     action_btn = None
 
-    def do_request(self, user, book, method="GET", **kwargs):
-        url = reverse("entries", args=[book.slug])
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
+        cls.book = cls.factory.make_book(users=[cls.user])
 
-        assert self.client.login(username=user.username, password="test")
+    def do_request(self, method="GET", **kwargs):
+        url = reverse("entries", args=[self.book.slug])
+
+        assert self.client.login(
+            username=self.user.username, password=DEFAULT_PASSWORD
+        )
         return getattr(self.client, method.lower())(url, follow=True, **kwargs)
 
     def test_no_action_shown_if_no_entries(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
-
-        response = self.do_request(user, book)
+        response = self.do_request()
 
         assert self.action_btn is not None
         self.assertNotContains(response, self.action_btn)
 
     def test_button_shown_if_entries_available(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
         for i in range(3):
-            self.factory.make_entry(book=book)
+            self.factory.make_entry(book=self.book, who=self.user)
 
-        response = self.do_request(user, book)
+        response = self.do_request()
 
         self.assertContains(response, self.action_btn)
 
@@ -140,13 +170,14 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
     )
 
     def test_book_in_context_on_remove_post(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
-        entries = [self.factory.make_entry(book=book) for i in range(3)]
+        entries = [
+            self.factory.make_entry(book=self.book, who=self.user)
+            for i in range(3)
+        ]
 
         assert self.action_name
         data = {"entry": [e.id for e in entries], self.action_name: 1}
-        response = self.do_request(user, book, method="POST", data=data)
+        response = self.do_request(method="POST", data=data)
 
         msg = "Are you sure you want to remove these entries?"
         self.assertContains(response, msg)
@@ -155,9 +186,9 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
             msg = '<li>%s<input type="hidden" name="entry" value="%s"/></li>'
             self.assertContains(response, msg % (str(e), e.id))
 
-        self.assertEqual(book, response.context.get("book"))
+        self.assertEqual(self.book, response.context.get("book"))
 
-        url = reverse("remove-entry", args=[book.slug])
+        url = reverse("remove-entry", args=[self.book.slug])
         self.assertContains(
             response, '<form action="%s?" method="POST">' % url
         )
@@ -187,13 +218,15 @@ class BulkChangeTagTestCase(BulkTestCaseMixin, BaseTestCase):
     )
 
     def test_tags_changed(self):
-        user = self.factory.make_user()
-        book = self.factory.make_book(users=[user])
         # make many entries
         unchanged = [
-            self.factory.make_entry(book=book, tags=[t]) for t in TAGS
+            self.factory.make_entry(book=self.book, who=self.user, tags=[t])
+            for t in TAGS
         ]
-        entries = [self.factory.make_entry(book=book, tags=[t]) for t in TAGS]
+        entries = [
+            self.factory.make_entry(book=self.book, who=self.user, tags=[t])
+            for t in TAGS
+        ]
 
         assert self.action_name
         target_tag = TAGS[0]
@@ -202,9 +235,11 @@ class BulkChangeTagTestCase(BulkTestCaseMixin, BaseTestCase):
             self.action_name: 1,
             "tags-target": target_tag,
         }
-        response = self.do_request(user, book, method="POST", data=data)
+        response = self.do_request(method="POST", data=data)
 
-        self.assertRedirects(response, reverse("entries", args=[book.slug]))
+        self.assertRedirects(
+            response, reverse("entries", args=[self.book.slug])
+        )
         msg = ", ".join(str(e) for e in entries)
         self.assert_messages(
             response,

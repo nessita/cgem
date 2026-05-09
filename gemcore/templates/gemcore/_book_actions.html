@@ -3,6 +3,8 @@
                 New entry</a>
             <a href="{% url 'account-transfer' book.slug %}{% querystring %}" class="btn btn-default">
                 Account transfer</a>
+            <a href="{% url 'balance' book.slug %}" class="btn btn-default">
+                Balances</a>
             <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
-                Load from file</a>
+                Load file</a>
         </div>

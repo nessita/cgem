@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-
+import logging
 import os
 from collections import defaultdict
 
@@ -15,7 +14,15 @@ class BaseTestCase(TestCase):
     factory = Factory()
     maxDiff = None
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        logger = logging.getLogger("gemcore.parser")
+        cls.addClassCleanup(logger.setLevel, logger.level)
+        logger.setLevel(logging.WARNING)
+
     def data_file(self, filename):
+
         return os.path.join(os.path.dirname(__file__), "data", filename)
 
     def assert_messages(self, request_or_response, **kwargs):

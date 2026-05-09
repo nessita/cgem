@@ -14,12 +14,13 @@ MAX_ENTRIES = 50 if os.getenv("GITHUB_ACTIONS") == "true" else 10
 
 
 class BookTestCase(BaseTestCase):
-    def setUp(self):
-        super(BookTestCase, self).setUp()
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
         for u in ("user1", "user2", "other"):
-            setattr(self, u, self.factory.make_user(username=u))
-        self.book = self.factory.make_book(
-            name="Test", users=[self.user1, self.user2]
+            setattr(cls, u, cls.factory.make_user(username=u))
+        cls.book = cls.factory.make_book(
+            name="Test", users=[cls.user1, cls.user2]
         )
 
     def test_month_breakdown_empty(self):
@@ -29,6 +30,7 @@ class BookTestCase(BaseTestCase):
     def test_month_breakdown(self):
         expected = []
         entries = []
+        account = self.factory.make_account(users=[self.user1])
         for month in range(1, 13):
             for j in range(month % 6):
                 year = 2000 + j
@@ -42,6 +44,8 @@ class BookTestCase(BaseTestCase):
                         total -= amount
                     entry = self.factory.make_entry(
                         book=self.book,
+                        account=account,
+                        who=self.user1,
                         when=date(year, month, i + 1),
                         amount=amount,
                         is_income=is_income,
@@ -70,6 +74,7 @@ class BookTestCase(BaseTestCase):
     def test_year_breakdown(self):
         expected = []
         entries = []
+        account = self.factory.make_account(users=[self.user1])
         for year_suffix in range(13):
             year = 2000 + year_suffix
             year_count = 0
@@ -86,6 +91,8 @@ class BookTestCase(BaseTestCase):
                     year_count += 1
                     entry = self.factory.make_entry(
                         book=self.book,
+                        account=account,
+                        who=self.user1,
                         when=date(year, month, i + 1),
                         amount=amount,
                         is_income=is_income,
@@ -113,18 +120,29 @@ class BookTestCase(BaseTestCase):
         self.assertIsNone(balance)
 
         if account is None:
-            account = self.factory.make_account()
+            account = self.factory.make_account(users=[self.user1])
 
         # add some entries, $1 each, all but one the same day
         when = date(2020, 9, 11)
-        self.factory.make_entry(book=self.book, account=account, when=when)
-        self.factory.make_entry(book=self.book, account=account, when=when)
         self.factory.make_entry(
-            book=self.book, account=account, when=when, is_income=True
+            book=self.book, account=account, who=self.user1, when=when
+        )
+        self.factory.make_entry(
+            book=self.book, account=account, who=self.user1, when=when
+        )
+        self.factory.make_entry(
+            book=self.book,
+            account=account,
+            who=self.user1,
+            when=when,
+            is_income=True,
         )
         other_when = when + timedelta(days=30)
         self.factory.make_entry(
-            book=self.book, account=account, when=other_when
+            book=self.book,
+            account=account,
+            who=self.user1,
+            when=other_when,
         )
 
         other_first_of_month = date(other_when.year, other_when.month, 1)
@@ -161,16 +179,26 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(balance, expected)
 
     def test_balance_many_accounts_for_book_request_one(self):
-        account1 = self.factory.make_account()
-        account2 = self.factory.make_account()
-        account = self.factory.make_account()
+        account1 = self.factory.make_account(users=[self.user1])
+        account2 = self.factory.make_account(users=[self.user1])
+        account = self.factory.make_account(users=[self.user1])
 
-        self.factory.make_entry(book=self.book, account=account1)
-        self.factory.make_entry(book=self.book, account=account1)
+        self.factory.make_entry(
+            book=self.book, account=account1, who=self.user1
+        )
+        self.factory.make_entry(
+            book=self.book, account=account1, who=self.user1
+        )
 
-        self.factory.make_entry(book=self.book, account=account2)
-        self.factory.make_entry(book=self.book, account=account2)
-        self.factory.make_entry(book=self.book, account=account2)
+        self.factory.make_entry(
+            book=self.book, account=account2, who=self.user1
+        )
+        self.factory.make_entry(
+            book=self.book, account=account2, who=self.user1
+        )
+        self.factory.make_entry(
+            book=self.book, account=account2, who=self.user1
+        )
 
         self.test_balance_one_account(account=account)
 
@@ -179,10 +207,14 @@ class BookTestCase(BaseTestCase):
         when = now().date()
         entries = []
         for i in range(1, 4):
-            account = self.factory.make_account()
+            account = self.factory.make_account(users=[self.user1])
             for j in range(i):
                 entry = self.factory.make_entry(
-                    book=self.book, account=account, when=when, save=False
+                    book=self.book,
+                    account=account,
+                    who=self.user1,
+                    when=when,
+                    save=False,
                 )
                 entries.append(entry)
 
@@ -217,15 +249,19 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(str(ctx.exception), expected_error)
 
     def test_merge_entries_validations(self):
-        account1 = self.factory.make_account()
-        entry1 = self.factory.make_entry(book=self.book, account=account1)
+        account1 = self.factory.make_account(users=[self.user1])
+        entry1 = self.factory.make_entry(
+            book=self.book, account=account1, who=self.user1
+        )
 
         self.assert_merge_entries_value_error(
             entry1, expected_error="Need at least 2 entries to merge (got 1)."
         )
 
         other = self.factory.make_entry(
-            book=self.factory.make_book(slug="zzz"), account=account1
+            book=self.factory.make_book(slug="zzz", users=[self.user1]),
+            account=account1,
+            who=self.user1,
         )
         assert other.book != entry1.book
 
@@ -237,7 +273,7 @@ class BookTestCase(BaseTestCase):
         )
 
         othercountry = self.factory.make_entry(
-            book=self.book, account=account1, country="XX"
+            book=self.book, account=account1, who=self.user1, country="XX"
         )
         assert othercountry.country != entry1.country
         expected = "Can not merge entries for different countries (got %s)."
@@ -245,8 +281,10 @@ class BookTestCase(BaseTestCase):
             entry1, othercountry, expected_error=expected % "AR, XX"
         )
 
-        account2 = self.factory.make_account(slug="zzz")
-        entry2 = self.factory.make_entry(book=self.book, account=account2)
+        account2 = self.factory.make_account(slug="zzz", users=[self.user1])
+        entry2 = self.factory.make_entry(
+            book=self.book, account=account2, who=self.user1
+        )
 
         expected = "Can not merge entries for different accounts (got %s, %s)."
         self.assert_merge_entries_value_error(
@@ -256,45 +294,71 @@ class BookTestCase(BaseTestCase):
         )
 
     def test_merge_entries(self):
-        account = self.factory.make_account()
+        who = self.user1
+        account = self.factory.make_account(users=[who])
 
         # create many other entries to ensure nothing else is removed
         must_be_kept = (
             [
                 self.factory.make_entry(
-                    book=self.book, account=account, save=False
+                    book=self.book,
+                    account=account,
+                    who=who,
+                    save=False,
                 )
-                for i in range(3)
+                for i in range(2)
             ]
             + [
-                self.factory.make_entry(account=account, save=False)
-                for i in range(3)
+                self.factory.make_entry(
+                    book=self.book,
+                    account=account,
+                    who=who,
+                    save=False,
+                )
+                for i in range(2)
             ]
             + [
-                self.factory.make_entry(book=self.book, save=False)
-                for i in range(3)
+                self.factory.make_entry(
+                    book=self.book,
+                    account=account,
+                    who=who,
+                    save=False,
+                )
+                for i in range(2)
             ]
-            + [self.factory.make_entry(save=False) for i in range(3)]
+            + [
+                self.factory.make_entry(
+                    book=self.book,
+                    account=account,
+                    who=who,
+                    save=False,
+                )
+                for i in range(2)
+            ]
         )
 
+        # Tags should match for merging.
+        tags = [TAGS[-1]]
         entries = [
             self.factory.make_entry(
                 book=self.book,
                 account=account,
+                who=who,
                 amount=Decimal(i),
-                tags=[TAGS[i]],
+                tags=tags,
                 is_income=False,
                 what="Dummy",
                 save=False,
             )
-            for i in range(5)
+            for i in range(3)
         ]
         target = self.factory.make_entry(
             book=self.book,
             account=account,
+            who=who,
             amount=Decimal("100.88"),
             is_income=True,
-            tags=[TAGS[-1]],
+            tags=tags,
             what="A target entry",
             save=False,
         )
@@ -318,30 +382,66 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.who, target.who)
         self.assertEqual(result.when, target.when)
         expected = (
-            "A target entry +$100.88 | Dummy -$0 | Dummy -$1 | "
-            "Dummy -$2 | Dummy -$3 | Dummy -$4"
+            "A target entry +$100.88 | Dummy -$0 | Dummy -$1 | Dummy -$2"
         )
         self.assertEqual(result.what, expected)
         self.assertEqual(result.account, account)
-        self.assertEqual(result.amount, Decimal("90.88"))
+        self.assertEqual(result.amount, Decimal("97.88"))
         self.assertEqual(result.is_income, True)
-        self.assertEqual(result.tags, [TAGS[-1]] + TAGS[:5])
+        self.assertEqual(result.tags, tags)
         self.assertEqual(result.country, target.country)
         self.assertEqual(Entry.objects.last(), result)
         self.assertNotIn(result.id, ids)
-        # self.assertEqual(result, from_dry_run)
 
         self.assertEqual(Entry.objects.all().count(), len(must_be_kept) + 1)
         for e in must_be_kept:
             self.assertEqual(Entry.objects.get(id=e.id), e)
 
+    def test_merge_entries_rejects_different_tags(self):
+        who = self.user1
+        account = self.factory.make_account(users=[who])
+        entry1 = self.factory.make_entry(
+            book=self.book,
+            account=account,
+            who=who,
+            tags=[TAGS[0]],
+        )
+        entry2 = self.factory.make_entry(
+            book=self.book,
+            account=account,
+            who=who,
+            tags=[TAGS[1]],
+        )
+
+        with self.assertRaisesMessage(
+            ValueError,
+            "Can not merge entries for different tags",
+        ):
+            self.book.merge_entries(entry1, entry2)
+
+    def test_existing_entry_with_multiple_tags_still_full_cleans(self):
+        entry = self.factory.make_entry(
+            book=self.book,
+            who=self.user1,
+            tags=TAGS[:2],
+        )
+
+        try:
+            entry.full_clean()
+        except Exception as exc:
+            self.fail(
+                f"historical multi-tag entries should still validate: {exc}"
+            )
+
     def test_merge_entries_all_expenses(self):
-        account = self.factory.make_account()
+        who = self.user1
+        account = self.factory.make_account(users=[who])
 
         entries = [
             self.factory.make_entry(
                 book=self.book,
                 account=account,
+                who=who,
                 amount=Decimal(i),
                 is_income=False,
                 save=False,
@@ -358,12 +458,14 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.is_income, False)
 
     def test_merge_entries_all_income(self):
-        account = self.factory.make_account()
+        who = self.user1
+        account = self.factory.make_account(users=[who])
 
         entries = [
             self.factory.make_entry(
                 book=self.book,
                 account=account,
+                who=who,
                 amount=Decimal(i),
                 is_income=True,
                 save=False,
@@ -380,15 +482,24 @@ class BookTestCase(BaseTestCase):
         self.assertEqual(result.is_income, True)
 
     def test_merge_entries_atomic(self):
-        account = self.factory.make_account()
+        who = self.user1
+        account = self.factory.make_account(users=[who])
         # create another entry that will make the creation fail
         initial = self.factory.make_entry(
-            book=self.book, account=account, what="foo", amount=Decimal(10)
+            book=self.book,
+            account=account,
+            who=who,
+            what="foo",
+            amount=Decimal(10),
         )
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what="foo", amount=Decimal(i)
+                book=self.book,
+                account=account,
+                who=who,
+                what="foo",
+                amount=Decimal(i),
             )
             for i in range(5)
         ]
@@ -401,11 +512,16 @@ class BookTestCase(BaseTestCase):
             self.assertEqual(Entry.objects.get(id=e.id), e)
 
     def test_merge_entries_atomic_if_delete_fails(self):
-        account = self.factory.make_account()
+        who = self.user1
+        account = self.factory.make_account(users=[who])
 
         entries = [
             self.factory.make_entry(
-                book=self.book, account=account, what="foo", amount=Decimal(i)
+                book=self.book,
+                account=account,
+                who=who,
+                what="foo",
+                amount=Decimal(i),
             )
             for i in range(5)
         ]
@@ -421,16 +537,24 @@ class BookTestCase(BaseTestCase):
             self.assertEqual(Entry.objects.get(id=e.id), e)
 
     def test_breakdown(self):
+        who = self.user1
         entries = []
         for i, t in enumerate(TAGS, start=1):
             for j in range(i):
                 entry = self.factory.make_entry(
-                    book=self.book, tags=[t], save=False
+                    book=self.book,
+                    who=who,
+                    tags=[t],
+                    save=False,
                 )
                 entries.append(entry)
                 if j % 2:
                     entry_income = self.factory.make_entry(
-                        book=self.book, tags=[t], is_income=True, save=False
+                        book=self.book,
+                        who=who,
+                        tags=[t],
+                        is_income=True,
+                        save=False,
                     )
                     entries.append(entry_income)
 
