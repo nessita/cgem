@@ -86,26 +86,23 @@ class BookForm(forms.ModelForm):
         )
 
 
-class TagsCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
-    option_template_name = "gemcore/checkbox_option.html"
-
-
 class EntryForm(forms.ModelForm):
     def __init__(self, book, *args, **kwargs):
         self.book = book
         super(EntryForm, self).__init__(*args, **kwargs)
         self.fields["account"].queryset = Account.objects.by_book(book)
         self.fields["asset"].queryset = Asset.objects.by_book(book)
-        self.fields["tags"] = forms.MultipleChoiceField(
+        self.fields["tags"] = forms.ChoiceField(
+            label="Tag",
             choices=ChoicesMixin.TAG_CHOICES,
-            widget=TagsCheckboxSelectMultiple(),
+            widget=forms.RadioSelect(),
         )
+        if self.instance.pk and self.instance.tags:
+            self.initial["tags"] = self.instance.tags[0]
 
-    def clean(self):
-        cleaned_data = super(EntryForm, self).clean()
-        if not cleaned_data.get("tags"):
-            raise forms.ValidationError("Missing tags, choose at least one.")
-        return cleaned_data
+    def clean_tags(self):
+        tag = self.cleaned_data["tags"]
+        return [tag]
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -150,7 +147,7 @@ class EntryForm(forms.ModelForm):
                 attrs={
                     "class": "form-control",
                     "placeholder": "notes",
-                    "rows": 3,
+                    "rows": 2,
                 }
             ),
         )

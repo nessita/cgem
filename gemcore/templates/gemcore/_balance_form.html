@@ -1,15 +1,31 @@
-    <div class="row">
-        <form action="{% url 'balance' book.slug %}" method="POST" class="account-balance form-horizontal" role="form">
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">{{ form.source.label }} Balance</h3>
+    </div>
+    <div class="panel-body">
+        <form action="{% url 'balance' book.slug %}" method="POST" role="form">
             {% csrf_token %}
             {% if form.non_field_errors %}
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
             {% endif %}
-            {% include 'gemcore/_form_field.html' with field=form.source sronly=True extra_class="col-xs-5" %}
-            {% include 'gemcore/_form_field.html' with field=form.start sronly=True extra_class="col-xs-4" %}
-            {% include 'gemcore/_form_field.html' with field=form.end sronly=True extra_class="col-xs-4" %}
-            <div class="form-group col-xs-2">
-                <button type="submit" class="btn btn-sm {{ btnclass }}"
-                        name="get-{{ form.source.label.lower }}-balance">Get</button>
+            <div class="row">
+                <div class="col-xs-12 col-sm-4">
+                    {{ form.source.as_field_group }}
+                </div>
+                <div class="col-xs-6 col-sm-3">
+                    {{ form.start.as_field_group }}
+                </div>
+                <div class="col-xs-6 col-sm-3">
+                    {{ form.end.as_field_group }}
+                </div>
+                <div class="col-xs-12 col-sm-2 vspace-10">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-sm {{ btnclass }}"
+                                name="get-{{ form.source.label.lower }}-balance">Get</button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
+</div>

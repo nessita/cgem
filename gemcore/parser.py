@@ -98,7 +98,7 @@ class CSVParser(object):
         what = self.find_what(row)
 
         tags_dict = self.account.tags_for(what)
-        tags = list(tags_dict.keys()) or [settings.ENTRY_DEFAULT_TAG]
+        tags = [next(iter(tags_dict), settings.ENTRY_DEFAULT_TAG)]
         assets = {t[1] for t in tags_dict.values() if t[1] is not None}
         assert len(assets) < 2, f"{tags_dict=} produce confusing asset list."
 

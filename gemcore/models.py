@@ -1,12 +1,11 @@
-import operator
 import re
 from collections import OrderedDict, defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-from functools import reduce
 
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
 from django.db.models.functions import Now, TruncMonth, TruncYear
@@ -324,7 +323,7 @@ class Book(models.Model):
                 )
             )
         amount = sum(e.money for e in entries)
-        tags = reduce(operator.add, [e.tags for e in entries])
+        tags = master.tags[:1]
         notes = "\n".join(str(e) for e in entries)
         kwargs = dict(
             book=self,
@@ -506,6 +505,13 @@ class Entry(models.Model):
             self.account,
             " | " + self.notes if self.notes else "",
         )
+
+    def clean(self):
+        super().clean()
+        if len(self.tags) != 1:
+            raise ValidationError(
+                {"tags": "Exactly one tag must be selected."}
+            )
 
     @property
     def money(self):
