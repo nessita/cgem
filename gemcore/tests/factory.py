@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import itertools
 from datetime import date
 from decimal import Decimal
@@ -24,12 +22,14 @@ class Factory(object):
     def make_slug(self, prefix="slug"):
         return "%s-%s" % (prefix, self.make_integer())
 
-    def make_user(self, username=None, password="test", **kwargs):
+    def make_user(self, username=None, password=None, **kwargs):
         if username is None:
             username = "user-%s" % self.make_integer()
-        return User.objects.create_user(
-            username=username, password=password, **kwargs
-        )
+        user = User.objects.create(username=username, **kwargs)
+        if password:
+            user.set_password(password)
+            user.save(update_fields=["password"])
+        return user
 
     def make_book(self, slug=None, name=None, users=None, **kwargs):
         i = self.make_integer()
@@ -39,8 +39,7 @@ class Factory(object):
             slug = "book-%s" % i
         book = Book.objects.create(name=name, slug=slug, **kwargs)
         if users:
-            for u in users:
-                book.users.add(u)
+            book.users.set(users)
 
         return book
 
@@ -56,8 +55,7 @@ class Factory(object):
             name=name, slug=slug, currency=currency, **kwargs
         )
         if users:
-            for u in users:
-                account.users.add(u)
+            account.users.set(users)
 
         return account
 

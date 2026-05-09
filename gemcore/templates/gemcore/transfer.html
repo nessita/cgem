@@ -7,22 +7,72 @@
 
 {% block content %}
 
-<form action="." method="POST" class="form-inline" role="form">
+<form action="." method="POST" role="form">
     {% csrf_token %}
 
     {% if form.non_field_errors %}
     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
 
-    {% include 'gemcore/_form_field.html' with field=form.source_account %}
-    {% include 'gemcore/_form_field.html' with field=form.source_amount %}
-    {% include 'gemcore/_form_field.html' with field=form.target_account %}
-    {% include 'gemcore/_form_field.html' with field=form.target_amount %}
-    {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Source</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            {{ form.source_account.as_field_group }}
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.source_amount.as_field_group }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Target</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            {{ form.target_account.as_field_group }}
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.target_amount.as_field_group }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <div class="btn-group">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Details</h3>
+                </div>
+                <div class="panel-body">
+                    {{ form.what.as_field_group }}
+                    <div class="row">
+                        <div class="col-sm-6">
+                            {{ form.when.as_field_group }}
+                        </div>
+                        <div class="col-sm-6">
+                            {{ form.country.as_field_group }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
         <button type="submit" class="btn btn-primary" name="transfer">Transfer</button>
     </div>
 </form>

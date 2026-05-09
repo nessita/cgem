@@ -117,6 +117,19 @@ class CSVParserTestCase(BaseTestCase):
         for i, entry in enumerate(result["entries"], start=1):
             self.assertEqual(entry.what, f"col {i}2 | col {i}5 | col {i}4")
 
+    def test_parse_creates_entry_with_single_default_tag(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2, 3], country="US"
+        )
+        stream = StringIO("2021-10-21,line 1,10,0\n")
+
+        result, rows = self.do_parse(account, stream)
+
+        self.assert_result(result, errors=0, entries=1)
+        self.assertEqual(
+            result["entries"][0].tags, [settings.ENTRY_DEFAULT_TAG]
+        )
+
     def test_bank1(self):
         # Fecha / Hora Mov.,Concepto,Importe,Comentarios,Saldo Parcial
         account = self.make_account_with_parser(

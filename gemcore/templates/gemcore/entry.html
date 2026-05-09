@@ -8,56 +8,86 @@
 {% block content %}
 
 <div class="row add-entry">
+    <div class="col-md-10">
+        <form action="." method="POST" role="form">
+            {% csrf_token %}
 
-<form action="." method="POST" class="form-inline" role="form">
-    {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
 
-    {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-    {% if form.errors %}
-    <div class="alert alert-danger">{{ form.errors }}</div>
-    {% endif %}
+            <div class="row">
+                <div class="col-xs-6 col-sm-2">
+                    {{ form.who.as_field_group }}
+                </div>
+                <div class="col-xs-6 col-sm-2">
+                    {{ form.when.as_field_group }}
+                </div>
+                <div class="col-xs-12 col-sm-8">
+                    {{ form.what.as_field_group }}
+                </div>
+            </div>
 
-    {% include 'gemcore/_form_field.html' with field=form.who sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.when sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.what sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.account sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.amount sronly=True %}
-    <div class="form-group checkbox">{{ form.is_income }} Income?</div>
+            <div class="row">
+                <div class="col-xs-5 col-sm-2">
+                    {{ form.account.as_field_group }}
+                </div>
+                <div class="col-xs-5 col-sm-2">
+                    {{ form.amount.as_field_group }}
+                </div>
+                <div class="col-xs-2 col-sm-2">
+                    <div class="form-group checkbox">
+                        <label>&nbsp;</label>
+                        <div>{{ form.is_income }} Income?</div>
+                    </div>
+                </div>
+                <div class="col-xs-6 col-sm-3">
+                    {{ form.country.as_field_group }}
+                </div>
+                <div class="col-xs-6 col-sm-3">
+                    {{ form.asset.as_field_group }}
+                </div>
+            </div>
 
-    <br/>
-    {% include 'gemcore/_form_field.html' with field=form.notes sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.country sronly=True %}
-    {% include 'gemcore/_form_field.html' with field=form.asset %}
+            <div class="row">
+                <div class="col-xs-12 col-sm-3">
+                    {{ form.notes.as_field_group }}
+                </div>
+                <div class="col-xs-12 col-sm-9">
+                    <div class="form-group{% if form.tags.errors %} has-error{% endif %}">
+                        {{ form.tags.label_tag }}
+                        <div>
+                            {% for radio in form.tags %}
+                            <label class="radio-inline">{{ radio.tag }} {{ radio.choice_label }}</label>
+                            {% endfor %}
+                        </div>
+                        {{ form.tags.errors }}
+                    </div>
+                </div>
+            </div>
 
-    <div id="id_tags" class="form-group tags btn-group" data-toggle="buttons">
-      {% for i in form.tags %}
-      {{ i }}
-      {% endfor %}
+            <input type="hidden" name="qs" value="{{ qs }}" />
+
+            <div class="text-center">
+                {% if entry_prev %}
+                <div class="entry-navigation">
+                    <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
+                </div>
+                {% endif %}
+                <div class="btn-group hidden-xs" role="group">
+                    {% include 'gemcore/_entry_save_buttons.html' %}
+                </div>
+                <div class="btn-group-vertical visible-xs" role="group">
+                    {% include 'gemcore/_entry_save_buttons.html' %}
+                </div>
+                {% if entry_next %}
+                <div class="entry-navigation">
+                    <a href="{% url 'entry' book.slug entry_next.id %}">next &raquo;</a>
+                </div>
+                {% endif %}
+            </div>
+        </form>
     </div>
-
-    <input type="hidden" name="qs" value="{{ qs }}" />
-
-    <div class="text-center">
-        {% if entry_prev %}
-        <div class="entry-navigation">
-            <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
-        </div>
-        {% endif %}
-        <div class="btn-group hidden-xs" role="group">
-            {% include 'gemcore/_entry_save_buttons.html' %}
-        </div>
-        <div class="btn-group-vertical visible-xs" role="group">
-            {% include 'gemcore/_entry_save_buttons.html' %}
-        </div>
-        {% if entry_next %}
-        <div class="entry-navigation">
-            <a href="{% url 'entry' book.slug entry_next.id %}">next &raquo;</a>
-        </div>
-        {% endif %}
-    </div>
-</form>
 
 </div>
 

@@ -309,6 +309,12 @@ class Book(models.Model):
                 % ", ".join(sorted(countries))
             )
 
+        tags = list(set(reduce(operator.add, [e.tags for e in entries])))
+        if len(tags) > 1:
+            raise ValueError(
+                f"Can not merge entries for different tags (got {tags})."
+            )
+
         # prepare data for new Entry
         master = entries[0]
         who = who if who is not None else master.who
@@ -324,7 +330,6 @@ class Book(models.Model):
                 )
             )
         amount = sum(e.money for e in entries)
-        tags = reduce(operator.add, [e.tags for e in entries])
         notes = "\n".join(str(e) for e in entries)
         kwargs = dict(
             book=self,
