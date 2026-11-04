@@ -1,12 +1,11 @@
 import itertools
-from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 
-from gemcore.models import Account, Book, Entry, ParserConfig
+from gemcore.models import Account, Book, Entry, ParserConfig, utc_today
 
 User = get_user_model()
 
@@ -85,7 +84,7 @@ class Factory(object):
         if what is None:
             what = "Description of entry %i" % i
         if when is None:
-            when = date.today()
+            when = utc_today()
         tags = kwargs.pop("tags", [settings.ENTRY_DEFAULT_TAG])
 
         result = dict(

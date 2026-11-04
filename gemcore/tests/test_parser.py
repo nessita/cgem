@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from io import StringIO
 
@@ -69,7 +69,7 @@ class CSVParserTestCase(BaseTestCase):
             "notes": "source: 'stream with no name'",
             "tags": [settings.ENTRY_DEFAULT_TAG],
             "what": "line 2",
-            "when": datetime(2021, 10, 21, 0, 0),
+            "when": date(2021, 10, 21),
             "who": user.pk,
         }
         error = {

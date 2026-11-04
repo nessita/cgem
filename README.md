@@ -23,6 +23,13 @@ virtualenv with all the dependencies from requirement.txt installed, and just
 run the server either with the Django test server, or with the provided wsgi
 file.
 
+Dates and timezones
+------------------
+
+Financial dates are calendar dates and retain the date entered or imported,
+without timezone conversion. Automatic date defaults and asset expiration use
+the UTC calendar day. An asset is inactive on its `until` date. Audit
+timestamps are timezone-aware and use UTC.
 
 Contributing
 ------------
