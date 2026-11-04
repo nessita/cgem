@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
-from django.db.models.functions import Now, TruncMonth, TruncYear
+from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
@@ -20,6 +20,11 @@ from gemcore.constants import ChoicesMixin
 
 class DryRunError(Exception):
     """Dry run requested."""
+
+
+def utc_today():
+    """Use the same calendar day regardless of server or active timezone."""
+    return now().date()
 
 
 def month_year_iter(start, end):
@@ -407,7 +412,9 @@ class AssetManager(models.Manager):
             .annotate(
                 active=models.Case(
                     models.When(until=None, then=models.Value(True)),
-                    models.When(until__gt=Now(), then=models.Value(True)),
+                    models.When(
+                        until__gt=utc_today(), then=models.Value(True)
+                    ),
                     default=models.Value(False),
                 ),
             )
@@ -468,7 +475,7 @@ class TagRegex(models.Model):
 class Entry(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     who = models.ForeignKey(User, on_delete=models.CASCADE)
-    when = models.DateField(default=date.today)
+    when = models.DateField(default=utc_today)
     what = models.TextField()
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     asset = models.ForeignKey(

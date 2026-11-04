@@ -1,7 +1,18 @@
+from datetime import UTC, date, datetime, timedelta, timezone
+from unittest.mock import patch
+
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
+from django.utils.timezone import override
 
 from gemcore.constants import TAGS
+from gemcore.forms import (
+    AccountTransferForm,
+    BalanceForm,
+    EntryForm,
+    EntryMergeForm,
+)
 from gemcore.tests.helpers import BaseTestCase
 
 DEFAULT_PASSWORD = "test"
@@ -14,6 +25,22 @@ class AddEntryTestCase(BaseTestCase):
         cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
         cls.book = cls.factory.make_book(users=[cls.user])
         cls.account = cls.factory.make_account(users=[cls.user])
+
+    @override_settings(DATE_FORMAT="d/m/Y", LANGUAGE_CODE="fr")
+    def test_date_widgets_use_iso_format(self):
+        fields = (
+            BalanceForm.base_fields["start"],
+            BalanceForm.base_fields["end"],
+            EntryForm.base_fields["when"],
+            EntryMergeForm.base_fields["when"],
+            AccountTransferForm.base_fields["when"],
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                self.assertEqual(
+                    field.widget.format_value(date(2026, 11, 3)),
+                    "2026-11-03",
+                )
 
     def test_integrity_error_handled(self):
         assert self.client.login(
@@ -55,6 +82,21 @@ class AccountTransferTestCase(BaseTestCase):
         cls.book = cls.factory.make_book(users=[cls.user])
         cls.source_account = cls.factory.make_account(users=[cls.user])
         cls.target_account = cls.factory.make_account(users=[cls.user])
+
+    def test_date_default_follows_utc_midnight(self):
+        instants = (
+            datetime(2026, 12, 31, 23, 59, tzinfo=UTC),
+            datetime(2027, 1, 1, 0, 1, tzinfo=UTC),
+        )
+        for offset in (-12, 14):
+            for instant in instants:
+                with (
+                    self.subTest(offset=offset, instant=instant),
+                    override(timezone(timedelta(hours=offset))),
+                    patch("gemcore.models.now", return_value=instant),
+                ):
+                    form = AccountTransferForm(book=self.book)
+                    self.assertEqual(form["when"].value(), instant.date())
 
     def test_transfer_entries_use_correct_tag(self):
         url = reverse("account-transfer", args=[self.book.slug])

@@ -84,7 +84,9 @@ class CSVParser(object):
         for i in self.config.when:
             result = row[i]
             if result:
-                result = datetime.strptime(result, self.config.date_format)
+                result = datetime.strptime(
+                    result, self.config.date_format
+                ).date()
                 break
         assert result, "When not found (tried %r): %r" % (
             self.config.when,

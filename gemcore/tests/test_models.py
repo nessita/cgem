@@ -1,16 +1,35 @@
 import os
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.db import IntegrityError
-from django.utils.timezone import now
+from django.test import SimpleTestCase
+from django.utils.timezone import now, override
 
 from gemcore.constants import TAGS
-from gemcore.models import Entry
+from gemcore.models import Entry, utc_today
 from gemcore.tests.helpers import BaseTestCase
 
 MAX_ENTRIES = 50 if os.getenv("GITHUB_ACTIONS") == "true" else 10
+
+
+class UTCTodayTestCase(SimpleTestCase):
+    def test_utc_date_is_independent_of_active_timezone(self):
+        instants = (
+            datetime(2026, 12, 31, 23, 59, tzinfo=UTC),
+            datetime(2027, 1, 1, 0, 1, tzinfo=UTC),
+        )
+        for offset in (-12, 14):
+            for instant in instants:
+                with (
+                    self.subTest(offset=offset, instant=instant),
+                    override(timezone(timedelta(hours=offset))),
+                    patch("gemcore.models.now", return_value=instant),
+                ):
+                    result = utc_today()
+                    self.assertIs(type(result), date)
+                    self.assertEqual(result, instant.date())
 
 
 class BookTestCase(BaseTestCase):
@@ -22,6 +41,20 @@ class BookTestCase(BaseTestCase):
         cls.book = cls.factory.make_book(
             name="Test", users=[cls.user1, cls.user2]
         )
+
+    def test_entry_date_default_follows_utc_midnight(self):
+        instants = (
+            datetime(2026, 12, 31, 23, 59, tzinfo=UTC),
+            datetime(2027, 1, 1, 0, 1, tzinfo=UTC),
+        )
+        for offset in (-12, 14):
+            for instant in instants:
+                with (
+                    self.subTest(offset=offset, instant=instant),
+                    override(timezone(timedelta(hours=offset))),
+                    patch("gemcore.models.now", return_value=instant),
+                ):
+                    self.assertEqual(Entry().when, instant.date())
 
     def test_month_breakdown_empty(self):
         result = self.book.month_breakdown()
