@@ -34,7 +34,19 @@
 </nav>
 {% endpartialdef %}
 
+{% partialdef selection_balance %}
+<section class="flex flex-col gap-3" aria-labelledby="selection-balance-heading">
+    <h2 id="selection-balance-heading" class="font-semibold text-lg">Balance of {{ selected_count }} selected entr{{ selected_count|pluralize:"y,ies" }}</h2>
+    {% if balances %}
+        {% include 'gemcore/_balance_multiple_currency.html' %}
+    {% else %}
+        {% include 'gemcore/_balance_result.html' %}
+    {% endif %}
+</section>
+{% endpartialdef %}
+
 <h1 class="font-bold text-2xl">Entries for {{ book }}</h1>
+{% include 'gemcore/_book_actions.html' %}
 
 {% if filters.q or filters.when or filters.account %}
 <div class="flex flex-row flex-wrap gap-2" aria-label="Active search filters">
@@ -180,12 +192,14 @@
         {% endif %}
 
         <form id="entry-form-search" class="flex flex-col gap-3" method="GET" action="">
+            {% for name, value in search_filters %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
             <div class="flex flex-col gap-1">
                 <label for="search-text" class="block font-medium text-stone-700 text-sm">Search text</label>
                 <div class="flex flex-row gap-2 items-center">
                     <input type="text" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="q" autofocus
                            id="search-text" placeholder="Search" value="{{ filters.q|default_if_none:'' }}">
-                    {% include "components/button.html" with label="Clear text" id="clear-search-text" button_type="button" variant="secondary" only %}
+                    {% querystring q=None as clear_text_url %}
+                    {% include "components/button.html" with label="Clear text" id="clear-search-text" href=clear_text_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
                 </div>
             </div>
             <div class="flex flex-col gap-1">
@@ -193,27 +207,35 @@
                 <div class="flex flex-row gap-2 items-center">
                     <input type="date" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="when"
                            id="search-date" value="{{ filters.when|date:'Y-m-d' }}">
-                    {% include "components/button.html" with label="Clear date" id="clear-search-date" button_type="button" variant="secondary" only %}
+                    {% querystring when=None as clear_date_url %}
+                    {% include "components/button.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
                 </div>
             </div>
             <div class="flex">
                 {% include "components/button.html" with label="Search" only %}
             </div>
         </form>
-        {% include 'gemcore/_book_actions.html' %}
     </aside>
 
     <section class="flex flex-col gap-4 min-w-0 flex-1" aria-label="Entries and bulk actions">
         {% partial entries_paginator %}
         {% if entries %}
-        <form action="" method="POST" class="flex flex-col gap-4">
+        {% partialdef entry_selection inline %}
+        <form id="entry-selection" action="" method="POST" class="flex flex-col gap-4"
+              hx-select-oob="#entry-selection-toolbar,#select-page,#entries-list-body,#entries-balance-inline,#entry-selection-actions">
             {% csrf_token %}
-            <div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg">
+            <div id="entry-selection-toolbar" class="flex flex-row flex-wrap gap-3 items-center justify-between">
+                <p class="font-medium text-sm" role="status">{{ selected_count }} entr{{ selected_count|pluralize:"y,ies" }} selected on this page</p>
+                <div class="flex flex-row flex-wrap gap-2">
+                    {% include "components/button.html" with label="Clear selection" name="update-selection" value="clear" button_type="button" variant="secondary" disabled=no_selection hx_post=request.get_full_path hx_include="#entry-selection" hx_target="#entry-selection" hx_swap="none" hx_sync="#entry-selection:replace" hx_vals='{"update-selection":"clear"}' hx_disabled_elt="#entry-selection button:not([disabled])" only %}
+                </div>
+            </div>
+            <div id="entries-scroll" class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400" tabindex="0" role="region" aria-label="Entries table">
                 <table id="entries-list" class="divide-stone-200 divide-y min-w-full text-sm">
                     <caption class="sr-only">Entries for {{ book }}</caption>
                     <thead class="bg-stone-100 font-semibold text-stone-600 text-left text-xs tracking-wide uppercase">
                         <tr>
-                            <th scope="col" class="px-3 py-3"><input type="checkbox" class="h-4 w-4 accent-sky-700" onclick="toggle(this)" aria-label="Select all entries on this page"></th>
+                            <th scope="col" class="bg-stone-100 left-0 sticky z-10 px-3 py-3"><input id="select-page" name="select-page" type="checkbox" value="all" class="h-4 w-4 accent-sky-700" aria-label="Select all entries on this page"{% if all_selected %} checked{% endif %} hx-post="{{ request.get_full_path }}" hx-trigger="change" hx-include="#entry-selection" hx-target="#entry-selection" hx-swap="none" hx-sync="#entry-selection:replace" hx-vals='{"update-selection":"page"}' hx-disabled-elt="#entry-selection button:not([disabled])"></th>
                             <th scope="col" class="px-3 py-3">When</th>
                             <th scope="col" class="px-3 py-3">Who</th>
                             <th scope="col" class="px-3 py-3">What</th>
@@ -223,15 +245,15 @@
                             <th scope="col" class="px-3 py-3">Asset</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-stone-200 divide-y">
+                    <tbody id="entries-list-body" class="divide-stone-200 divide-y">
                         {% for entry in entries %}
-                        <tr class="even:bg-stone-100 hover:bg-sky-50">
-                            <td class="px-3 py-3 align-top"><input name="entry" type="checkbox" class="h-4 w-4 accent-sky-700" value="{{ entry.id }}" aria-label="Select entry: {{ entry.what }}"></td>
+                        <tr class="bg-stone-50 even:bg-stone-100 hover:bg-sky-50 has-checked:bg-sky-50">
+                            <td class="bg-inherit left-0 sticky z-10 px-3 py-3 align-top"><input id="entry-{{ entry.id }}" name="entry" type="checkbox" class="h-4 w-4 accent-sky-700" value="{{ entry.id }}" aria-label="Select entry: {{ entry.what }}"{% if entry.pk in selected_ids %} checked{% endif %} hx-post="{{ request.get_full_path }}" hx-trigger="change" hx-include="#entry-selection" hx-target="#entry-selection" hx-swap="none" hx-sync="#entry-selection:replace" hx-vals='{"update-selection":"change"}' hx-disabled-elt="#entry-selection button:not([disabled])"></td>
                             <td class="px-3 py-3 align-top whitespace-nowrap"><a class="hover:text-sky-700 text-sky-800" href="{% querystring when=entry.when %}">{{ entry.when|date:"M j, y" }}</a></td>
                             <td class="px-3 py-3 align-top">{{ entry.who.username|slice:"3" }}</td>
-                            <td class="px-3 py-3 align-top"><a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry.id %}?{{ filters.qs }}">{{ entry.what }}</a></td>
+                            <td class="max-w-sm min-w-48 break-words px-3 py-3 align-top"><a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry.id %}?{{ filters.qs }}">{{ entry.what }}</a></td>
                             <td class="px-3 py-3 align-top tabular-nums text-right whitespace-nowrap {% if not entry.is_income %}text-red-600{% endif %}">{% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}</td>
-                            <td class="px-3 py-3 align-top"><a class="hover:text-sky-700 text-sky-800" href="{% querystring account=entry.account.slug %}">{{ entry.account }}</a></td>
+                            <td class="max-w-48 break-words px-3 py-3 align-top"><a class="hover:text-sky-700 text-sky-800" href="{% querystring account=entry.account.slug %}">{{ entry.account }}</a></td>
                             <td class="px-3 py-3 align-top">
                                 <div class="flex flex-col gap-1">
                                     <span>{{ entry.country }}</span>
@@ -247,55 +269,49 @@
 
             <div id="entries-balance-inline" class="flex flex-col gap-4" aria-live="polite"></div>
 
-            <fieldset class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg">
-                <legend class="font-semibold px-1 text-lg">Selected entries</legend>
-                <div class="flex flex-col gap-3 xl:flex-row">
-                    <div class="flex flex-col gap-2 min-w-0 flex-1">
-                        {{ edit_account_form.target.as_field_group }}
-                        <div class="flex">{% include "components/button.html" with label="Change account" name="change-account" variant="secondary" only %}</div>
-                    </div>
-                    <div class="flex flex-col gap-2 min-w-0 flex-1">
-                        {{ edit_asset_form.target.as_field_group }}
-                        <div class="flex">{% include "components/button.html" with label="Change asset" name="change-asset" variant="secondary" only %}</div>
-                    </div>
-                    <div class="flex flex-col gap-2 min-w-0 flex-1">
-                        {{ edit_tags_form.target.as_field_group }}
-                        <div class="flex">{% include "components/button.html" with label="Change tag" name="change-tags" variant="secondary" only %}</div>
-                    </div>
-                    <div class="flex flex-col gap-2 min-w-0 flex-1">
-                        {{ edit_country_form.target.as_field_group }}
-                        <div class="flex">{% include "components/button.html" with label="Change country" name="change-country" variant="secondary" only %}</div>
-                    </div>
+            <section id="entry-selection-actions" class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg" aria-labelledby="selection-actions-heading">
+                <h2 id="selection-actions-heading" class="font-semibold text-lg">Selected entries</h2>
+                <div class="flex flex-row flex-wrap gap-2" aria-label="Selection actions">
+                    {% include "components/button.html" with label="Balance selected" name="calculate-balance" variant="secondary" disabled=no_selection hx_post=request.get_full_path hx_trigger="click" hx_target="#entries-balance-inline" hx_sync="#entry-selection:replace" hx_disabled_elt="#entry-selection button:not([disabled])" only %}
+                    {% include "components/button.html" with label="Merge" name="merge-selected" variant="secondary" disabled=cannot_merge only %}
                 </div>
-                <div class="flex flex-row flex-wrap gap-2">
-                    {% include "components/button.html" with label="Merge" name="merge-selected" variant="secondary" only %}
-                    {% include "components/button.html" with label="Remove" name="remove-selected" variant="danger" only %}
-                    {% include "components/button.html" with label="Balance" name="calculate-balance" variant="secondary" hx_post="." hx_trigger="click" hx_target="#entries-balance-inline" only %}
+                <fieldset class="flex flex-col gap-3"{% if no_selection %} disabled{% endif %}>
+                    <legend class="font-medium py-2 text-sm">Change selected entries</legend>
+                    <div id="entry-changes" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+                         hx-post="{{ request.get_full_path }}" hx-trigger="change"
+                         hx-include="#entry-selection" hx-target="#entry-selection"
+                         hx-swap="none" hx-sync="#entry-selection:replace"
+                         hx-vals='{"update-selection":"change"}'
+                         hx-disabled-elt="#entry-selection button:not([disabled])">
+                        <div class="flex flex-col gap-2 min-w-0 flex-1 sm:basis-1/3 2xl:basis-1/5">
+                            {{ edit_account_form.target.as_field_group }}
+                            <div class="flex">{% include "components/button.html" with label="Change account" name="change-account" variant="secondary" disabled=cannot_change_account only %}</div>
+                        </div>
+                        <div class="flex flex-col gap-2 min-w-0 flex-1 sm:basis-1/3 2xl:basis-1/5">
+                            {{ edit_asset_form.target.as_field_group }}
+                            <div class="flex">{% include "components/button.html" with label="Change asset" name="change-asset" variant="secondary" disabled=cannot_change_asset only %}</div>
+                        </div>
+                        <div class="flex flex-col gap-2 min-w-0 flex-1 sm:basis-1/3 2xl:basis-1/5 [&_select]:bg-teal-50 [&_select]:border-teal-200 [&_select]:text-teal-900">
+                            {{ edit_tags_form.target.as_field_group }}
+                            <div class="flex">{% include "components/button.html" with label="Change tag" name="change-tags" variant="secondary" disabled=cannot_change_tags only %}</div>
+                        </div>
+                        <div class="flex flex-col gap-2 min-w-0 flex-1 sm:basis-1/3 2xl:basis-1/5">
+                            {{ edit_country_form.target.as_field_group }}
+                            <div class="flex">{% include "components/button.html" with label="Change country" name="change-country" variant="secondary" disabled=cannot_change_country only %}</div>
+                        </div>
+                    </div>
+                </fieldset>
+                <div class="border-t border-stone-200 flex flex-row gap-2 justify-end pt-4">
+                    {% include "components/button.html" with label="Remove selected" name="remove-selected" variant="danger" disabled=no_selection only %}
                 </div>
-            </fieldset>
+            </section>
             {% partial entries_paginator %}
         </form>
+        {% endpartialdef %}
         {% else %}
         <p class="bg-stone-50 border border-stone-300 p-4 rounded-lg text-stone-600">No entries in the system.</p>
         {% endif %}
     </section>
 </div>
-
-<script>
-$("#clear-search-text").click(function(evt) {
-    evt.preventDefault();
-    $("#search-text").val("").focus();
-});
-$("#clear-search-date").click(function(evt) {
-    evt.preventDefault();
-    $("#search-date").val("").focus();
-});
-function toggle(source) {
-    var checkboxes = document.getElementsByName('entry');
-    for (var i = 0; i < checkboxes.length; i++) {
-        checkboxes[i].checked = source.checked;
-    }
-}
-</script>
 
 {% endblock content %}

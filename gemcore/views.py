@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import (
@@ -32,6 +32,16 @@ from gemcore.parser import CSVParser
 
 ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
+COUNTRY_BY_CURRENCY = {
+    "ARS": "AR",
+    "BRL": "BR",
+    "CAD": "CA",
+    "CNY": "CN",
+    "EUR": "",
+    "GBP": "GB",
+    "USD": "US",
+    "UYU": "UY",
+}
 
 
 @require_GET
@@ -193,13 +203,30 @@ def entries(request, book_slug):
     entries, filters, available = parse_request(request, book)
     accounts = Account.objects.by_book(book)
     assets = Asset.objects.by_book(book)
+    update_selection = (
+        request.method == "POST"
+        and request.htmx
+        and "update-selection" in request.POST
+    )
+    selected_ids = set()
+    if update_selection:
+        try:
+            selected_ids = {int(pk) for pk in request.POST.getlist("entry")}
+        except ValueError:
+            return HttpResponseBadRequest("Invalid entry selection.")
     form_data = request.POST if request.method == "POST" else None
 
     edit_account_form = ChooseForm(
-        queryset=accounts, data=form_data, prefix="account", label="Account"
+        queryset=accounts,
+        data=form_data,
+        prefix="account",
+        label="Account",
     )
     edit_asset_form = ChooseForm(
-        queryset=assets, data=form_data, prefix="asset", label="Asset"
+        queryset=assets,
+        data=form_data,
+        prefix="asset",
+        label="Asset",
     )
     edit_tags_form = ChooseForm(
         choices=ChoicesMixin.TAG_CHOICES,
@@ -214,7 +241,7 @@ def entries(request, book_slug):
         label="Country",
     )
 
-    if request.method == "POST":
+    if request.method == "POST" and not update_selection:
         here = request.get_full_path()
         error = None
 
@@ -350,15 +377,15 @@ def entries(request, book_slug):
             template = "gemcore/remove-entries.html"
 
         elif "calculate-balance" in request.POST:
+            template = "gemcore/entries.html#selection_balance"
+            context["selected_count"] = len(ids)
             entries = entries.select_related("account")
             currencies = entries.values_list(
                 "account__currency", flat=True
             ).distinct()
             if len(currencies) < 2:
-                template = "gemcore/_balance_result.html"
                 context["balance"] = book.balance(entries)
             else:
-                template = "gemcore/_balance_multiple_currency.html"
                 context["balances"] = {
                     currency: book.balance(
                         entries.filter(account__currency=currency)
@@ -371,7 +398,7 @@ def entries(request, book_slug):
 
         return render(request, template, context)
 
-    # Process GET.
+    # Selection updates share pagination so they stay scoped to this page.
     entries = entries.order_by("-when", "what", "id")
 
     try:
@@ -393,6 +420,17 @@ def entries(request, book_slug):
         entries = paginator.page(paginator.num_pages)
     else:
         page = int(page)
+
+    page_ids = {entry.pk for entry in entries}
+    selected_ids &= page_ids
+    if update_selection:
+        selection_action = request.POST["update-selection"]
+        if selection_action == "page":
+            selected_ids = (
+                page_ids if request.POST.get("select-page") == "all" else set()
+            )
+        elif selection_action == "clear":
+            selected_ids = set()
 
     if paginator.num_pages <= MAX_PAGES:
         start = 1
@@ -421,6 +459,17 @@ def entries(request, book_slug):
         "filters": filters,
         "available": available,
         "entries": entries,
+        "selected_ids": selected_ids,
+        "selected_count": len(selected_ids),
+        "all_selected": bool(page_ids) and selected_ids == page_ids,
+        "no_selection": not selected_ids,
+        "cannot_merge": len(selected_ids) < 2,
+        "search_filters": [
+            (key, value)
+            for key, values in request.GET.lists()
+            if key not in {"q", "when"}
+            for value in values
+        ],
         "when_next": when_next,
         "when_prev": when_prev,
         "page_end": end,
@@ -434,7 +483,37 @@ def entries(request, book_slug):
         "account_balance_form": AccountBalanceForm(queryset=accounts),
         "currency_balance_form": CurrencyBalanceForm(choices=currencies),
     }
+    for name, form in (
+        ("account", edit_account_form),
+        ("asset", edit_asset_form),
+        ("tags", edit_tags_form),
+        ("country", edit_country_form),
+    ):
+        context[f"cannot_change_{name}"] = not (
+            selected_ids and form.is_valid() and form.cleaned_data["target"]
+        )
+    if update_selection:
+        return render(request, "gemcore/entries.html#entry_selection", context)
     return render(request, "gemcore/entries.html", context)
+
+
+@require_GET
+@login_required
+def entry_country(request, book_slug):
+    book = get_object_or_404(Book, slug=book_slug, users=request.user)
+    country = request.GET.get("country", "")
+    account_id = request.GET.get("account")
+    if account_id:
+        try:
+            account_id = int(account_id)
+        except ValueError:
+            raise Http404("Invalid account.")
+        account = get_object_or_404(
+            Account.objects.by_book(book), pk=account_id
+        )
+        country = COUNTRY_BY_CURRENCY.get(account.currency, country)
+    form = EntryForm(book=book, initial={"country": country})
+    return render(request, "gemcore/entry.html#entry_country", {"form": form})
 
 
 @require_http_methods(["GET", "POST"])
@@ -484,10 +563,18 @@ def entry(request, book_slug, entry_id=None):
 
             q = request.GET.get("q", "")
             initial = dict(who=request.user, account=account, what=q)
+            if account is not None:
+                initial["country"] = COUNTRY_BY_CURRENCY.get(
+                    account.currency, ""
+                )
             when = request.GET.get("when")
             if when:
                 initial["when"] = when
 
+        if entry and not entry.country:
+            initial["country"] = COUNTRY_BY_CURRENCY.get(
+                entry.account.currency, ""
+            )
         form = EntryForm(instance=entry, book=book, initial=initial)
         if entry:
             try:
