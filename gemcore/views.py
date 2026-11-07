@@ -7,9 +7,16 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.http import Http404, HttpResponseBadRequest, HttpResponseRedirect
+from django.db.models import Q
+from django.http import (
+    Http404,
+    HttpResponseBadRequest,
+    HttpResponseRedirect,
+    QueryDict,
+)
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils.formats import date_format
 from django.views.decorators.http import (
     require_GET,
     require_http_methods,
@@ -32,6 +39,7 @@ from gemcore.parser import CSVParser
 
 ENTRIES_PER_PAGE = 25
 MAX_PAGES = 4
+ENTRY_ORDERING = ("-when", "what", "id")
 COUNTRY_BY_CURRENCY = {
     "ARS": "AR",
     "BRL": "BR",
@@ -93,7 +101,7 @@ def parse_request(request, book, **kwargs):
     except (ValueError, TypeError):
         when = None
     else:
-        entries = book.entry_set.filter(when=when)
+        entries = entries.filter(when=when)
 
     try:
         year = int(params.get("year"))
@@ -174,7 +182,7 @@ def parse_request(request, book, **kwargs):
         "include_tags": include_tags,
         "month": month,
         "q": q,
-        "qs": urlencode(params),
+        "qs": params.urlencode(),
         "start": start,
         "tags": used_tags,
         "when": when,
@@ -399,7 +407,7 @@ def entries(request, book_slug):
         return render(request, template, context)
 
     # Selection updates share pagination so they stay scoped to this page.
-    entries = entries.order_by("-when", "what", "id")
+    entries = entries.order_by(*ENTRY_ORDERING)
 
     try:
         page_size = abs(int(request.GET.get("page_size")))
@@ -454,10 +462,45 @@ def entries(request, book_slug):
         when_next = None
         when_prev = None
     currencies = [c for c, i in available["currencies"]]
+    active_filters = []
+    for name, label in (
+        ("q", "Search"),
+        ("when", "Date"),
+        ("account", "Account"),
+        ("tag", "Tag"),
+        ("month", "Month"),
+        ("year", "Year"),
+        ("country", "Country"),
+        ("who", "Person"),
+        ("currency", "Currency"),
+        ("asset", "Asset"),
+        ("include_tag", "Include tag"),
+        ("exclude_tag", "Exclude tag"),
+        ("start", "From"),
+        ("end", "Until"),
+    ):
+        for value in dict.fromkeys(request.GET.getlist(name)):
+            if not value:
+                continue
+            params = request.GET.copy()
+            params.setlist(
+                name, [item for item in params.getlist(name) if item != value]
+            )
+            display_value = value
+            if name in {"when", "start", "end"} and filters[name]:
+                display_value = date_format(filters[name], "M j, y")
+            active_filters.append(
+                {
+                    "name": name,
+                    "label": f"{label}: {display_value}",
+                    "href": "?" + params.urlencode(),
+                }
+            )
     context = {
         "book": book,
         "filters": filters,
         "available": available,
+        "active_filters": active_filters,
         "entries": entries,
         "selected_ids": selected_ids,
         "selected_count": len(selected_ids),
@@ -524,28 +567,53 @@ def entry(request, book_slug, entry_id=None):
     if entry_id:
         entry = get_object_or_404(Entry, book=book, id=entry_id)
 
-    context = dict(book=book, entry=entry, qs=urlencode(request.GET))
+    params = request.GET.copy()
+    # Date defaults for another entry must not change the return filters.
+    params.pop("initial_when", None)
+    qs = request.POST.get("qs", params.urlencode())
+    context = dict(book=book, entry=entry, qs=qs)
+    if entry:
+        filtered, _, _ = parse_request(request, book)
+        if filtered.filter(pk=entry.pk).exists():
+            before = (
+                Q(when__gt=entry.when)
+                | Q(when=entry.when, what__lt=entry.what)
+                | Q(when=entry.when, what=entry.what, pk__lt=entry.pk)
+            )
+            after = (
+                Q(when__lt=entry.when)
+                | Q(when=entry.when, what__gt=entry.what)
+                | Q(when=entry.when, what=entry.what, pk__gt=entry.pk)
+            )
+            context["entry_prev"] = (
+                filtered.filter(before)
+                .order_by(*ENTRY_ORDERING)
+                .reverse()
+                .first()
+            )
+            context["entry_next"] = (
+                filtered.filter(after).order_by(*ENTRY_ORDERING).first()
+            )
+
     if request.method == "POST":
         form = EntryForm(instance=entry, book=book, data=request.POST)
         if form.is_valid():
             entry = form.save()
             if entry is not None:
-                # decide where to redirecr next
                 kwargs = dict(book_slug=book_slug)
+                return_params = QueryDict(qs, mutable=True)
                 if "save-and-new" in request.POST:
                     url = reverse("add-entry", kwargs=kwargs)
                 elif "save-and-new-same-date" in request.POST:
                     url = reverse("add-entry", kwargs=kwargs)
-                    url += "?when=" + entry.when.isoformat()
+                    return_params["initial_when"] = entry.when.isoformat()
                 elif "save-and-edit" in request.POST:
                     kwargs["entry_id"] = entry.id
                     url = reverse("entry", kwargs=kwargs)
-                else:  # could be a remove or 'save-and-go-back'
-                    url = (
-                        reverse("entries", kwargs=kwargs)
-                        + "?"
-                        + request.POST["qs"]
-                    )
+                else:
+                    url = reverse("entries", kwargs=kwargs)
+                if return_params:
+                    url += "?" + return_params.urlencode()
                 messages.success(
                     request, 'Entry "%s" successfully processed.' % entry
                 )
@@ -567,7 +635,7 @@ def entry(request, book_slug, entry_id=None):
                 initial["country"] = COUNTRY_BY_CURRENCY.get(
                     account.currency, ""
                 )
-            when = request.GET.get("when")
+            when = request.GET.get("initial_when") or request.GET.get("when")
             if when:
                 initial["when"] = when
 
@@ -576,15 +644,6 @@ def entry(request, book_slug, entry_id=None):
                 entry.account.currency, ""
             )
         form = EntryForm(instance=entry, book=book, initial=initial)
-        if entry:
-            try:
-                context["entry_prev"] = entry.get_previous_by_when()
-            except Entry.DoesNotExist:
-                pass
-            try:
-                context["entry_next"] = entry.get_next_by_when()
-            except Entry.DoesNotExist:
-                pass
 
     context["form"] = form
     return render(request, "gemcore/entry.html", context)
@@ -594,7 +653,8 @@ def entry(request, book_slug, entry_id=None):
 @login_required
 def entry_remove(request, book_slug, entry_id=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
-    entries, filters, available = parse_request(request, book)
+    entries = book.entry_set.all()
+    qs = request.GET.urlencode()
     if request.method == "GET":
         entries = entries.filter(id=entry_id)
     elif request.method == "POST":
@@ -613,13 +673,13 @@ def entry_remove(request, book_slug, entry_id=None):
         else:
             messages.warning(request, "Removal of entries cancelled.")
         return HttpResponseRedirect(
-            reverse("entries", args=(book.slug,)) + "?" + filters["qs"]
+            reverse("entries", args=(book.slug,)) + "?" + qs
         )
 
     return render(
         request,
         "gemcore/remove-entries.html",
-        dict(entries=entries, book=book, qs=filters["qs"]),
+        dict(entries=entries, book=book, qs=qs),
     )
 
 

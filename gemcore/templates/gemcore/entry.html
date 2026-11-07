@@ -4,7 +4,7 @@
 
 <h1 class="font-bold text-2xl">{% if entry %}Edit entry{% else %}New entry{% endif %}</h1>
 
-<form action="." method="POST" class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg">
+<form action="" method="POST" class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg">
     {% csrf_token %}
     {% include "forms/errors.html" with errors=form.non_field_errors only %}
 
@@ -43,16 +43,16 @@
             {% include "components/button.html" with label="Go back" href=entries_url|add:"?"|add:qs variant="secondary" only %}
             {% if entry %}
             {% url 'remove-entry' book.slug entry.id as remove_url %}
-            {% include "components/button.html" with label="Remove" href=remove_url variant="danger" only %}
+            {% include "components/button.html" with label="Remove" href=remove_url|add:"?"|add:qs variant="danger" only %}
             {% endif %}
         </div>
         {% if entry_prev or entry_next %}
         <nav class="flex flex-row flex-wrap gap-4 text-sm" aria-label="Adjacent entries">
             {% if entry_prev %}
-            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_prev.id %}">&laquo; Previous entry</a>
+            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_prev.id %}?{{ qs }}">&laquo; Previous entry</a>
             {% endif %}
             {% if entry_next %}
-            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_next.id %}">Next entry &raquo;</a>
+            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_next.id %}?{{ qs }}">Next entry &raquo;</a>
             {% endif %}
         </nav>
         {% endif %}
