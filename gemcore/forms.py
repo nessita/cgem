@@ -7,21 +7,21 @@ from gemcore.models import Account, Asset, Book, Entry, utc_today
 
 
 class ChooseForm(forms.Form):
-    def __init__(self, queryset=None, choices=None, *args, **kwargs):
+    def __init__(
+        self, queryset=None, choices=None, *args, label="Choices", **kwargs
+    ):
         super(ChooseForm, self).__init__(*args, **kwargs)
         if choices:
             self.fields["target"] = forms.ChoiceField(
-                label="Choices",
+                label=label,
                 choices=choices,
                 required=False,
-                widget=forms.Select(attrs={"class": "form-control input-sm"}),
             )
         else:
             self.fields["target"] = forms.ModelChoiceField(
-                label="Choices",
+                label=label,
                 queryset=queryset,
                 required=False,
-                widget=forms.Select(attrs={"class": "form-control input-sm"}),
             )
 
 
@@ -30,7 +30,6 @@ class BalanceForm(forms.Form):
         widget=forms.DateInput(
             format="%Y-%m-%d",
             attrs={
-                "class": "form-control input-sm",
                 "placeholder": "Start",
                 "type": "date",
             },
@@ -41,7 +40,6 @@ class BalanceForm(forms.Form):
         widget=forms.DateInput(
             format="%Y-%m-%d",
             attrs={
-                "class": "form-control input-sm",
                 "placeholder": "End",
                 "type": "date",
             },
@@ -54,7 +52,6 @@ class AccountBalanceForm(BalanceForm):
     source = forms.ModelChoiceField(
         label="Account",
         queryset=None,
-        widget=forms.Select(attrs={"class": "form-control input-sm"}),
     )
 
     def __init__(self, queryset, *args, **kwargs):
@@ -68,7 +65,6 @@ class AccountBalanceForm(BalanceForm):
 class CurrencyBalanceForm(BalanceForm):
     source = forms.ChoiceField(
         label="Currency",
-        widget=forms.Select(attrs={"class": "form-control input-sm"}),
     )
 
     def __init__(self, choices, *args, **kwargs):
@@ -81,9 +77,6 @@ class BookForm(forms.ModelForm):
     class Meta:
         model = Book
         exclude = ("slug",)
-        widgets = dict(
-            users=forms.SelectMultiple(attrs={"class": "form-control"})
-        )
 
 
 class EntryForm(forms.ModelForm):
@@ -113,6 +106,10 @@ class EntryForm(forms.ModelForm):
             label="Tag",
             choices=ChoicesMixin.TAG_CHOICES,
             widget=forms.RadioSelect(),
+        )
+        self.fields["tags"].widget.template_name = "forms/radio.html"
+        self.fields["tags"].widget.option_template_name = (
+            "forms/radio_option.html"
         )
         if self.instance.pk and len(self.instance.tags) > 1:
             raise ValueError("Entry instances must not have multiple tags.")
@@ -151,14 +148,11 @@ class EntryForm(forms.ModelForm):
         widgets = dict(
             when=forms.DateInput(
                 format="%Y-%m-%d",
-                attrs={"class": "form-control", "type": "date"},
+                attrs={"type": "date"},
             ),
-            who=forms.Select(
-                attrs={"class": "form-control", "placeholder": "who"}
-            ),
+            who=forms.Select(attrs={"placeholder": "who"}),
             what=forms.TextInput(
                 attrs={
-                    "class": "form-control",
                     "placeholder": "what",
                     "autofocus": "true",
                 }
@@ -166,18 +160,12 @@ class EntryForm(forms.ModelForm):
             amount=forms.NumberInput(
                 attrs={
                     "size": 10,
-                    "class": "form-control",
                     "placeholder": "how much",
                 }
             ),
-            account=forms.Select(attrs={"class": "form-control"}),
-            asset=forms.Select(attrs={"class": "form-control"}),
-            country=forms.Select(
-                attrs={"class": "form-control", "placeholder": "where"}
-            ),
+            country=forms.Select(attrs={"placeholder": "where"}),
             notes=forms.Textarea(
                 attrs={
-                    "class": "form-control",
                     "placeholder": "notes",
                     "rows": 2,
                 }
@@ -189,7 +177,7 @@ class EntryMergeForm(forms.Form):
     when = forms.DateField(
         widget=forms.DateInput(
             format="%Y-%m-%d",
-            attrs={"class": "form-control input-sm", "type": "date"},
+            attrs={"type": "date"},
         )
     )
 
@@ -198,15 +186,13 @@ class CSVExpenseForm(forms.Form):
     account = forms.ModelChoiceField(
         label="Account",
         queryset=Account.objects.none(),
-        widget=forms.Select(
-            attrs={"class": "form-control", "autofocus": "true"}
-        ),
+        widget=forms.Select(attrs={"autofocus": "true"}),
     )
     csv_file = forms.FileField(required=False)
     csv_content = forms.CharField(
         required=False,
         label="CSV content (optional, only used if not file given)",
-        widget=forms.Textarea(attrs={"class": "form-control"}),
+        widget=forms.Textarea(),
     )
 
     def __init__(self, book, *args, **kwargs):
@@ -229,43 +215,33 @@ class AccountTransferForm(forms.Form):
     source_account = forms.ModelChoiceField(
         label="From",
         queryset=Account.objects.none(),
-        widget=forms.Select(
-            attrs={"class": "form-control", "autofocus": "true"}
-        ),
+        widget=forms.Select(attrs={"autofocus": "true"}),
     )
     source_amount = forms.DecimalField(
         label="$",
         min_value=0.1,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
     target_account = forms.ModelChoiceField(
         label="To",
         queryset=Account.objects.none(),
-        widget=forms.Select(attrs={"class": "form-control"}),
     )
     target_amount = forms.DecimalField(
         label="$",
         min_value=0.1,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
     what = forms.CharField(
         initial="Traspaso de fondos",
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "what"}
-        ),
+        widget=forms.TextInput(attrs={"placeholder": "what"}),
     )
     when = forms.DateField(
         initial=utc_today,
-        widget=forms.DateInput(
-            format="%Y-%m-%d", attrs={"class": "form-control", "type": "date"}
-        ),
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
     )
     country = forms.ChoiceField(
         choices=countries,
         initial="UY",
-        widget=forms.Select(attrs={"class": "form-control"}),
     )
 
     def __init__(self, book, *args, **kwargs):

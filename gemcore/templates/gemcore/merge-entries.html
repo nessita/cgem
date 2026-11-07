@@ -1,26 +1,21 @@
 {% extends 'base.html' %}
-{% load static %}
-
-{% block head-extra %}
-    <script src="{% static 'js/add-entry.js' %}"></script>
-{% endblock head-extra %}
 
 {% block content %}
 
-<h1>Are you sure you want to merge these entries?</h1>
-
-<form action="{% if book %}{% url 'merge-entry' book.slug %}?{{ qs }}{% endif %}" method="POST" class="form-inline" role="form">
+<h1 class="font-bold text-2xl">Are you sure you want to merge these entries?</h1>
+<form action="{% if book %}{% url 'merge-entry' book.slug %}?{{ qs }}{% endif %}" method="POST" class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg">
     {% csrf_token %}
-    <p>Result of merge will be: {{ merge_dry_run }}</p>
-    <p>Choose date: {{ form.when }}</p>
-    <ul>
-    {% for entry in entries %}
-        <li>{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"/></li>
-    {% endfor %}
+    {% include "forms/errors.html" with errors=form.non_field_errors only %}
+    <p class="break-words text-stone-700">Result of merge will be: {{ merge_dry_run }}</p>
+    <div class="max-w-sm">{{ form.when.as_field_group }}</div>
+    <ul class="flex flex-col gap-2 text-sm">
+        {% for entry in entries %}
+        <li class="break-words">{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"></li>
+        {% endfor %}
     </ul>
-    <div class="text-center">
-        <button type="submit" class="btn btn-default" name="yes">Yes, merge</button>
-        <button type="submit" class="btn btn-primary" name="no">No!</button>
+    <div class="flex flex-row flex-wrap gap-2">
+        {% include "components/button.html" with label="Yes, merge" name="yes" only %}
+        {% include "components/button.html" with label="No!" name="no" variant="secondary" only %}
     </div>
 </form>
 

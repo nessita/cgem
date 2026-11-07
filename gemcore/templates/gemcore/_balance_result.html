@@ -1,22 +1,31 @@
-        <table class="table">
-            <thead>
-            <tr><th>Month</th><th>Income</th><th>Expense</th><th>Total/month</th><th>Total/acc</th></tr>
-            </thead>
-            <tbody>
-            {% for item in balance.months reversed %}
+{% if balance %}
+<div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg">
+    <table class="divide-stone-200 divide-y min-w-full text-sm">
+        <caption class="sr-only">Monthly balance</caption>
+        <thead class="bg-stone-100 font-semibold text-stone-600 text-left text-xs tracking-wide uppercase">
             <tr>
-                <td class="">
-                    <a href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug currency=currency %}">
-                        {{ item.start|date:"Y M" }}
-                    </a>
-                </td>
-                <td class="balance">{{ item.income }}</td>
-                <td class="balance expense">-{{ item.expense }}</td>
-                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.result }}</td>
-                <td class="balance {% if balance.result < 0 %}expense{% endif %}">{{ item.acc }}</td>
+                <th scope="col" class="px-4 py-3">Month</th>
+                <th scope="col" class="px-4 py-3 text-right">Income</th>
+                <th scope="col" class="px-4 py-3 text-right">Expense</th>
+                <th scope="col" class="px-4 py-3 text-right">Total/month</th>
+                <th scope="col" class="px-4 py-3 text-right">Total/acc</th>
+            </tr>
+        </thead>
+        <tbody class="divide-stone-200 divide-y">
+            {% for item in balance.months reversed %}
+            <tr class="even:bg-stone-100">
+                <th scope="row" class="font-medium px-4 py-3 text-left whitespace-nowrap">
+                    <a class="hover:text-sky-700 text-sky-800" href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug currency=currency %}">{{ item.start|date:"Y M" }}</a>
+                </th>
+                <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap">{{ item.income }}</td>
+                <td class="px-4 py-3 tabular-nums text-right text-red-600 whitespace-nowrap">-{{ item.expense }}</td>
+                <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap {% if item.result < 0 %}text-red-600{% endif %}">{{ item.result }}</td>
+                <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap {% if item.acc < 0 %}text-red-600{% endif %}">{{ item.acc }}</td>
             </tr>
             {% endfor %}
-            </tbody>
-            <tfoot>
-            </tfoot>
-        </table>
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-stone-600">No entries.</p>
+{% endif %}

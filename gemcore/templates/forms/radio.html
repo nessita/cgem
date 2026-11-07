@@ -1,0 +1,9 @@
+<div class="flex flex-row flex-wrap gap-3"{% if widget.attrs.id %} id="{{ widget.attrs.id }}"{% endif %}>
+    {% for group, options, index in widget.optgroups %}
+        {% if group %}<fieldset class="flex flex-col gap-2"><legend class="font-medium text-stone-700 text-sm">{{ group }}</legend>{% endif %}
+        {% for option in options %}
+            {% include option.template_name with widget=option %}
+        {% endfor %}
+        {% if group %}</fieldset>{% endif %}
+    {% endfor %}
+</div>

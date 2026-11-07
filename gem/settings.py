@@ -85,6 +85,8 @@ TEMPLATES = [
     },
 ]
 
+FORM_RENDERER = "gem.forms.TailwindFormRenderer"
+
 WSGI_APPLICATION = "gem.wsgi.application"
 
 

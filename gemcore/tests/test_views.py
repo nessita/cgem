@@ -1,11 +1,13 @@
 from datetime import UTC, date, datetime, timedelta, timezone
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.timezone import override
 from django_htmx.middleware import HtmxMiddleware
 
@@ -17,7 +19,7 @@ from gemcore.forms import (
     EntryMergeForm,
 )
 from gemcore.middleware import HtmxRedirectMiddleware
-from gemcore.tests.helpers import BaseTestCase
+from gemcore.tests.helpers import BaseTestCase, ElementCollector
 
 DEFAULT_PASSWORD = "test"
 
@@ -63,6 +65,66 @@ class HtmxRedirectMiddlewareTestCase(SimpleTestCase):
                 response = self.response_for(original, htmx=True)
                 self.assertIs(response, original)
                 self.assertNotIn("HX-Redirect", response.headers)
+
+
+class LoginViewTestCase(BaseTestCase):
+    def test_invalid_fields_keep_accessible_error_associations(self):
+        response = self.client.post(
+            reverse("login"), {"username": "", "password": ""}
+        )
+        elements = ElementCollector(response.content.decode()).elements
+        ids = {attrs["id"] for tag, attrs in elements if "id" in attrs}
+        inputs = {
+            attrs["name"]: attrs
+            for tag, attrs in elements
+            if tag == "input" and "name" in attrs
+        }
+        for name in ("username", "password"):
+            with self.subTest(name=name):
+                self.assertEqual(inputs[name]["aria-invalid"], "true")
+                for error_id in inputs[name]["aria-describedby"].split():
+                    self.assertIn(error_id, ids)
+
+    def test_login_preserves_destination_and_accepts_credentials(self):
+        user = self.factory.make_user(password=DEFAULT_PASSWORD)
+        book = self.factory.make_book(users=[user])
+        destination = reverse("entries", args=[book.slug]) + "?q=coffee"
+        response = self.client.get(reverse("login"), {"next": destination})
+        elements = ElementCollector(response.content.decode()).elements
+        inputs = {
+            attrs["name"]: attrs
+            for tag, attrs in elements
+            if tag == "input" and "name" in attrs
+        }
+        self.assertEqual(inputs["next"]["value"], destination)
+        self.assertEqual(inputs["password"]["type"], "password")
+        self.assertIn("csrfmiddlewaretoken", inputs)
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": user.username,
+                "password": DEFAULT_PASSWORD,
+                "next": inputs["next"]["value"],
+            },
+        )
+        self.assertRedirects(response, destination)
+
+    def test_logout_uses_post(self):
+        user = self.factory.make_user()
+        self.client.force_login(user)
+        response = self.client.get(reverse("books"))
+        elements = ElementCollector(response.content.decode()).elements
+        forms = [
+            attrs
+            for tag, attrs in elements
+            if tag == "form" and attrs.get("action") == reverse("logout")
+        ]
+        self.assertEqual(len(forms), 1)
+        self.assertEqual(forms[0]["method"], "post")
+        self.assertEqual(self.client.get(reverse("logout")).status_code, 405)
+        response = self.client.post(reverse("logout"))
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
 
 
 class AddEntryTestCase(BaseTestCase):
@@ -147,6 +209,46 @@ class AddEntryTestCase(BaseTestCase):
         error = "There is already an entry for this data."
         form = response.context["form"]
         self.assertFormError(form, field=None, errors=[error])
+        self.assertContains(response, 'role="alert"')
+
+    def test_edit_preserves_radio_selection_and_return_filters(self):
+        entry = self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            tags=[TAGS[0]],
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("entry", args=[self.book.slug, entry.pk]),
+            {"q": "coffee", "tag": TAGS[0]},
+        )
+        elements = ElementCollector(response.content.decode()).elements
+        selected = [
+            attrs
+            for tag, attrs in elements
+            if tag == "input"
+            and attrs.get("name") == "tags"
+            and "checked" in attrs
+        ]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["type"], "radio")
+        self.assertEqual(selected[0]["value"], TAGS[0])
+        hidden_filters = next(
+            attrs["value"]
+            for tag, attrs in elements
+            if tag == "input" and attrs.get("name") == "qs"
+        )
+        self.assertEqual(
+            parse_qs(hidden_filters), {"q": ["coffee"], "tag": [TAGS[0]]}
+        )
+        expected = (
+            reverse("entries", args=[self.book.slug]) + "?" + hidden_filters
+        )
+        self.assertIn(
+            expected,
+            [attrs.get("href") for tag, attrs in elements if tag == "a"],
+        )
 
 
 class AccountTransferTestCase(BaseTestCase):
@@ -208,6 +310,30 @@ class AccountTransferTestCase(BaseTestCase):
         self.assertEqual(entries[1].amount, 11.00)
         self.assertEqual(entries[1].what, "Transfer test (target)")
 
+    def test_invalid_transfer_displays_errors_without_creating_entries(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("account-transfer", args=[self.book.slug]),
+            {
+                "source_account": self.source_account.pk,
+                "target_account": self.source_account.pk,
+                "source_amount": "10.00",
+                "target_amount": "10.00",
+                "what": "Transfer test",
+                "when": "2026-11-06",
+                "country": "US",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["book"], self.book)
+        self.assertFormError(
+            response.context["form"],
+            None,
+            ["Source account can not be the same as the target account."],
+        )
+        self.assertContains(response, 'role="alert"')
+        self.assertEqual(self.book.entry_set.count(), 0)
+
 
 class BalanceViewTestCase(BaseTestCase):
     @classmethod
@@ -245,10 +371,154 @@ class BalanceViewTestCase(BaseTestCase):
 
         self.assertContains(response, "Balances for %s" % self.book.name)
 
+    def test_balance_forms_have_distinct_ids_and_keep_invalid_values(self):
+        self.client.force_login(self.user)
+        url = reverse("balance", args=[self.book.slug])
+        response = self.client.get(url)
+        elements = ElementCollector(response.content.decode()).elements
+        ids = [attrs["id"] for tag, attrs in elements if "id" in attrs]
+        self.assertEqual(len(ids), len(set(ids)))
+
+        for action, source, context_name in (
+            ("get-account-balance", self.account.pk, "account_balance_form"),
+            (
+                "get-currency-balance",
+                self.account.currency,
+                "currency_balance_form",
+            ),
+        ):
+            with self.subTest(action=action):
+                response = self.client.post(
+                    url, {action: "", "source": source, "start": "invalid"}
+                )
+                form = response.context[context_name]
+                self.assertFormError(form, "start", ["Enter a valid date."])
+                self.assertEqual(form["start"].value(), "invalid")
+                self.assertContains(response, "Enter a valid date.")
+
+
+class BookPagesTestCase(BaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = cls.factory.make_user()
+        cls.book = cls.factory.make_book(users=[cls.user])
+        cls.account = cls.factory.make_account(users=[cls.user])
+
+    def test_book_pages_and_forms_render(self):
+        self.client.force_login(self.user)
+        for name, args in (
+            ("books", []),
+            ("add-book", []),
+            ("book", [self.book.slug]),
+            ("entries", [self.book.slug]),
+            ("add-entry", [self.book.slug]),
+            ("balance", [self.book.slug]),
+            ("load-from-file", [self.book.slug]),
+            ("account-transfer", [self.book.slug]),
+        ):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, args=args))
+                self.assertEqual(response.status_code, 200)
+
+    def test_pagination_preserves_filters_and_bulk_selection(self):
+        for index in range(3):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                what=f"Coffee {index}",
+                tags=[TAGS[0]],
+                country="US",
+            )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("entries", args=[self.book.slug]),
+            {"q": "Coffee", "tag": TAGS[0], "country": "US", "page_size": 1},
+        )
+        self.assertContains(response, 'aria-label="Entries pages"', count=2)
+        elements = ElementCollector(response.content.decode()).elements
+        page_links = [
+            parse_qs(urlsplit(attrs["href"]).query)
+            for tag, attrs in elements
+            if tag == "a"
+            and "href" in attrs
+            and parse_qs(urlsplit(attrs["href"]).query).get("page") == ["2"]
+        ]
+        self.assertGreater(len(page_links), 0)
+        for query in page_links:
+            self.assertEqual(query["q"], ["Coffee"])
+            self.assertEqual(query["tag"], [TAGS[0]])
+            self.assertEqual(query["country"], ["US"])
+        selections = [
+            attrs
+            for tag, attrs in elements
+            if tag == "input" and attrs.get("name") == "entry"
+        ]
+        self.assertEqual(len(selections), 1)
+        self.assertEqual(selections[0]["type"], "checkbox")
+        self.assertEqual(
+            selections[0]["value"], str(response.context["entries"][0].pk)
+        )
+        for form_name in (
+            "edit_account_form",
+            "edit_asset_form",
+            "edit_tags_form",
+            "edit_country_form",
+        ):
+            self.assertIs(response.context[form_name].is_bound, False)
+
+    def test_inline_balance_preserves_htmx_target_and_supports_currencies(
+        self,
+    ):
+        entry = self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            amount=10,
+            is_income=False,
+        )
+        other_account = self.factory.make_account(
+            users=[self.user], currency="EUR"
+        )
+        other = self.factory.make_entry(
+            book=self.book,
+            account=other_account,
+            who=self.user,
+            amount=20,
+            is_income=True,
+        )
+        self.client.force_login(self.user)
+        url = reverse("entries", args=[self.book.slug])
+        response = self.client.get(url)
+        elements = ElementCollector(response.content.decode()).elements
+        buttons = [
+            attrs
+            for tag, attrs in elements
+            if tag == "button" and attrs.get("name") == "calculate-balance"
+        ]
+        self.assertEqual(len(buttons), 1)
+        self.assertEqual(buttons[0]["hx-post"], ".")
+        self.assertEqual(buttons[0]["hx-target"], "#entries-balance-inline")
+        self.assertEqual(buttons[0]["hx-trigger"], "click")
+
+        for selected in ([entry.pk], [entry.pk, other.pk]):
+            with self.subTest(selected=selected):
+                response = self.client.post(
+                    url,
+                    {"entry": selected, "calculate-balance": ""},
+                    headers={"HX-Request": "true"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, "<html")
+                self.assertContains(
+                    response, "Monthly balance", count=len(selected)
+                )
+        self.assertEqual(self.book.entry_set.count(), 2)
+
 
 class BulkTestCaseMixin:
     action_name = ""
-    action_btn = None
 
     @classmethod
     def setUpTestData(cls):
@@ -267,8 +537,8 @@ class BulkTestCaseMixin:
     def test_no_action_shown_if_no_entries(self):
         response = self.do_request()
 
-        assert self.action_btn is not None
-        self.assertNotContains(response, self.action_btn)
+        assert self.action_name
+        self.assertNotContains(response, f'name="{self.action_name}"')
 
     def test_button_shown_if_entries_available(self):
         for i in range(3):
@@ -276,15 +546,11 @@ class BulkTestCaseMixin:
 
         response = self.do_request()
 
-        self.assertContains(response, self.action_btn)
+        self.assertContains(response, f'name="{self.action_name}"')
 
 
 class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
     action_name = "remove-selected"
-    action_btn = (
-        '<button type="submit" class="btn btn-sm btn-default" '
-        f'name="{action_name}">Remove</button>'
-    )
 
     def test_book_in_context_on_remove_post(self):
         entries = [
@@ -300,8 +566,11 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
         self.assertContains(response, msg)
 
         for e in entries:
-            msg = '<li>%s<input type="hidden" name="entry" value="%s"/></li>'
-            self.assertContains(response, msg % (str(e), e.id))
+            self.assertContains(response, escape(str(e)))
+            self.assertInHTML(
+                f'<input type="hidden" name="entry" value="{e.id}">',
+                response.content.decode(),
+            )
 
         self.assertEqual(self.book, response.context.get("book"))
 
@@ -310,29 +579,34 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
             response, '<form action="%s?" method="POST">' % url
         )
 
+    def test_single_entry_confirmation_keeps_book_and_filters(self):
+        entry = self.factory.make_entry(book=self.book, who=self.user)
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("remove-entry", args=[self.book.slug, entry.pk]),
+            {"country": entry.country},
+        )
+        self.assertEqual(response.context["book"], self.book)
+        self.assertEqual(
+            parse_qs(response.context["qs"]), {"country": [entry.country]}
+        )
+        self.assertInHTML(
+            f'<input type="hidden" name="entry" value="{entry.pk}">',
+            response.content.decode(),
+        )
+        self.assertEqual(self.book.entry_set.count(), 1)
+
 
 class BulkMergeTestCase(BulkTestCaseMixin, BaseTestCase):
     action_name = "merge-selected"
-    action_btn = (
-        '<button type="submit" class="btn btn-sm btn-default" '
-        f'name="{action_name}">Merge</button>'
-    )
 
 
 class BulkChangeAccountTestCase(BulkTestCaseMixin, BaseTestCase):
     action_name = "change-account"
-    action_btn = (
-        '<button type="submit" class="btn btn-sm btn-default" '
-        f'name="{action_name}">Change account</button>'
-    )
 
 
 class BulkChangeTagTestCase(BulkTestCaseMixin, BaseTestCase):
     action_name = "change-tags"
-    action_btn = (
-        '<button type="submit" class="btn btn-sm btn-default" '
-        f'name="{action_name}">Change tag</button>'
-    )
 
     def test_tags_changed(self):
         # make many entries

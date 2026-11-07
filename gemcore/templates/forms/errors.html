@@ -1,0 +1,5 @@
+{% if errors %}
+<ul class="bg-red-50 border border-red-200 flex flex-col gap-1 p-3 rounded-md text-red-800 text-sm" role="alert">
+    {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+</ul>
+{% endif %}

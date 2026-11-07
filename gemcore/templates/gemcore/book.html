@@ -2,27 +2,15 @@
 
 {% block content %}
 
-{% if book %}
-<h1>Edit {{ book }}</h1>
-{% else %}
-<h1>Add a book</h1>
-{% endif %}
-
-<form action="." method="POST" class="form-inline" role="form">
+<h1 class="font-bold text-2xl">{% if book %}Edit {{ book }}{% else %}Add a book{% endif %}</h1>
+<form action="." method="POST" class="bg-stone-50 border border-stone-300 flex flex-col gap-3 p-4 rounded-lg">
     {% csrf_token %}
-    {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-    {% for field in form %}
-    {{ field.as_field_group }}
-    {% endfor %}
-
-    <div class="btn-group">
+    {{ form }}
+    <div class="flex flex-row flex-wrap gap-2">
         {% if book %}
-        <button type="submit" class="btn btn-primary" name="save">Save</button>
-        <a href="{% url 'remove-book' book.slug %}" class="btn btn-default">Remove</a>
+        {% include "components/button.html" with label="Save" name="save" only %}
         {% else %}
-        <input type="submit" class="btn btn-primary" name="add" value="Add">
+        {% include "components/button.html" with label="Add" name="add" value="Add" only %}
         {% endif %}
     </div>
 </form>

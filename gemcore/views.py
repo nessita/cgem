@@ -193,20 +193,25 @@ def entries(request, book_slug):
     entries, filters, available = parse_request(request, book)
     accounts = Account.objects.by_book(book)
     assets = Asset.objects.by_book(book)
+    form_data = request.POST if request.method == "POST" else None
 
     edit_account_form = ChooseForm(
-        queryset=accounts, data=request.POST, prefix="account"
+        queryset=accounts, data=form_data, prefix="account", label="Account"
     )
     edit_asset_form = ChooseForm(
-        queryset=assets, data=request.POST, prefix="asset"
+        queryset=assets, data=form_data, prefix="asset", label="Asset"
     )
     edit_tags_form = ChooseForm(
-        choices=ChoicesMixin.TAG_CHOICES, data=request.POST, prefix="tags"
+        choices=ChoicesMixin.TAG_CHOICES,
+        data=form_data,
+        prefix="tags",
+        label="Tag",
     )
     edit_country_form = ChooseForm(
         choices=ChoicesMixin.COUNTRY_CHOICES,
-        data=request.POST,
+        data=form_data,
         prefix="country",
+        label="Country",
     )
 
     if request.method == "POST":
@@ -525,7 +530,9 @@ def entry_remove(request, book_slug, entry_id=None):
         )
 
     return render(
-        request, "gemcore/remove-entries.html", dict(entries=entries)
+        request,
+        "gemcore/remove-entries.html",
+        dict(entries=entries, book=book, qs=filters["qs"]),
     )
 
 
@@ -629,7 +636,7 @@ def load_from_file(request, book_slug):
     else:
         form = CSVExpenseForm(book=book)
 
-    context = dict(form=form)
+    context = dict(form=form, book=book)
     return render(request, "gemcore/load.html", context)
 
 
@@ -689,7 +696,7 @@ def account_transfer(request, book_slug):
             initial["when"] = when
         form = AccountTransferForm(book, initial=initial)
 
-    context = dict(form=form)
+    context = dict(form=form, book=book)
     return render(request, "gemcore/transfer.html", context)
 
 
@@ -702,11 +709,16 @@ def balance(
     accounts = Account.objects.by_book(book)
     currencies = sorted(set(accounts.values_list("currency", flat=True)))
 
+    form = None
     if request.method == "POST":
         if "get-account-balance" in request.POST:
-            form = AccountBalanceForm(queryset=accounts, data=request.POST)
+            form = AccountBalanceForm(
+                queryset=accounts, data=request.POST, auto_id="id_account_%s"
+            )
         elif "get-currency-balance" in request.POST:
-            form = CurrencyBalanceForm(choices=currencies, data=request.POST)
+            form = CurrencyBalanceForm(
+                choices=currencies, data=request.POST, auto_id="id_currency_%s"
+            )
         else:
             raise Http404()
 
@@ -748,10 +760,17 @@ def balance(
     account_balance_form = AccountBalanceForm(
         queryset=accounts,
         initial=dict(source=account_slug, start=start, end=end),
+        auto_id="id_account_%s",
     )
     currency_balance_form = CurrencyBalanceForm(
-        choices=currencies, initial=dict(source=currency, start=start, end=end)
+        choices=currencies,
+        initial=dict(source=currency, start=start, end=end),
+        auto_id="id_currency_%s",
     )
+    if isinstance(form, AccountBalanceForm):
+        account_balance_form = form
+    elif isinstance(form, CurrencyBalanceForm):
+        currency_balance_form = form
     context = {
         "balance": balance,
         "book": book,
