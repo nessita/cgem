@@ -2,9 +2,12 @@ from datetime import UTC, date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 from django.conf import settings
-from django.test import override_settings
+from django.contrib.auth import SESSION_KEY
+from django.http import HttpResponse, HttpResponseRedirect
+from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import override
+from django_htmx.middleware import HtmxMiddleware
 
 from gemcore.constants import TAGS
 from gemcore.forms import (
@@ -13,9 +16,53 @@ from gemcore.forms import (
     EntryForm,
     EntryMergeForm,
 )
+from gemcore.middleware import HtmxRedirectMiddleware
 from gemcore.tests.helpers import BaseTestCase
 
 DEFAULT_PASSWORD = "test"
+
+
+class HtmxRedirectMiddlewareTestCase(SimpleTestCase):
+    factory = RequestFactory()
+
+    def response_for(self, response, *, htmx):
+        headers = {"HX-Request": "true"} if htmx else {}
+        request = self.factory.get("/", headers=headers)
+        middleware = HtmxMiddleware(
+            HtmxRedirectMiddleware(lambda request: response)
+        )
+        return middleware(request)
+
+    def test_htmx_302_becomes_client_redirect(self):
+        response = self.response_for(
+            HttpResponseRedirect("/login/?next=/book/"), htmx=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Redirect"], "/login/?next=/book/")
+        self.assertNotIn("Location", response.headers)
+        self.assertEqual(response.content, b"")
+
+    def test_plain_302_passes_through(self):
+        redirect = HttpResponseRedirect("/login/?next=/book/")
+        response = self.response_for(redirect, htmx=False)
+        self.assertIs(response, redirect)
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("HX-Redirect", response.headers)
+
+    def test_htmx_non_redirect_passes_through(self):
+        original = HttpResponse("Form errors")
+        response = self.response_for(original, htmx=True)
+        self.assertIs(response, original)
+        self.assertEqual(response.content, b"Form errors")
+        self.assertNotIn("HX-Redirect", response.headers)
+
+    def test_other_redirect_statuses_pass_through(self):
+        for status in (301, 303, 307, 308):
+            with self.subTest(status=status):
+                original = HttpResponseRedirect("/book/", status=status)
+                response = self.response_for(original, htmx=True)
+                self.assertIs(response, original)
+                self.assertNotIn("HX-Redirect", response.headers)
 
 
 class AddEntryTestCase(BaseTestCase):
@@ -25,6 +72,34 @@ class AddEntryTestCase(BaseTestCase):
         cls.user = cls.factory.make_user(password=DEFAULT_PASSWORD)
         cls.book = cls.factory.make_book(users=[cls.user])
         cls.account = cls.factory.make_account(users=[cls.user])
+
+    def test_htmx_requests_without_session_redirect_to_login(self):
+        url = reverse("entries", args=[self.book.slug])
+        for method in ("get", "post"):
+            with self.subTest(method=method):
+                plain = getattr(self.client, method)(url)
+                self.assertEqual(plain.status_code, 302)
+                response = getattr(self.client, method)(
+                    url, headers={"HX-Request": "true"}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response["HX-Redirect"], plain["Location"])
+                self.assertNotIn("Location", response.headers)
+
+    def test_htmx_login_keeps_authenticated_session(self):
+        destination = reverse("entries", args=[self.book.slug])
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": self.user.username,
+                "password": DEFAULT_PASSWORD,
+                "next": destination,
+            },
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Redirect"], destination)
+        self.assertEqual(self.client.session[SESSION_KEY], str(self.user.pk))
 
     @override_settings(DATE_FORMAT="d/m/Y", LANGUAGE_CODE="fr")
     def test_date_widgets_use_iso_format(self):
