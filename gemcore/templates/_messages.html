@@ -1,9 +1,14 @@
-      <div class="row">
-        <div class="col-md-12">
-            {% for message in messages %}
-                <div id="messages" class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-                    {{ message|linebreaksbr }}
-                </div>
-            {% endfor %}
-        </div>
-      </div>
+{% if messages %}
+<ul class="flex flex-col gap-2">
+    {% for message in messages %}
+    <li class="border px-4 py-3 rounded-md text-sm
+        {% if message.level_tag == 'error' %}bg-red-50 border-red-800 text-red-800
+        {% elif message.level_tag == 'warning' %}bg-amber-50 border-amber-800 text-amber-800
+        {% elif message.level_tag == 'success' %}bg-green-50 border-green-800 text-green-800
+        {% elif message.level_tag == 'debug' %}bg-stone-100 border-stone-600 text-stone-600
+        {% else %}bg-sky-50 border-sky-800 text-sky-900{% endif %}">
+        {{ message|linebreaksbr }}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}

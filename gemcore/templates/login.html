@@ -2,18 +2,16 @@
 
 {% block content %}
 
-<form action="." method="POST" class="form" role="form">
-    {% csrf_token %}
-
-    {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-
-    {{ form.as_div }}
-
-    <div class="btn-group">
-        <button type="submit" class="btn btn-primary" name="load">Login</button>
-    </div>
-</form>
+<section class="bg-stone-50 border border-stone-300 flex flex-col gap-3 p-4 rounded-lg" aria-labelledby="login-heading">
+    <h1 id="login-heading" class="font-bold text-2xl">Login</h1>
+    <form action="." method="POST" class="flex flex-col gap-3">
+        {% csrf_token %}
+        {{ form }}
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="flex">
+            {% include "components/button.html" with label="Login" name="load" only %}
+        </div>
+    </form>
+</section>
 
 {% endblock content %}

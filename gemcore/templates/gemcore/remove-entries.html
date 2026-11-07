@@ -2,19 +2,22 @@
 
 {% block content %}
 
-<h1>Are you sure you want to remove these entries?</h1>
-
-<form action="{% if book %}{% url 'remove-entry' book.slug %}?{{ qs }}{% endif %}" method="POST">
-    {% csrf_token %}
-    <ul>
-    {% for entry in entries %}
-        <li>{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"/></li>
-    {% endfor %}
-    </ul>
-    <div class="text-center">
-        <button type="submit" class="btn btn-default" name="yes">Yes, remove</button>
-        <button type="submit" class="btn btn-primary" name="no">No!</button>
-    </div>
-</form>
+<h1 class="font-bold text-2xl">Are you sure you want to remove these entries?</h1>
+<div class="bg-stone-50 border border-stone-300 p-4 rounded-lg">
+    <form action="{% if book %}{% url 'remove-entry' book.slug %}?{{ qs }}{% endif %}" method="POST">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+            <ul class="flex flex-col gap-2 text-sm">
+                {% for entry in entries %}
+                <li class="break-words">{{ entry }}<input type="hidden" name="entry" value="{{ entry.id }}"></li>
+                {% endfor %}
+            </ul>
+            <div class="flex flex-row flex-wrap gap-2">
+                {% include "components/button.html" with label="Yes, remove" name="yes" variant="danger" only %}
+                {% include "components/button.html" with label="No!" name="no" variant="secondary" only %}
+            </div>
+        </div>
+    </form>
+</div>
 
 {% endblock content %}

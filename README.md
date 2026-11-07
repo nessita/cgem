@@ -76,6 +76,10 @@ static files:
 python manage.py collectstatic --noinput
 ```
 
+The shared base template loads the generated Tailwind stylesheet. The
+application UI uses Tailwind throughout. CI does not build the stylesheet, so
+run the build explicitly before `collectstatic` in deployment.
+
 Dates and timezones
 ------------------
 

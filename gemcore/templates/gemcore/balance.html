@@ -1,40 +1,22 @@
 {% extends 'base.html' %}
-{% load static %}
-
-{% block head-extra %}
-    <script src="{% static 'js/add-entry.js' %}"></script>
-{% endblock head-extra %}
 
 {% block content %}
 
-<h1>Balances for {{ book }}</h1>
+<h1 class="font-bold text-2xl">Balances for {{ book }}</h1>
+<section class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg" aria-labelledby="balance-result-heading">
+    <h2 id="balance-result-heading" class="font-semibold text-lg">
+        {% if balance %}From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}{% else %}Current result{% endif %}
+    </h2>
+    {% if balance %}
+        {% include 'gemcore/_balance_result.html' %}
+    {% else %}
+        <p class="text-stone-600">No entries.</p>
+    {% endif %}
+</section>
+<section class="flex flex-col gap-4" aria-labelledby="new-balance-heading">
+    <h2 id="new-balance-heading" class="font-semibold text-lg">New balance</h2>
+    {% include 'gemcore/_balance_form.html' with form=account_balance_form %}
+    {% include 'gemcore/_balance_form.html' with form=currency_balance_form variant='secondary' %}
+</section>
 
-<div class="row">
-    <div class="col-md-7">
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                {% if balance %}
-                <h3 class="panel-title">From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}</h3>
-                {% else %}
-                <h3 class="panel-title">Current Result</h3>
-                {% endif %}
-            </div>
-            <div class="panel-body">
-                {% if balance %}
-                {% include 'gemcore/_balance_result.html' %}
-                {% else %}
-                <p>No entries.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-7">
-        <h3>New Balance</h3>
-        {% include 'gemcore/_balance_form.html' with form=account_balance_form btnclass='btn-primary' %}
-        {% include 'gemcore/_balance_form.html' with form=currency_balance_form btnclass='btn-default' %}
-    </div>
-</div>
 {% endblock content %}

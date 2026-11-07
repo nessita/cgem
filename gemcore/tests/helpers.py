@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from html.parser import HTMLParser
 
 from django.contrib import messages
 from django.contrib.messages import constants as message_constants
@@ -9,7 +10,24 @@ from django.test import TestCase, override_settings
 from gemcore.tests.factory import Factory
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+class ElementCollector(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.elements = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        self.elements.append((tag, dict(attrs)))
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    STORAGES={
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
 class BaseTestCase(TestCase):
     factory = Factory()
     maxDiff = None

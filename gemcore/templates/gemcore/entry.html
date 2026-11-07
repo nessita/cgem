@@ -7,88 +7,53 @@
 
 {% block content %}
 
-<div class="row add-entry">
-    <div class="col-md-10">
-        <form action="." method="POST" role="form">
-            {% csrf_token %}
+<h1 class="font-bold text-2xl">{% if entry %}Edit entry{% else %}New entry{% endif %}</h1>
 
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-            {% endif %}
+<form action="." method="POST" class="bg-stone-50 border border-stone-300 flex flex-col gap-4 p-4 rounded-lg">
+    {% csrf_token %}
+    {% include "forms/errors.html" with errors=form.non_field_errors only %}
 
-            <div class="row">
-                <div class="col-xs-6 col-sm-2">
-                    {{ form.who.as_field_group }}
-                </div>
-                <div class="col-xs-6 col-sm-2">
-                    {{ form.when.as_field_group }}
-                </div>
-                <div class="col-xs-12 col-sm-8">
-                    {{ form.what.as_field_group }}
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-xs-5 col-sm-2">
-                    {{ form.account.as_field_group }}
-                </div>
-                <div class="col-xs-5 col-sm-2">
-                    {{ form.amount.as_field_group }}
-                </div>
-                <div class="col-xs-2 col-sm-2">
-                    <div class="form-group checkbox">
-                        <label>&nbsp;</label>
-                        <div>{{ form.is_income }} Income?</div>
-                    </div>
-                </div>
-                <div class="col-xs-6 col-sm-3">
-                    {{ form.country.as_field_group }}
-                </div>
-                <div class="col-xs-6 col-sm-3">
-                    {{ form.asset.as_field_group }}
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-xs-12 col-sm-3">
-                    {{ form.notes.as_field_group }}
-                </div>
-                <div class="col-xs-12 col-sm-9">
-                    <div class="form-group{% if form.tags.errors %} has-error{% endif %}">
-                        {{ form.tags.label_tag }}
-                        <div>
-                            {% for radio in form.tags %}
-                            <label class="radio-inline">{{ radio.tag }} {{ radio.choice_label }}</label>
-                            {% endfor %}
-                        </div>
-                        {{ form.tags.errors }}
-                    </div>
-                </div>
-            </div>
-
-            <input type="hidden" name="qs" value="{{ qs }}" />
-
-            <div class="text-center">
-                {% if entry_prev %}
-                <div class="entry-navigation">
-                    <a href="{% url 'entry' book.slug entry_prev.id %}">&laquo; prev</a>
-                </div>
-                {% endif %}
-                <div class="btn-group hidden-xs" role="group">
-                    {% include 'gemcore/_entry_save_buttons.html' %}
-                </div>
-                <div class="btn-group-vertical visible-xs" role="group">
-                    {% include 'gemcore/_entry_save_buttons.html' %}
-                </div>
-                {% if entry_next %}
-                <div class="entry-navigation">
-                    <a href="{% url 'entry' book.slug entry_next.id %}">next &raquo;</a>
-                </div>
-                {% endif %}
-            </div>
-        </form>
+    <div class="flex flex-col gap-4 md:flex-row">
+        <div class="min-w-0 flex-1">{{ form.who.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.when.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.what.as_field_group }}</div>
     </div>
+    <div class="flex flex-col gap-4 md:flex-row md:items-end">
+        <div class="min-w-0 flex-1">{{ form.account.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.amount.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.is_income.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.country.as_field_group }}</div>
+        <div class="min-w-0 flex-1">{{ form.asset.as_field_group }}</div>
+    </div>
+    {{ form.notes.as_field_group }}
+    {{ form.tags.as_field_group }}
 
-</div>
+    <input type="hidden" name="qs" value="{{ qs }}">
+
+    <div class="flex flex-col gap-3">
+        <div class="flex flex-row flex-wrap gap-2" role="group" aria-label="Save entry">
+            {% include "components/button.html" with label="Save and new" name="save-and-new" only %}
+            {% include "components/button.html" with label="Save and new on same date" name="save-and-new-same-date" variant="secondary" only %}
+            {% include "components/button.html" with label="Save and edit" name="save-and-edit" variant="secondary" only %}
+            {% include "components/button.html" with label="Save and go back" name="save-and-go-back" variant="secondary" only %}
+            {% url 'entries' book.slug as entries_url %}
+            {% include "components/button.html" with label="Go back" href=entries_url|add:"?"|add:qs variant="secondary" only %}
+            {% if entry %}
+            {% url 'remove-entry' book.slug entry.id as remove_url %}
+            {% include "components/button.html" with label="Remove" href=remove_url variant="danger" only %}
+            {% endif %}
+        </div>
+        {% if entry_prev or entry_next %}
+        <nav class="flex flex-row flex-wrap gap-4 text-sm" aria-label="Adjacent entries">
+            {% if entry_prev %}
+            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_prev.id %}">&laquo; Previous entry</a>
+            {% endif %}
+            {% if entry_next %}
+            <a class="font-medium hover:text-sky-700 text-sky-800" href="{% url 'entry' book.slug entry_next.id %}">Next entry &raquo;</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>
+</form>
 
 {% endblock content %}

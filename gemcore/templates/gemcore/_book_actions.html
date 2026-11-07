@@ -1,10 +1,11 @@
-        <div class="btn-group btn-group-sm vspace-10">
-            <a href="{% url 'add-entry' book.slug %}{% querystring %}" class="btn btn-primary">
-                New entry</a>
-            <a href="{% url 'account-transfer' book.slug %}{% querystring %}" class="btn btn-default">
-                Account transfer</a>
-            <a href="{% url 'balance' book.slug %}" class="btn btn-default">
-                Balances</a>
-            <a href="{% url 'load-from-file' book.slug %}" class="btn btn-default">
-                Load file</a>
+        <div class="flex flex-row flex-wrap gap-2">
+            {% querystring as query %}
+            {% url 'add-entry' book.slug as add_url %}
+            {% include "components/button.html" with label="New entry" href=add_url|add:query only %}
+            {% url 'account-transfer' book.slug as transfer_url %}
+            {% include "components/button.html" with label="Account transfer" href=transfer_url|add:query variant="secondary" only %}
+            {% url 'balance' book.slug as balance_url %}
+            {% include "components/button.html" with label="Balances" href=balance_url variant="secondary" only %}
+            {% url 'load-from-file' book.slug as load_url %}
+            {% include "components/button.html" with label="Load file" href=load_url variant="secondary" only %}
         </div>
