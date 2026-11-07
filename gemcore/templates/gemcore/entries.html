@@ -48,25 +48,17 @@
 <h1 class="font-bold text-2xl">Entries for {{ book }}</h1>
 {% include 'gemcore/_book_actions.html' %}
 
-{% if filters.q or filters.when or filters.account %}
+{% if active_filters %}
 <div class="flex flex-row flex-wrap gap-2" aria-label="Active search filters">
-    {% if filters.q %}
-        {% querystring q=None as filter_url %}
-        {% include "components/filter_link.html" with label=filters.q href=filter_url selected=True only %}
-    {% endif %}
-    {% if filters.when %}
-        {% querystring when=None as filter_url %}
-        {% include "components/filter_link.html" with label=filters.when|date:"M j, y" href=filter_url selected=True only %}
-    {% endif %}
-    {% if filters.account %}
-        {% querystring account=None as filter_url %}
-        {% include "components/filter_link.html" with label=filters.account href=filter_url selected=True only %}
-    {% endif %}
+    {% for active_filter in active_filters %}
+        {% include "components/filter_link.html" with label=active_filter.label href=active_filter.href group=active_filter.name selected=True only %}
+    {% endfor %}
+    <a class="font-medium hover:text-sky-700 px-3 py-1 text-sky-800 text-sm" href=".">Clear filters</a>
 </div>
 {% endif %}
 
-<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-    <aside class="bg-stone-50 border border-stone-300 flex flex-col gap-4 min-w-0 p-4 rounded-lg lg:w-80 lg:shrink-0" aria-labelledby="filters-heading">
+<div class="flex flex-col gap-6 xl:flex-row xl:items-start">
+    <aside class="bg-stone-50 border border-stone-300 flex flex-col gap-4 min-w-0 p-4 rounded-lg xl:w-72 xl:shrink-0" aria-labelledby="filters-heading">
         <div class="flex flex-row gap-3 items-center justify-between">
             <h2 id="filters-heading" class="font-semibold text-lg">Filters</h2>
             <a class="font-medium hover:text-sky-700 text-sky-800 text-sm" href=".">Reset</a>

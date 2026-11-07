@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime, timedelta, timezone
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
@@ -368,6 +368,182 @@ class AddEntryTestCase(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["form"]["country"].value(), "CA")
         self.assertEqual(self.book.entry_set.count(), 1)
+
+    def test_adjacent_entries_follow_filtered_list_order(self):
+        ordered = []
+        for when, what, amount in (
+            (date(2026, 11, 7), "Coffee newest", 1),
+            (date(2026, 11, 6), "Coffee A", 1),
+            (date(2026, 11, 6), "Coffee B", 1),
+            (date(2026, 11, 6), "Coffee B", 2),
+            (date(2026, 11, 5), "Coffee oldest", 1),
+        ):
+            ordered.append(
+                self.factory.make_entry(
+                    book=self.book,
+                    account=self.account,
+                    who=self.user,
+                    when=when,
+                    what=what,
+                    amount=amount,
+                    country="US",
+                    tags=[TAGS[0]],
+                )
+            )
+        self.factory.make_entry(
+            book=self.book, who=self.user, what="Tea", country="US"
+        )
+        self.factory.make_entry(
+            book=self.book, who=self.user, what="Coffee excluded", country="AR"
+        )
+        self.factory.make_entry(what="Coffee private", country="US")
+        params = {
+            "q": "Coffee",
+            "country": "US",
+            "page": "2",
+            "page_size": "2",
+            "include_tag": TAGS[:2],
+        }
+        self.client.force_login(self.user)
+        for index, entry in enumerate(ordered):
+            with self.subTest(index=index):
+                response = self.client.get(
+                    reverse("entry", args=[self.book.slug, entry.pk]), params
+                )
+                previous = ordered[index - 1] if index else None
+                following = (
+                    ordered[index + 1] if index + 1 < len(ordered) else None
+                )
+                self.assertEqual(response.context["entry_prev"], previous)
+                self.assertEqual(response.context["entry_next"], following)
+                expected_query = parse_qs(urlencode(params, doseq=True))
+                self.assertEqual(
+                    parse_qs(response.context["qs"]), expected_query
+                )
+                elements = ElementCollector(response.content.decode()).elements
+                links = [
+                    attrs["href"]
+                    for tag, attrs in elements
+                    if tag == "a" and "href" in attrs
+                ]
+                for adjacent in (previous, following):
+                    if adjacent:
+                        path = reverse(
+                            "entry", args=[self.book.slug, adjacent.pk]
+                        )
+                        link = next(
+                            link
+                            for link in links
+                            if urlsplit(link).path == path
+                        )
+                        self.assertEqual(
+                            parse_qs(urlsplit(link).query), expected_query
+                        )
+                remove_path = reverse(
+                    "remove-entry", args=[self.book.slug, entry.pk]
+                )
+                remove_link = next(
+                    link
+                    for link in links
+                    if urlsplit(link).path == remove_path
+                )
+                self.assertEqual(
+                    parse_qs(urlsplit(remove_link).query), expected_query
+                )
+                for changed in (
+                    {"when": "2026-12-01", "what": ""},
+                    {"when": "2026-11-06", "what": "Coffee Z"},
+                ):
+                    response = self.client.post(
+                        reverse("entry", args=[self.book.slug, entry.pk])
+                        + "?"
+                        + urlencode(params, doseq=True),
+                        {
+                            "who": self.user.pk,
+                            "account": self.account.pk,
+                            "country": "US",
+                            "tags": TAGS[0],
+                            "qs": urlencode(params, doseq=True),
+                            **changed,
+                        },
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIs(response.context["form"].is_valid(), False)
+                    self.assertEqual(response.context["entry_prev"], previous)
+                    self.assertEqual(response.context["entry_next"], following)
+                    for field, value in changed.items():
+                        self.assertEqual(
+                            response.context["form"][field].value(), value
+                        )
+                saved = self.book.entry_set.get(pk=entry.pk)
+                self.assertEqual(saved.when, entry.when)
+                self.assertEqual(saved.what, entry.what)
+
+    def test_save_destinations_preserve_return_filters_and_page(self):
+        self.client.force_login(self.user)
+        params = {
+            "q": "Coffee",
+            "when": "2026-10-31",
+            "page": "2",
+            "page_size": "1",
+            "include_tag": TAGS[:2],
+        }
+        qs = urlencode(params, doseq=True)
+        add_url = reverse("add-entry", args=[self.book.slug])
+        for index, action in enumerate(
+            (
+                "save-and-new",
+                "save-and-new-same-date",
+                "save-and-edit",
+                "save-and-go-back",
+            )
+        ):
+            with self.subTest(action=action):
+                data = {
+                    "who": self.user.pk,
+                    "account": self.account.pk,
+                    "what": f"Coffee saved {index}",
+                    "amount": "10.00",
+                    "when": "2026-11-01",
+                    "country": "US",
+                    "tags": TAGS[0],
+                    "qs": qs,
+                    action: "",
+                }
+                response = self.client.post(add_url + "?" + qs, data)
+                self.assertEqual(response.status_code, 302)
+                destination = response["Location"]
+                query = parse_qs(urlsplit(destination).query)
+                expected = parse_qs(qs)
+                if action == "save-and-new-same-date":
+                    expected["initial_when"] = ["2026-11-01"]
+                self.assertEqual(query, expected)
+                if action in {"save-and-new", "save-and-new-same-date"}:
+                    self.assertEqual(urlsplit(destination).path, add_url)
+                elif action == "save-and-go-back":
+                    self.assertEqual(
+                        urlsplit(destination).path,
+                        reverse("entries", args=[self.book.slug]),
+                    )
+                else:
+                    saved = self.book.entry_set.get(what=data["what"])
+                    self.assertEqual(
+                        urlsplit(destination).path,
+                        reverse("entry", args=[self.book.slug, saved.pk]),
+                    )
+                if action != "save-and-go-back":
+                    next_page = self.client.get(destination)
+                    self.assertEqual(
+                        parse_qs(next_page.context["qs"]), parse_qs(qs)
+                    )
+                    if action == "save-and-new-same-date":
+                        self.assertEqual(
+                            next_page.context["form"]["when"].value(),
+                            "2026-11-01",
+                        )
+        invalid = self.client.post(add_url + "?" + qs, {"qs": qs})
+        self.assertEqual(invalid.status_code, 200)
+        self.assertEqual(parse_qs(invalid.context["qs"]), parse_qs(qs))
 
 
 class AccountTransferTestCase(BaseTestCase):
@@ -910,6 +1086,92 @@ class BookPagesTestCase(BaseTestCase):
                     self.assertEqual(filters["q"], "Coffee")
                     self.assertIsNone(filters["when"])
 
+    def test_search_and_date_filters_combine_and_links_preserve_page(self):
+        matching = [
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                what=f"Coffee {index}",
+                when=date(2026, 11, 6),
+            )
+            for index in range(2)
+        ]
+        self.factory.make_entry(
+            book=self.book, who=self.user, what="Tea", when=date(2026, 11, 6)
+        )
+        self.factory.make_entry(
+            book=self.book,
+            who=self.user,
+            what="Coffee old",
+            when=date(2026, 11, 5),
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("entries", args=[self.book.slug]),
+            {"q": "Coffee", "when": "2026-11-06", "page": 2, "page_size": 1},
+        )
+        self.assertEqual(response.context["entries"].paginator.count, 2)
+        self.assertEqual(list(response.context["entries"]), [matching[1]])
+        elements = ElementCollector(response.content.decode()).elements
+        queries = [
+            parse_qs(urlsplit(attrs["href"]).query)
+            for tag, attrs in elements
+            if tag == "a" and "href" in attrs
+        ]
+        self.assertIn(
+            {
+                "q": ["Coffee"],
+                "when": ["2026-11-05"],
+                "page": ["2"],
+                "page_size": ["1"],
+            },
+            queries,
+        )
+        account_links = [
+            query
+            for query in queries
+            if query.get("account") == [self.account.slug]
+        ]
+        self.assertGreater(len(account_links), 0)
+        for query in account_links:
+            self.assertEqual(query["page"], ["2"])
+            self.assertEqual(query["q"], ["Coffee"])
+
+    def test_active_filters_remove_one_value_and_preserve_other_filters(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("entries", args=[self.book.slug]),
+            {
+                "tag": TAGS[:2],
+                "country": "US",
+                "q": "Coffee",
+                "page": 3,
+                "page_size": 10,
+            },
+        )
+        chips = {
+            item["label"]: item for item in response.context["active_filters"]
+        }
+        tag_query = parse_qs(urlsplit(chips[f"Tag: {TAGS[0]}"]["href"]).query)
+        self.assertEqual(
+            tag_query,
+            {
+                "tag": [TAGS[1]],
+                "country": ["US"],
+                "q": ["Coffee"],
+                "page": ["3"],
+                "page_size": ["10"],
+            },
+        )
+        country_query = parse_qs(urlsplit(chips["Country: US"]["href"]).query)
+        self.assertEqual(country_query["tag"], TAGS[:2])
+        self.assertNotIn("country", country_query)
+        self.assertEqual(country_query["page"], ["3"])
+        self.assertEqual(
+            parse_qs(response.context["filters"]["qs"])["tag"], TAGS[:2]
+        )
+
 
 class BulkTestCaseMixin:
     action_name = ""
@@ -976,19 +1238,39 @@ class BulkRemoveTestCase(BulkTestCaseMixin, BaseTestCase):
     def test_single_entry_confirmation_keeps_book_and_filters(self):
         entry = self.factory.make_entry(book=self.book, who=self.user)
         self.client.force_login(self.user)
+        params = {"country": "US", "include_tag": TAGS[:2], "page": "2"}
+        qs = urlencode(params, doseq=True)
         response = self.client.get(
             reverse("remove-entry", args=[self.book.slug, entry.pk]),
-            {"country": entry.country},
+            params,
         )
         self.assertEqual(response.context["book"], self.book)
-        self.assertEqual(
-            parse_qs(response.context["qs"]), {"country": [entry.country]}
-        )
+        self.assertEqual(parse_qs(response.context["qs"]), parse_qs(qs))
         self.assertInHTML(
             f'<input type="hidden" name="entry" value="{entry.pk}">',
             response.content.decode(),
         )
         self.assertEqual(self.book.entry_set.count(), 1)
+        remove_url = reverse("remove-entry", args=[self.book.slug])
+        for action in ("no", "yes"):
+            with self.subTest(action=action):
+                response = self.client.post(
+                    remove_url + "?" + qs, {action: "", "entry": [entry.pk]}
+                )
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(
+                    parse_qs(urlsplit(response["Location"]).query),
+                    parse_qs(qs),
+                )
+                self.assertEqual(
+                    self.book.entry_set.count(), int(action == "no")
+                )
+        private = self.factory.make_entry()
+        response = self.client.post(
+            remove_url, {"yes": "", "entry": [private.pk]}
+        )
+        self.assertEqual(response.status_code, 404)
+        private.refresh_from_db()
 
 
 class BulkMergeTestCase(BulkTestCaseMixin, BaseTestCase):
