@@ -60,6 +60,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "gemcore.middleware.HtmxRedirectMiddleware",
 ]
 
 ROOT_URLCONF = "gem.urls"
