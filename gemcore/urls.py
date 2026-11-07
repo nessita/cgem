@@ -21,6 +21,11 @@ urlpatterns = [
     path("<slug:book_slug>/entry/", gemcore.views.entries, name="entries"),
     path("<slug:book_slug>/entry/add/", gemcore.views.entry, name="add-entry"),
     path(
+        "<slug:book_slug>/entry/country/",
+        gemcore.views.entry_country,
+        name="entry-country",
+    ),
+    path(
         "<slug:book_slug>/entry/<int:entry_id>/",
         gemcore.views.entry,
         name="entry",

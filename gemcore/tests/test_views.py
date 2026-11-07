@@ -250,6 +250,125 @@ class AddEntryTestCase(BaseTestCase):
             [attrs.get("href") for tag, attrs in elements if tag == "a"],
         )
 
+    def test_account_change_requests_country_fragment(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("add-entry", args=[self.book.slug]))
+        elements = ElementCollector(response.content.decode()).elements
+        account = next(
+            attrs
+            for tag, attrs in elements
+            if tag == "div" and attrs.get("id") == "entry-account"
+        )
+        self.assertEqual(
+            account["hx-get"], reverse("entry-country", args=[self.book.slug])
+        )
+        self.assertEqual(account["hx-trigger"], "change")
+        self.assertEqual(account["hx-target"], "#entry-country")
+        self.assertEqual(account["hx-swap"], "outerHTML")
+        self.assertEqual(account["hx-include"], "#id_account,#id_country")
+        self.assertEqual(account["hx-sync"], "this:replace")
+        self.assertEqual(
+            account["hx-disabled-elt"],
+            "#entry-save-actions button[type=submit]:not([disabled]), "
+            "#id_country:not([disabled])",
+        )
+        self.assertContains(response, 'id="entry-save-actions"', count=1)
+        account_select = next(
+            attrs
+            for tag, attrs in elements
+            if tag == "select" and attrs.get("name") == "account"
+        )
+        self.assertIs(
+            any(name.startswith("hx-") for name in account_select), False
+        )
+        self.assertNotContains(response, "js/add-entry.js")
+
+    def test_country_suggestion_uses_currency_and_preserves_unmapped_values(
+        self,
+    ):
+        self.client.force_login(self.user)
+        url = reverse("entry-country", args=[self.book.slug])
+        for currency, expected in (
+            ("ARS", "AR"),
+            ("BRL", "BR"),
+            ("CAD", "CA"),
+            ("CNY", "CN"),
+            ("EUR", ""),
+            ("GBP", "GB"),
+            ("USD", "US"),
+            ("UYU", "UY"),
+            ("CHF", "BR"),
+        ):
+            with self.subTest(currency=currency):
+                account = self.factory.make_account(
+                    users=[self.user],
+                    currency=currency,
+                    name="ARS misleading label",
+                )
+                response = self.client.get(
+                    url,
+                    {"account": account.pk, "country": "BR"},
+                    headers={"HX-Request": "true"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["form"]["country"].value(), expected
+                )
+                self.assertNotContains(response, "<html")
+                self.assertContains(response, 'id="entry-country"', count=1)
+                options = ElementCollector(response.content.decode()).elements
+                self.assertEqual(
+                    [
+                        attrs["value"]
+                        for tag, attrs in options
+                        if tag == "option" and "selected" in attrs
+                    ],
+                    [expected],
+                )
+
+        response = self.client.get(url, {"account": "", "country": "CA"})
+        self.assertEqual(response.context["form"]["country"].value(), "CA")
+        self.assertEqual(self.book.entry_set.count(), 0)
+
+    def test_country_suggestion_checks_access_and_requires_get(self):
+        url = reverse("entry-country", args=[self.book.slug])
+        self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.user)
+        other_account = self.factory.make_account()
+        inactive_account = self.factory.make_account(
+            users=[self.user], active=False
+        )
+        for account in (other_account.pk, inactive_account.pk, "invalid", -1):
+            with self.subTest(account=account):
+                response = self.client.get(url, {"account": account})
+                self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.client.post(url).status_code, 405)
+        other_book = self.factory.make_book()
+        response = self.client.get(
+            reverse("entry-country", args=[other_book.slug]),
+            {"account": self.account.pk},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_country_defaults_do_not_override_saved_or_submitted_country(self):
+        entry = self.factory.make_entry(
+            book=self.book, account=self.account, who=self.user, country="BR"
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("add-entry", args=[self.book.slug]))
+        self.assertEqual(response.context["form"]["country"].value(), "US")
+        response = self.client.get(
+            reverse("entry", args=[self.book.slug, entry.pk])
+        )
+        self.assertEqual(response.context["form"]["country"].value(), "BR")
+        response = self.client.post(
+            reverse("add-entry", args=[self.book.slug]),
+            {"account": self.account.pk, "country": "CA"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"]["country"].value(), "CA")
+        self.assertEqual(self.book.entry_set.count(), 1)
+
 
 class AccountTransferTestCase(BaseTestCase):
     @classmethod
@@ -498,7 +617,7 @@ class BookPagesTestCase(BaseTestCase):
             if tag == "button" and attrs.get("name") == "calculate-balance"
         ]
         self.assertEqual(len(buttons), 1)
-        self.assertEqual(buttons[0]["hx-post"], ".")
+        self.assertEqual(buttons[0]["hx-post"], url)
         self.assertEqual(buttons[0]["hx-target"], "#entries-balance-inline")
         self.assertEqual(buttons[0]["hx-trigger"], "click")
 
@@ -514,7 +633,282 @@ class BookPagesTestCase(BaseTestCase):
                 self.assertContains(
                     response, "Monthly balance", count=len(selected)
                 )
+                self.assertContains(response, "selected entr")
+        response = self.client.post(
+            url,
+            {"update-selection": "change", "entry": [other.pk]},
+            headers={"HX-Request": "true"},
+        )
+        self.assertNotContains(response, "Monthly balance")
+        self.assertNotContains(response, 'id="selection-balance-heading"')
         self.assertEqual(self.book.entry_set.count(), 2)
+
+    def test_selection_updates_count_and_available_actions_without_writing(
+        self,
+    ):
+        entries = [
+            self.factory.make_entry(
+                book=self.book, account=self.account, who=self.user
+            )
+            for _ in range(2)
+        ]
+        self.client.force_login(self.user)
+        url = reverse("entries", args=[self.book.slug])
+        response = self.client.get(url)
+        for name in ("edit_tags_form", "edit_country_form"):
+            choices = list(response.context[name].fields["target"].choices)
+            self.assertEqual(choices[0][0], "")
+        self.assertIs(response.context["no_selection"], True)
+        self.assertIs(response.context["cannot_merge"], True)
+        for selection_action, selected, select_page, expected_count in (
+            ("change", [entries[0].pk], "", 1),
+            ("page", [], "all", 2),
+            ("page", [entry.pk for entry in entries], "", 0),
+            ("clear", [entry.pk for entry in entries], "all", 0),
+        ):
+            with self.subTest(action=selection_action):
+                response = self.client.post(
+                    url,
+                    {
+                        "update-selection": selection_action,
+                        "entry": selected,
+                        "select-page": select_page,
+                    },
+                    headers={"HX-Request": "true"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["selected_count"], expected_count
+                )
+                self.assertNotContains(response, "<html")
+                elements = ElementCollector(response.content.decode()).elements
+                selection_form = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "form" and attrs.get("id") == "entry-selection"
+                )
+                swap_targets = selection_form["hx-select-oob"].split(",")
+                self.assertEqual(
+                    swap_targets,
+                    [
+                        "#entry-selection-toolbar",
+                        "#select-page",
+                        "#entries-list-body",
+                        "#entries-balance-inline",
+                        "#entry-selection-actions",
+                    ],
+                )
+                self.assertNotIn("#entries-scroll", swap_targets)
+                self.assertNotIn("#entry-selection", swap_targets)
+                ids = {attrs["id"] for tag, attrs in elements if "id" in attrs}
+                for target in swap_targets:
+                    self.assertIn(target.removeprefix("#"), ids)
+                for tag, attrs in elements:
+                    if '"update-selection"' in attrs.get("hx-vals", ""):
+                        self.assertEqual(attrs["hx-swap"], "none")
+                header = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("id") == "select-page"
+                )
+                self.assertEqual("checked" in header, expected_count == 2)
+                buttons = {
+                    attrs["name"]: attrs
+                    for tag, attrs in elements
+                    if tag == "button" and "name" in attrs
+                }
+                for action in ("calculate-balance", "remove-selected"):
+                    self.assertEqual(
+                        "disabled" in buttons[action], expected_count == 0
+                    )
+                self.assertEqual(
+                    "disabled" in buttons["merge-selected"], expected_count < 2
+                )
+                for action in (
+                    "change-account",
+                    "change-asset",
+                    "change-tags",
+                    "change-country",
+                ):
+                    self.assertIn("disabled", buttons[action])
+                checked = [
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input"
+                    and attrs.get("name") == "entry"
+                    and "checked" in attrs
+                ]
+                self.assertEqual(len(checked), expected_count)
+        self.assertEqual(self.book.entry_set.count(), 2)
+
+    def test_selection_is_scoped_to_filtered_page(self):
+        entries = [
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                what=f"Entry {index}",
+                country="US",
+            )
+            for index in range(3)
+        ]
+        excluded = self.factory.make_entry(
+            book=self.book, who=self.user, country="AR"
+        )
+        private = self.factory.make_entry()
+        self.client.force_login(self.user)
+        url = (
+            reverse("entries", args=[self.book.slug])
+            + "?country=US&page_size=1&page=2"
+        )
+        response = self.client.post(
+            url,
+            {
+                "update-selection": "change",
+                "entry": [entry.pk for entry in entries]
+                + [excluded.pk, private.pk],
+            },
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.context["selected_ids"], {entries[1].pk})
+        self.assertEqual(response.context["entries"].number, 2)
+        self.assertEqual(response.context["filters"]["country"], "US")
+        self.assertNotContains(response, private.what)
+        elements = ElementCollector(response.content.decode()).elements
+        for tag, attrs in elements:
+            if tag == "input" and attrs.get("name") == "entry":
+                self.assertEqual(attrs["hx-post"], url)
+        response = self.client.post(
+            url,
+            {"update-selection": "page", "select-page": "all"},
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.context["selected_ids"], {entries[1].pk})
+        response = self.client.post(
+            url,
+            {"update-selection": "change", "entry": "invalid"},
+            headers={"HX-Request": "true"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.book.entry_set.count(), 4)
+
+    def test_selection_keeps_targets_and_enables_only_valid_changes(self):
+        entry = self.factory.make_entry(
+            book=self.book, account=self.account, who=self.user
+        )
+        original_tags = entry.tags
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("entries", args=[self.book.slug]),
+            {
+                "update-selection": "change",
+                "entry": [entry.pk],
+                "account-target": self.account.pk,
+                "tags-target": TAGS[0],
+            },
+            headers={"HX-Request": "true"},
+        )
+        self.assertIs(response.context["cannot_change_account"], False)
+        self.assertIs(response.context["cannot_change_tags"], False)
+        self.assertIs(response.context["cannot_change_country"], True)
+        self.assertIs(response.context["cannot_change_asset"], True)
+        self.assertEqual(
+            response.context["edit_account_form"]["target"].value(),
+            str(self.account.pk),
+        )
+        self.assertEqual(
+            response.context["edit_tags_form"]["target"].value(), TAGS[0]
+        )
+        elements = ElementCollector(response.content.decode()).elements
+        changes = next(
+            attrs
+            for tag, attrs in elements
+            if tag == "div" and attrs.get("id") == "entry-changes"
+        )
+        self.assertEqual(
+            changes["hx-post"], reverse("entries", args=[self.book.slug])
+        )
+        self.assertEqual(changes["hx-trigger"], "change")
+        self.assertEqual(changes["hx-target"], "#entry-selection")
+        entry.refresh_from_db()
+        self.assertEqual(entry.account_id, self.account.pk)
+        self.assertEqual(entry.tags, original_tags)
+        self.assertEqual(self.book.entry_set.count(), 1)
+
+    def test_search_clear_links_and_fields_preserve_other_filters(self):
+        self.client.force_login(self.user)
+        url = reverse("entries", args=[self.book.slug])
+        response = self.client.get(
+            url,
+            {
+                "q": "Coffee",
+                "when": "2026-11-06",
+                "tag": TAGS[0],
+                "country": "US",
+                "page": 2,
+            },
+        )
+        elements = ElementCollector(response.content.decode()).elements
+        links = [
+            parse_qs(urlsplit(attrs["href"]).query)
+            for tag, attrs in elements
+            if tag == "a" and "href" in attrs
+        ]
+        self.assertIn(
+            {
+                "when": ["2026-11-06"],
+                "tag": [TAGS[0]],
+                "country": ["US"],
+                "page": ["2"],
+            },
+            links,
+        )
+        self.assertIn(
+            {
+                "q": ["Coffee"],
+                "tag": [TAGS[0]],
+                "country": ["US"],
+                "page": ["2"],
+            },
+            links,
+        )
+        self.assertEqual(
+            response.context["search_filters"],
+            [("tag", TAGS[0]), ("country", "US"), ("page", "2")],
+        )
+        self.assertNotContains(response, "jquery")
+        self.assertNotContains(response, "onclick=")
+        clear_links = {
+            attrs["id"]: attrs
+            for tag, attrs in elements
+            if tag == "a"
+            and attrs.get("id") in {"clear-search-text", "clear-search-date"}
+        }
+        self.assertEqual(len(clear_links), 2)
+        for link_id, attrs in clear_links.items():
+            with self.subTest(link_id=link_id):
+                self.assertEqual(attrs["hx-boost"], "true")
+                self.assertEqual(attrs["hx-target"], "#content")
+                self.assertEqual(attrs["hx-select"], "#content")
+                self.assertEqual(attrs["hx-swap"], "outerHTML show:none")
+                self.assertEqual(attrs["hx-sync"], "#content:replace")
+                cleared = self.client.get(
+                    url,
+                    parse_qs(urlsplit(attrs["href"]).query),
+                    headers={"HX-Request": "true", "HX-Boosted": "true"},
+                )
+                self.assertContains(cleared, 'id="content"', count=1)
+                filters = cleared.context["filters"]
+                self.assertEqual(filters["tags"], [TAGS[0]])
+                self.assertEqual(filters["country"], "US")
+                self.assertEqual(parse_qs(filters["qs"])["page"], ["2"])
+                self.assertEqual(cleared.context["entries"].number, 1)
+                if link_id == "clear-search-text":
+                    self.assertIsNone(filters["q"])
+                    self.assertEqual(filters["when"], date(2026, 11, 6))
+                else:
+                    self.assertEqual(filters["q"], "Coffee")
+                    self.assertIsNone(filters["when"])
 
 
 class BulkTestCaseMixin:

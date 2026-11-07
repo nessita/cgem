@@ -11,10 +11,11 @@ class ChooseForm(forms.Form):
         self, queryset=None, choices=None, *args, label="Choices", **kwargs
     ):
         super(ChooseForm, self).__init__(*args, **kwargs)
+        placeholder = f"Choose {label.lower()}..."
         if choices:
             self.fields["target"] = forms.ChoiceField(
                 label=label,
-                choices=choices,
+                choices=[("", placeholder), *choices],
                 required=False,
             )
         else:
@@ -22,6 +23,7 @@ class ChooseForm(forms.Form):
                 label=label,
                 queryset=queryset,
                 required=False,
+                empty_label=placeholder,
             )
 
 
