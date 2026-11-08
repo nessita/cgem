@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
 from io import StringIO
-from urllib.parse import urlencode
 
 import chardet
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import (
     Http404,
@@ -204,6 +203,93 @@ def parse_request(request, book, **kwargs):
     return entries, filters, available
 
 
+def paginate_results(request, objects):
+    try:
+        page_size = abs(int(request.GET.get("page_size"))) or ENTRIES_PER_PAGE
+    except (ValueError, TypeError):
+        page_size = ENTRIES_PER_PAGE
+    paginator = Paginator(objects, page_size)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    page = page_obj.number
+
+    if paginator.num_pages <= MAX_PAGES:
+        start = 1
+        end = paginator.num_pages
+    else:
+        half = MAX_PAGES // 2
+        start = page - half
+        end = page + half
+        if start < 1 and end - start < paginator.num_pages:
+            end = end - start + 1
+            start = 1
+        if end > paginator.num_pages and start > 1:
+            start = start - (end - paginator.num_pages)
+            end = paginator.num_pages
+
+    return {
+        "page_obj": page_obj,
+        "page_range": range(start, end + 1),
+        "page_size": page_size,
+        "page_start": start,
+        "page_end": end,
+    }
+
+
+def list_filter_context(request, filters):
+    when = filters["when"]
+    if when:
+        when_next = when + timedelta(days=1)
+        when_prev = when - timedelta(days=1)
+    else:
+        when_next = None
+        when_prev = None
+    active_filters = []
+    for name, label in (
+        ("q", "Search"),
+        ("when", "Date"),
+        ("account", "Account"),
+        ("tag", "Tag"),
+        ("month", "Month"),
+        ("year", "Year"),
+        ("country", "Country"),
+        ("who", "Person"),
+        ("currency", "Currency"),
+        ("asset", "Asset"),
+        ("include_tag", "Include tag"),
+        ("exclude_tag", "Exclude tag"),
+        ("start", "From"),
+        ("end", "Until"),
+    ):
+        for value in dict.fromkeys(request.GET.getlist(name)):
+            if not value:
+                continue
+            params = request.GET.copy()
+            params.setlist(
+                name, [item for item in params.getlist(name) if item != value]
+            )
+            display_value = value
+            if name in {"when", "start", "end"} and filters[name]:
+                display_value = date_format(filters[name], "M j, y")
+            active_filters.append(
+                {
+                    "name": name,
+                    "label": f"{label}: {display_value}",
+                    "href": "?" + params.urlencode(),
+                }
+            )
+    return {
+        "active_filters": active_filters,
+        "search_filters": [
+            (key, value)
+            for key, values in request.GET.lists()
+            if key not in {"q", "when"}
+            for value in values
+        ],
+        "when_next": when_next,
+        "when_prev": when_prev,
+    }
+
+
 @require_http_methods(["GET", "POST"])
 @login_required
 def entries(request, book_slug):
@@ -366,7 +452,12 @@ def entries(request, book_slug):
                 )
             return HttpResponseRedirect(here)
 
-        context = {"book": book, "entries": entries, "qs": filters["qs"]}
+        context = {
+            "book": book,
+            "entries": entries,
+            "qs": filters["qs"],
+            "filters": filters,
+        }
         if "merge-selected" in request.POST:
             template = "gemcore/merge-entries.html"
             when = sorted(set(entries.values_list("when", flat=True)))[-1]
@@ -409,25 +500,8 @@ def entries(request, book_slug):
     # Selection updates share pagination so they stay scoped to this page.
     entries = entries.order_by(*ENTRY_ORDERING)
 
-    try:
-        page_size = abs(int(request.GET.get("page_size")))
-    except (ValueError, TypeError):
-        page_size = ENTRIES_PER_PAGE
-
-    paginator = Paginator(entries, page_size)
-    page = request.GET.get("page")
-    try:
-        entries = paginator.page(page)
-    except PageNotAnInteger:
-        # If page is not an integer, deliver first page.
-        page = 1
-        entries = paginator.page(page)
-    except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
-        page = paginator.num_pages
-        entries = paginator.page(paginator.num_pages)
-    else:
-        page = int(page)
+    pagination = paginate_results(request, entries)
+    entries = pagination["page_obj"]
 
     page_ids = {entry.pk for entry in entries}
     selected_ids &= page_ids
@@ -440,85 +514,17 @@ def entries(request, book_slug):
         elif selection_action == "clear":
             selected_ids = set()
 
-    if paginator.num_pages <= MAX_PAGES:
-        start = 1
-        end = paginator.num_pages
-    else:
-        half = MAX_PAGES // 2
-        start = page - half
-        end = page + half
-        if start < 1 and end - start < paginator.num_pages:
-            end = end - start + 1
-            start = 1
-        if end > paginator.num_pages and start > 1:
-            start = start - (end - paginator.num_pages)
-            end = paginator.num_pages
-
-    when = filters["when"]
-    if when:
-        when_next = when + timedelta(days=1)
-        when_prev = when - timedelta(days=1)
-    else:
-        when_next = None
-        when_prev = None
     currencies = [c for c, i in available["currencies"]]
-    active_filters = []
-    for name, label in (
-        ("q", "Search"),
-        ("when", "Date"),
-        ("account", "Account"),
-        ("tag", "Tag"),
-        ("month", "Month"),
-        ("year", "Year"),
-        ("country", "Country"),
-        ("who", "Person"),
-        ("currency", "Currency"),
-        ("asset", "Asset"),
-        ("include_tag", "Include tag"),
-        ("exclude_tag", "Exclude tag"),
-        ("start", "From"),
-        ("end", "Until"),
-    ):
-        for value in dict.fromkeys(request.GET.getlist(name)):
-            if not value:
-                continue
-            params = request.GET.copy()
-            params.setlist(
-                name, [item for item in params.getlist(name) if item != value]
-            )
-            display_value = value
-            if name in {"when", "start", "end"} and filters[name]:
-                display_value = date_format(filters[name], "M j, y")
-            active_filters.append(
-                {
-                    "name": name,
-                    "label": f"{label}: {display_value}",
-                    "href": "?" + params.urlencode(),
-                }
-            )
     context = {
         "book": book,
         "filters": filters,
         "available": available,
-        "active_filters": active_filters,
         "entries": entries,
         "selected_ids": selected_ids,
         "selected_count": len(selected_ids),
         "all_selected": bool(page_ids) and selected_ids == page_ids,
         "no_selection": not selected_ids,
         "cannot_merge": len(selected_ids) < 2,
-        "search_filters": [
-            (key, value)
-            for key, values in request.GET.lists()
-            if key not in {"q", "when"}
-            for value in values
-        ],
-        "when_next": when_next,
-        "when_prev": when_prev,
-        "page_end": end,
-        "page_range": range(start, end + 1),
-        "page_size": page_size,
-        "page_start": start,
         "edit_account_form": edit_account_form,
         "edit_asset_form": edit_asset_form,
         "edit_tags_form": edit_tags_form,
@@ -526,6 +532,8 @@ def entries(request, book_slug):
         "account_balance_form": AccountBalanceForm(queryset=accounts),
         "currency_balance_form": CurrencyBalanceForm(choices=currencies),
     }
+    context.update(pagination)
+    context.update(list_filter_context(request, filters))
     for name, form in (
         ("account", edit_account_form),
         ("asset", edit_asset_form),
@@ -879,13 +887,31 @@ def balance(
             url = reverse("balance", kwargs=kwargs)
             start = form.cleaned_data["start"]
             end = form.cleaned_data["end"]
-            qs = {}
+            qs = request.GET.copy()
+            source_currency = (
+                source.currency if isinstance(source, Account) else source
+            )
+            if qs.get("currency") and qs["currency"] != source_currency:
+                qs.pop("currency")
+            if qs.get("account"):
+                if isinstance(source, Account):
+                    compatible = qs["account"] == source.slug
+                else:
+                    compatible = accounts.filter(
+                        slug=qs["account"], currency=source
+                    ).exists()
+                if not compatible:
+                    qs.pop("account")
             if start:
                 qs["start"] = start
+            else:
+                qs.pop("start", None)
             if end:
                 qs["end"] = end
+            else:
+                qs.pop("end", None)
             if qs:
-                url += "?" + urlencode(qs)
+                url += "?" + qs.urlencode()
             return HttpResponseRedirect(url)
 
     chosen_accounts = None
@@ -897,21 +923,27 @@ def balance(
     if chosen_accounts is not None and not chosen_accounts.exists():
         raise Http404
 
-    balance = filters = available = None
-    if chosen_accounts:
-        entries, filters, available = parse_request(
-            request, book, account__in=chosen_accounts
-        )
-        balance = book.balance(entries)
+    scope = (
+        {"account__in": chosen_accounts} if chosen_accounts is not None else {}
+    )
+    entries, filters, available = parse_request(request, book, **scope)
+    balance = book.balance(entries) if chosen_accounts is not None else None
+    pagination = paginate_results(
+        request, list(reversed(balance["months"])) if balance else []
+    )
 
     account_balance_form = AccountBalanceForm(
         queryset=accounts,
-        initial=dict(source=account_slug, start=start, end=end),
+        initial=dict(
+            source=account_slug, start=filters["start"], end=filters["end"]
+        ),
         auto_id="id_account_%s",
     )
     currency_balance_form = CurrencyBalanceForm(
         choices=currencies,
-        initial=dict(source=currency, start=start, end=end),
+        initial=dict(
+            source=currency, start=filters["start"], end=filters["end"]
+        ),
         auto_id="id_currency_%s",
     )
     if isinstance(form, AccountBalanceForm):
@@ -928,4 +960,6 @@ def balance(
         "filters": filters,
         "available": available,
     }
+    context.update(pagination)
+    context.update(list_filter_context(request, filters))
     return render(request, "gemcore/balance.html", context)
