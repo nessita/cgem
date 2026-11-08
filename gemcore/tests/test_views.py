@@ -691,6 +691,207 @@ class BalanceViewTestCase(BaseTestCase):
                 self.assertEqual(form["start"].value(), "invalid")
                 self.assertContains(response, "Enter a valid date.")
 
+    def test_monthly_pagination_keeps_full_filtered_cumulative_totals(self):
+        for month in (1, 2, 3):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=date(2026, month, 15),
+                what="Coffee",
+                amount=10,
+                is_income=True,
+                country="US",
+                tags=[TAGS[0]],
+            )
+        other_currency = self.factory.make_account(
+            users=[self.user], currency="EUR"
+        )
+        self.factory.make_entry(
+            book=self.book,
+            account=other_currency,
+            who=self.user,
+            when=date(2026, 2, 15),
+            what="Coffee",
+            amount=500,
+            country="US",
+            tags=[TAGS[0]],
+        )
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            when=date(2026, 2, 15),
+            what="Coffee",
+            amount=500,
+            country="AR",
+            tags=[TAGS[0]],
+        )
+        self.client.force_login(self.user)
+        params = {
+            "q": "Coffee",
+            "country": "US",
+            "tag": TAGS[0],
+            "include_tag": TAGS[:2],
+            "page_size": 1,
+            "page": 2,
+        }
+        for scope in (
+            {"account_slug": self.account.slug},
+            {"currency": self.account.currency},
+        ):
+            with self.subTest(scope=scope):
+                url = reverse(
+                    "balance", kwargs={"book_slug": self.book.slug, **scope}
+                )
+                response = self.client.get(url, params)
+                page = response.context["page_obj"]
+                self.assertEqual(page.number, 2)
+                self.assertEqual(page.paginator.count, 3)
+                self.assertEqual(len(page), 1)
+                self.assertEqual(page[0]["start"], date(2026, 2, 1))
+                self.assertEqual(page[0]["result"], 10)
+                self.assertEqual(page[0]["acc"], 20)
+                self.assertEqual(
+                    response.context["balance"]["complete"]["result"], 30
+                )
+                self.assertContains(
+                    response, 'aria-label="Balance pages"', count=2
+                )
+                self.assertContains(response, 'id="filters-heading"', count=1)
+                self.assertContains(response, 'id="tag-filter-heading"')
+                self.assertNotContains(response, "2026 Mar</a>")
+                elements = ElementCollector(response.content.decode()).elements
+                next_page = next(
+                    attrs["href"]
+                    for tag, attrs in elements
+                    if tag == "a" and attrs.get("aria-label") == "Next page"
+                )
+                expected = parse_qs(urlencode(params, doseq=True))
+                expected["page"] = ["3"]
+                self.assertEqual(parse_qs(urlsplit(next_page).query), expected)
+                chip = next(
+                    item
+                    for item in response.context["active_filters"]
+                    if item["name"] == "country"
+                )
+                expected["page"] = ["2"]
+                expected.pop("country")
+                self.assertEqual(
+                    parse_qs(urlsplit(chip["href"]).query), expected
+                )
+                last_page = self.client.get(url, {**params, "page": 999})
+                self.assertEqual(last_page.context["page_obj"].number, 3)
+                self.assertEqual(
+                    last_page.context["page_obj"][0]["start"],
+                    date(2026, 1, 1),
+                )
+                self.assertEqual(last_page.context["page_obj"][0]["acc"], 10)
+
+    def test_list_pagination_defaults_and_invalid_page_sizes_match(self):
+        self.client.force_login(self.user)
+        for name in ("entries", "balance"):
+            for page_size in (None, "invalid", "0", "-2"):
+                params = {"page": "invalid"}
+                if page_size is not None:
+                    params["page_size"] = page_size
+                response = self.client.get(
+                    reverse(name, args=[self.book.slug]), params
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.context["page_obj"].paginator.per_page,
+                    2 if page_size == "-2" else 25,
+                )
+                self.assertEqual(response.context["page_obj"].number, 1)
+
+    def test_balance_source_changes_preserve_filters_and_date_range(self):
+        self.client.force_login(self.user)
+        url = reverse("balance", args=[self.book.slug])
+        params = {
+            "q": "Coffee",
+            "tag": TAGS[:2],
+            "country": "US",
+            "page": "2",
+            "page_size": "1",
+            "start": "2026-01-01",
+            "end": "2026-03-31",
+        }
+        url += "?" + urlencode(params, doseq=True)
+        response = self.client.get(url)
+        for name in ("account_balance_form", "currency_balance_form"):
+            form = response.context[name]
+            self.assertEqual(form["start"].value(), date(2026, 1, 1))
+            self.assertEqual(form["end"].value(), date(2026, 3, 31))
+        elements = ElementCollector(response.content.decode()).elements
+        self.assertEqual(
+            [
+                attrs["action"]
+                for tag, attrs in elements
+                if tag == "form" and attrs.get("method") == "POST"
+            ],
+            [url, url],
+        )
+        other_account = self.factory.make_account(
+            users=[self.user], currency="EUR"
+        )
+        for action, source, scope in (
+            (
+                "get-account-balance",
+                self.account.pk,
+                {"account_slug": self.account.slug},
+            ),
+            (
+                "get-currency-balance",
+                self.account.currency,
+                {"currency": self.account.currency},
+            ),
+        ):
+            with self.subTest(action=action):
+                for source_filters, compatible_filters in (
+                    ({}, {}),
+                    (
+                        {"account": other_account.slug, "currency": "EUR"},
+                        {},
+                    ),
+                    (
+                        {
+                            "account": self.account.slug,
+                            "currency": self.account.currency,
+                        },
+                        {
+                            "account": [self.account.slug],
+                            "currency": [self.account.currency],
+                        },
+                    ),
+                ):
+                    source_url = url + "&" + urlencode(source_filters)
+                    response = self.client.post(
+                        source_url,
+                        {
+                            action: "",
+                            "source": source,
+                            "start": "2026-02-01",
+                            "end": "",
+                        },
+                    )
+                    self.assertEqual(response.status_code, 302)
+                    destination = response["Location"]
+                    self.assertEqual(
+                        urlsplit(destination).path,
+                        reverse(
+                            "balance",
+                            kwargs={"book_slug": self.book.slug, **scope},
+                        ),
+                    )
+                    expected = parse_qs(urlencode(params, doseq=True))
+                    expected.update(compatible_filters)
+                    expected["start"] = ["2026-02-01"]
+                    expected.pop("end")
+                    self.assertEqual(
+                        parse_qs(urlsplit(destination).query), expected
+                    )
+
 
 class BookPagesTestCase(BaseTestCase):
     @classmethod
@@ -807,7 +1008,10 @@ class BookPagesTestCase(BaseTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertNotContains(response, "<html")
                 self.assertContains(
-                    response, "Monthly balance", count=len(selected)
+                    response,
+                    '<caption class="sr-only">Monthly balance</caption>',
+                    count=len(selected),
+                    html=True,
                 )
                 self.assertContains(response, "selected entr")
         response = self.client.post(

@@ -1,6 +1,6 @@
 {% for currency, balance in balances.items %}
 <section class="flex flex-col gap-3" aria-label="Balance in {{ currency }}">
     <h3 class="font-semibold text-lg">For {{ currency }}</h3>
-    {% include 'gemcore/_balance_result.html' %}
+    {% include 'gemcore/_balance_result.html' with balance_months=balance.months|slice:'::-1' %}
 </section>
 {% endfor %}

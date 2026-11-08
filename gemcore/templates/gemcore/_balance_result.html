@@ -1,5 +1,5 @@
 {% if balance %}
-<div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg">
+<div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400" tabindex="0" role="region" aria-label="Monthly balance table">
     <table class="divide-stone-200 divide-y min-w-full text-sm">
         <caption class="sr-only">Monthly balance</caption>
         <thead class="bg-stone-100 font-semibold text-stone-600 text-left text-xs tracking-wide uppercase">
@@ -12,10 +12,10 @@
             </tr>
         </thead>
         <tbody class="divide-stone-200 divide-y">
-            {% for item in balance.months reversed %}
-            <tr class="even:bg-stone-100">
+            {% for item in balance_months %}
+            <tr class="bg-stone-50 even:bg-stone-100 hover:bg-sky-50">
                 <th scope="row" class="font-medium px-4 py-3 text-left whitespace-nowrap">
-                    <a class="hover:text-sky-700 text-sky-800" href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug currency=currency %}">{{ item.start|date:"Y M" }}</a>
+                    <a class="hover:text-sky-700 text-sky-800" href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug|default:filters.account currency=currency|default:filters.currency %}">{{ item.start|date:"Y M" }}</a>
                 </th>
                 <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap">{{ item.income }}</td>
                 <td class="px-4 py-3 tabular-nums text-right text-red-600 whitespace-nowrap">-{{ item.expense }}</td>

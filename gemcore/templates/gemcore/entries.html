@@ -2,45 +2,13 @@
 
 {% block content %}
 
-{% partialdef entries_paginator %}
-<nav aria-label="Entries pages" class="flex flex-row flex-wrap gap-1 items-center justify-center text-sm w-full">
-    {% if when_prev %}
-    <a class="font-medium hover:text-sky-700 text-sky-800" href="{% querystring when=when_prev %}">Previous day</a>
-    {% endif %}
-    {% if entries.has_previous %}
-        <a class="bg-stone-100 border border-stone-300 focus-visible:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 font-medium hover:bg-sky-50 hover:border-sky-300 inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-800" aria-label="First page" title="First page" href="{% querystring page=1 %}">&laquo;</a>
-        <a class="bg-stone-100 border border-stone-300 focus-visible:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 font-medium hover:bg-sky-50 hover:border-sky-300 inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-800" aria-label="Previous page" title="Previous page" href="{% querystring page=entries.previous_page_number %}">&lsaquo;</a>
-    {% else %}
-        <span aria-disabled="true" aria-label="First page" title="First page" class="bg-stone-50 border border-stone-200 cursor-default font-medium inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-stone-400">&laquo;</span>
-        <span aria-disabled="true" aria-label="Previous page" title="Previous page" class="bg-stone-50 border border-stone-200 cursor-default font-medium inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-stone-400">&lsaquo;</span>
-    {% endif %}
-    {% for p in page_range %}
-        {% if entries.number == p %}
-        <span aria-current="page" title="Page {{ p }} (current)" class="bg-sky-100 border border-sky-300 font-semibold inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-900">{{ p }}</span>
-        {% else %}
-        <a class="bg-stone-100 border border-stone-300 focus-visible:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 font-medium hover:bg-sky-50 hover:border-sky-300 inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-800" aria-label="Page {{ p }}" title="Page {{ p }}" href="{% querystring page=p %}">{{ p }}</a>
-        {% endif %}
-    {% endfor %}
-    {% if entries.has_next %}
-        <a class="bg-stone-100 border border-stone-300 focus-visible:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 font-medium hover:bg-sky-50 hover:border-sky-300 inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-800" aria-label="Next page" title="Next page" href="{% querystring page=entries.next_page_number %}">&rsaquo;</a>
-        <a class="bg-stone-100 border border-stone-300 focus-visible:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 font-medium hover:bg-sky-50 hover:border-sky-300 inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-sky-800" aria-label="Last page" title="Last page" href="{% querystring page=entries.paginator.num_pages %}">&raquo;</a>
-    {% else %}
-        <span aria-disabled="true" aria-label="Next page" title="Next page" class="bg-stone-50 border border-stone-200 cursor-default font-medium inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-stone-400">&rsaquo;</span>
-        <span aria-disabled="true" aria-label="Last page" title="Last page" class="bg-stone-50 border border-stone-200 cursor-default font-medium inline-flex items-center justify-center min-w-7 px-1.5 py-1 rounded-md text-stone-400">&raquo;</span>
-    {% endif %}
-    {% if when_next %}
-    <a class="font-medium hover:text-sky-700 text-sky-800" href="{% querystring when=when_next %}">Next day</a>
-    {% endif %}
-</nav>
-{% endpartialdef %}
-
 {% partialdef selection_balance %}
 <section class="flex flex-col gap-3" aria-labelledby="selection-balance-heading">
     <h2 id="selection-balance-heading" class="font-semibold text-lg">Balance of {{ selected_count }} selected entr{{ selected_count|pluralize:"y,ies" }}</h2>
     {% if balances %}
         {% include 'gemcore/_balance_multiple_currency.html' %}
     {% else %}
-        {% include 'gemcore/_balance_result.html' %}
+        {% include 'gemcore/_balance_result.html' with balance_months=balance.months|slice:'::-1' %}
     {% endif %}
 </section>
 {% endpartialdef %}
@@ -48,169 +16,13 @@
 <h1 class="font-bold text-2xl">Entries for {{ book }}</h1>
 {% include 'gemcore/_book_actions.html' %}
 
-{% if active_filters %}
-<div class="flex flex-row flex-wrap gap-2" aria-label="Active search filters">
-    {% for active_filter in active_filters %}
-        {% include "components/filter_link.html" with label=active_filter.label href=active_filter.href group=active_filter.name selected=True only %}
-    {% endfor %}
-    <a class="font-medium hover:text-sky-700 px-3 py-1 text-sky-800 text-sm" href=".">Clear filters</a>
-</div>
-{% endif %}
+{% include "gemcore/_list_controls.html#active_filters" %}
 
 <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
-    <aside class="bg-stone-50 border border-stone-300 flex flex-col gap-4 min-w-0 p-4 rounded-lg xl:w-72 xl:shrink-0" aria-labelledby="filters-heading">
-        <div class="flex flex-row gap-3 items-center justify-between">
-            <h2 id="filters-heading" class="font-semibold text-lg">Filters</h2>
-            <a class="font-medium hover:text-sky-700 text-sky-800 text-sm" href=".">Reset</a>
-        </div>
-
-        {% if available.tags %}
-        <details open aria-labelledby="tag-filter-heading">
-            <summary id="tag-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Tags</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.tags %}
-                {% if k in filters.tags %}
-                    {% querystring tag=None as filter_url %}
-                    {% include "components/filter_link.html" with label=i.0 count=i.1 href=filter_url group="tag" selected=True only %}
-                {% else %}
-                    {% querystring tag=k as filter_url %}
-                    {% include "components/filter_link.html" with label=i.0 count=i.1 href=filter_url group="tag" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.months %}
-        <details{% if filters.month %} open{% endif %} aria-labelledby="month-filter-heading">
-            <summary id="month-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Months</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.months %}
-                {% if k == filters.month %}
-                    {% querystring month=None as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="month" selected=True only %}
-                {% else %}
-                    {% querystring month=k as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="month" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.years %}
-        <details{% if filters.year %} open{% endif %} aria-labelledby="year-filter-heading">
-            <summary id="year-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Years</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.years %}
-                {% if k == filters.year %}
-                    {% querystring year=None as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="year" selected=True only %}
-                {% else %}
-                    {% querystring year=k as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="year" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.countries %}
-        <details{% if filters.country %} open{% endif %} aria-labelledby="country-filter-heading">
-            <summary id="country-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Countries</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.countries %}
-                {% if k == filters.country %}
-                    {% querystring country=None as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="country" selected=True only %}
-                {% else %}
-                    {% querystring country=k as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="country" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.users %}
-        <details{% if filters.who %} open{% endif %} aria-labelledby="user-filter-heading">
-            <summary id="user-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">People</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.users %}
-                {% if k == filters.who %}
-                    {% querystring who=None as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="who" selected=True only %}
-                {% else %}
-                    {% querystring who=k as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="who" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.currencies %}
-        <details{% if filters.currency %} open{% endif %} aria-labelledby="currency-filter-heading">
-            <summary id="currency-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Currencies</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.currencies %}
-                {% if k == filters.currency %}
-                    {% querystring currency=None as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="currency" selected=True only %}
-                {% else %}
-                    {% querystring currency=k as filter_url %}
-                    {% include "components/filter_link.html" with label=k count=i href=filter_url group="currency" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        {% if available.assets %}
-        <details{% if filters.asset %} open{% endif %} aria-labelledby="asset-filter-heading">
-            <summary id="asset-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Assets</summary>
-            <div class="flex flex-row flex-wrap gap-2 py-2">
-            {% for k, i in available.assets %}
-                {% if k == filters.asset %}
-                    {% querystring asset=None as filter_url %}
-                    {% include "components/filter_link.html" with label=i.0 count=i.1 href=filter_url group="asset" selected=True only %}
-                {% else %}
-                    {% querystring asset=k as filter_url %}
-                    {% include "components/filter_link.html" with label=i.0 count=i.1 href=filter_url group="asset" only %}
-                {% endif %}
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
-        <form id="entry-form-search" class="flex flex-col gap-3" method="GET" action="">
-            {% for name, value in search_filters %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
-            <div class="flex flex-col gap-1">
-                <label for="search-text" class="block font-medium text-stone-700 text-sm">Search text</label>
-                <div class="flex flex-row gap-2 items-center">
-                    <input type="text" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="q" autofocus
-                           id="search-text" placeholder="Search" value="{{ filters.q|default_if_none:'' }}">
-                    {% querystring q=None as clear_text_url %}
-                    {% include "components/button.html" with label="Clear text" id="clear-search-text" href=clear_text_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
-                </div>
-            </div>
-            <div class="flex flex-col gap-1">
-                <label for="search-date" class="block font-medium text-stone-700 text-sm">Entry date</label>
-                <div class="flex flex-row gap-2 items-center">
-                    <input type="date" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="when"
-                           id="search-date" value="{{ filters.when|date:'Y-m-d' }}">
-                    {% querystring when=None as clear_date_url %}
-                    {% include "components/button.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
-                </div>
-            </div>
-            <div class="flex">
-                {% include "components/button.html" with label="Search" only %}
-            </div>
-        </form>
-    </aside>
+    {% include "gemcore/_list_controls.html#filters" %}
 
     <section class="flex flex-col gap-4 min-w-0 flex-1" aria-label="Entries and bulk actions">
-        {% partial entries_paginator %}
+        {% include "gemcore/_list_controls.html#paginator" with pagination_label="Entries pages" %}
         {% if entries %}
         {% partialdef entry_selection inline %}
         <form id="entry-selection" action="" method="POST" class="flex flex-col gap-4"
@@ -297,7 +109,7 @@
                     {% include "components/button.html" with label="Remove selected" name="remove-selected" variant="danger" disabled=no_selection only %}
                 </div>
             </section>
-            {% partial entries_paginator %}
+            {% include "gemcore/_list_controls.html#paginator" with pagination_label="Entries pages" %}
         </form>
         {% endpartialdef %}
         {% else %}
