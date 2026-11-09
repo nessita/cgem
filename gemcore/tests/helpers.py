@@ -35,9 +35,13 @@ class BaseTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        logger = logging.getLogger("gemcore.parser")
-        cls.addClassCleanup(logger.setLevel, logger.level)
-        logger.setLevel(logging.WARNING)
+        for name, level in (
+            ("gemcore.parser", logging.WARNING),
+            ("django.request", logging.ERROR),
+        ):
+            logger = logging.getLogger(name)
+            cls.addClassCleanup(logger.setLevel, logger.level)
+            logger.setLevel(level)
 
     def data_file(self, filename):
 
