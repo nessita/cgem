@@ -10,14 +10,13 @@ def add_expense(
 ):
     token = os.getenv("CGEM_TOKEN", "Invalid")
     base_url = os.getenv("CGEM_ROOT_URL", "http://localhost:8000")
-    endpoint = "/api/entries/"
+    endpoint = f"/api/{book}/entries/" if book else "/api/entries/"
     url = base_url + endpoint
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Token {token}",
     }
     data = {
-        "book": book,
         "account": account,
         "what": what,
         "amount": amount,
@@ -39,7 +38,9 @@ def add_expense(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--book", default="default-book", help="The book slug")
+    parser.add_argument(
+        "--book", help="The book slug (otherwise use the default or sole book)"
+    )
     parser.add_argument(
         "--account", default="default-account", help="The account slug"
     )

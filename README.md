@@ -88,6 +88,83 @@ without timezone conversion. Automatic date defaults and asset expiration use
 the UTC calendar day. An asset is inactive on its `until` date. Audit
 timestamps are timezone-aware and use UTC.
 
+Entries API
+-----------
+
+`/api/entries/` and `/api/<book_slug>/entries/` accept token-authenticated GET
+and POST requests:
+
+```http
+Authorization: Token <token>
+```
+
+`/api/entries/` uses an accessible book with `default=True`, or the user's
+only book if none is marked as default. No accessible books returns 404.
+Multiple accessible defaults, or multiple books without a default, return 400.
+For compatibility with legacy callers, `book` values in the query string and
+request body are ignored.
+
+Use `/api/<book_slug>/entries/` to select a book explicitly. Missing or
+inaccessible books return 404. The URL selects the book for every entry;
+conflicting per-entry `book` values are rejected. A query-string `book` value
+does not override the URL.
+
+GET returns `count`, `next`, `previous`, and `results`, ordered by descending
+date, description, and entry ID. The default page size is 25; `page_size` accepts
+1 through 100 and `page` selects a page. An out-of-range page returns 404.
+
+Supported filters combine with AND:
+
+| Parameter | Value |
+| --- | --- |
+| `account` | Account slug, including historical inactive accounts |
+| `start`, `end` | Inclusive calendar dates in `YYYY-MM-DD` format |
+| `country` | Country code, or an empty value for no country |
+| `currency` | Currency code |
+| `who` | Username |
+| `tag` | Tag code or name; repeat to require all supplied tags |
+| `is_income` | `true` for income, `false` for expenses |
+
+For example:
+
+```text
+/api/family/entries/?start=2026-11-01&end=2026-11-30&is_income=false
+```
+
+Invalid filters, unknown parameters, reversed date ranges, and repeated filter
+or pagination parameters other than `tag` return 400. The `book` parameter is
+ignored, and DRF handles its format parameter (for example, `format=json`).
+Text search is not supported.
+
+POST accepts either a single entry object or an array of entries. Each entry
+requires `account` (slug), `what`, `amount` (a decimal string), and `country`.
+Optional fields are `when`, `is_income`, `tags`, and `notes`. Omitted dates use
+the UTC calendar day, omitted `is_income` defaults to false, and omitted tags
+use account rules or the configured default tag. The authenticated user is
+always recorded as `who`. Accounts must be active and available to the book.
+
+```http
+POST /api/family/entries/
+Content-Type: application/json
+Authorization: Token <token>
+
+[
+  {"account": "cash", "what": "Lunch", "amount": "12.50", "country": "US"},
+  {"account": "cash", "what": "Bus", "amount": "2.00", "country": "US"}
+]
+```
+
+Single-entry success returns the created entry with status 201. Bulk requests
+follow file-import behavior: valid rows are saved and invalid or duplicate rows
+are reported without stopping the remaining rows. The response contains
+`entries` and `errors`; each error has a zero-based `index` and validation
+`errors`. The status is 201 when all rows succeed, 200 for partial success, and
+400 when all rows fail or the array is empty. Check bulk errors before retrying;
+already-created entries will be reported as duplicates.
+
+The `scripts/add-expense.py` client selects an explicit book with `--book`.
+Omitting it uses the default or sole accessible book.
+
 Contributing
 ------------
 
