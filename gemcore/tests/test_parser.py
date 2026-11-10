@@ -67,7 +67,7 @@ class CSVParserTestCase(BaseTestCase):
             "country": "US",
             "is_income": True,
             "notes": "source: 'stream with no name'",
-            "tags": [settings.ENTRY_DEFAULT_TAG],
+            "tags": [settings.ENTRY_TAGS["default"]],
             "what": "line 2",
             "when": date(2021, 10, 21),
             "who": user.pk,
@@ -100,6 +100,26 @@ class CSVParserTestCase(BaseTestCase):
         }
         self.assertEqual(result["errors"], [error])
 
+    def test_conflicting_tag_rules_reject_only_the_affected_row(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        for tag in ("FD", "TR"):
+            self.factory.make_tag_regex(
+                regex="^Ambiguous", tag=tag, account=account
+            )
+        result, _ = self.do_parse(
+            account,
+            StringIO(
+                "2026-11-01,Ambiguous entry,10\n" "2026-11-02,Valid entry,20\n"
+            ),
+        )
+        self.assert_result(result, errors=1, entries=1)
+        self.assertIn("exactly one tag", result["errors"][0]["message"])
+        self.assertEqual(
+            Entry.objects.get().tags, [settings.ENTRY_TAGS["default"]]
+        )
+
     def test_what_concatenates_columns(self):
         account = self.make_account_with_parser(
             when=[0], what=[2, 5, 4], amount=[1], country="ES"
@@ -127,7 +147,7 @@ class CSVParserTestCase(BaseTestCase):
 
         self.assert_result(result, errors=0, entries=1)
         self.assertEqual(
-            result["entries"][0].tags, [settings.ENTRY_DEFAULT_TAG]
+            result["entries"][0].tags, [settings.ENTRY_TAGS["default"]]
         )
 
     def test_bank1(self):

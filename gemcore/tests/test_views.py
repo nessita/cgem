@@ -11,7 +11,9 @@ from django.utils.html import escape
 from django.utils.timezone import override
 from django_htmx.middleware import HtmxMiddleware
 
-from gemcore.constants import TAGS
+from gemapi.serializers import EntryFilterSerializer, EntrySerializer
+from gemcore.checks import check_entry_tags
+from gemcore.constants import TAGS, ChoicesMixin
 from gemcore.forms import (
     AccountTransferForm,
     BalanceForm,
@@ -19,9 +21,88 @@ from gemcore.forms import (
     EntryMergeForm,
 )
 from gemcore.middleware import HtmxRedirectMiddleware
+from gemcore.models import Entry, TagRegex
 from gemcore.tests.helpers import BaseTestCase, ElementCollector
 
 DEFAULT_PASSWORD = "test"
+
+
+@override_settings(
+    ENTRY_TAGS={
+        "choices": [("MEAL", "Food"), ("MISC", "Other"), ("FX", "Change")],
+        "default": "MISC",
+        "transfer": "FX",
+    }
+)
+class EntryTagConfigurationTestCase(SimpleTestCase):
+    def test_valid_configuration(self):
+        self.assertEqual(check_entry_tags(None), [])
+
+    def test_invalid_configuration(self):
+        valid = settings.ENTRY_TAGS
+        for config, message in (
+            (None, "must be a dictionary"),
+            ([], "must be a dictionary"),
+            ({}, "must contain nonempty category codes"),
+            ({**valid, "choices": "MEAL"}, "must contain"),
+            ({**valid, "choices": [("MEAL",)]}, "must contain"),
+            ({**valid, "choices": [("", "Food")]}, "must contain"),
+            ({**valid, "choices": [("MEAL", "")]}, "must contain"),
+            ({**valid, "choices": [("X" * 257, "Food")]}, "must contain"),
+            (
+                {**valid, "choices": [("X", "Food"), ("X", "Other")]},
+                "unique category codes",
+            ),
+            ({**valid, "default": "missing"}, "['default']"),
+            ({**valid, "default": ["MISC"]}, "['default']"),
+            ({**valid, "transfer": None}, "['transfer']"),
+            ({**valid, "transfer": "missing"}, "['transfer']"),
+            ({**valid, "default": "FX"}, "must be distinct"),
+        ):
+            with (
+                self.subTest(config=config),
+                override_settings(ENTRY_TAGS=config),
+            ):
+                errors = check_entry_tags(None)
+                self.assertGreater(len(errors), 0)
+                self.assertEqual(
+                    {error.id for error in errors}, {"gemcore.E001"}
+                )
+                self.assertIn(message, errors[0].msg)
+
+    def test_choices_follow_settings_overrides(self):
+        first = settings.ENTRY_TAGS
+        second = {
+            "choices": [
+                ("LUNCH", "Food"),
+                ("IMPORT", "Other"),
+                ("MOVE", "Change"),
+            ],
+            "default": "IMPORT",
+            "transfer": "MOVE",
+        }
+        for config in (first, second):
+            with (
+                self.subTest(config=config),
+                override_settings(ENTRY_TAGS=config),
+            ):
+                choices = config["choices"]
+                codes = [code for code, label in choices]
+                self.assertEqual(list(TAGS), codes)
+                self.assertEqual(list(ChoicesMixin.TAG_CHOICES), choices)
+                self.assertEqual(
+                    list(Entry._meta.get_field("tags").base_field.choices),
+                    choices,
+                )
+                self.assertEqual(
+                    list(TagRegex._meta.get_field("tag").choices), choices
+                )
+                self.assertEqual(
+                    list(EntrySerializer().fields["tags"].child.choices), codes
+                )
+                field = EntryFilterSerializer().fields["tag"].child
+                self.assertEqual(list(field.choices), codes)
+                self.assertEqual(field.run_validation("food"), codes[0])
 
 
 class HtmxRedirectMiddlewareTestCase(SimpleTestCase):
@@ -593,15 +674,11 @@ class AccountTransferTestCase(BaseTestCase):
         )
         entries = list(self.book.entry_set.order_by("id"))
         self.assertEqual(len(entries), 2)
-        self.assertEqual(
-            entries[0].tags, [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
-        )
+        self.assertEqual(entries[0].tags, [settings.ENTRY_TAGS["transfer"]])
         self.assertEqual(entries[0].amount, 10.00)
         self.assertEqual(entries[0].what, "Transfer test (source)")
 
-        self.assertEqual(
-            entries[1].tags, [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
-        )
+        self.assertEqual(entries[1].tags, [settings.ENTRY_TAGS["transfer"]])
         self.assertEqual(entries[1].amount, 11.00)
         self.assertEqual(entries[1].what, "Transfer test (target)")
 

@@ -85,7 +85,7 @@ class Factory(object):
             what = "Description of entry %i" % i
         if when is None:
             when = utc_today()
-        tags = kwargs.pop("tags", [settings.ENTRY_DEFAULT_TAG])
+        tags = kwargs.pop("tags", [settings.ENTRY_TAGS["default"]])
 
         result = dict(
             book=book,

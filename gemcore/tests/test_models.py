@@ -3,7 +3,8 @@ from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.db import IntegrityError
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase
 from django.utils.timezone import now, override
 
@@ -452,19 +453,39 @@ class BookTestCase(BaseTestCase):
         ):
             self.book.merge_entries(entry1, entry2)
 
-    def test_existing_entry_with_multiple_tags_still_full_cleans(self):
-        entry = self.factory.make_entry(
-            book=self.book,
-            who=self.user1,
-            tags=TAGS[:2],
+    def test_entry_requires_exactly_one_tag(self):
+        existing = self.factory.make_entry(
+            book=self.book, who=self.user1, tags=[TAGS[0]]
         )
-
-        try:
-            entry.full_clean()
-        except Exception as exc:
-            self.fail(
-                f"historical multi-tag entries should still validate: {exc}"
+        existing.full_clean()
+        for tags in ([], TAGS[:2], [TAGS[0], TAGS[0]]):
+            entry = self.factory.make_entry(
+                book=self.book, who=self.user1, tags=tags, save=False
             )
+            with (
+                self.subTest(tags=tags, operation="validation"),
+                self.assertRaisesMessage(ValidationError, "tags"),
+            ):
+                entry.full_clean(validate_constraints=False)
+            with (
+                self.subTest(tags=tags, operation="save"),
+                self.assertRaisesMessage(
+                    IntegrityError, "entry_exactly_one_tag"
+                ),
+                transaction.atomic(),
+            ):
+                entry.save()
+            with (
+                self.subTest(tags=tags, operation="update"),
+                self.assertRaisesMessage(
+                    IntegrityError, "entry_exactly_one_tag"
+                ),
+                transaction.atomic(),
+            ):
+                Entry.objects.filter(pk=existing.pk).update(tags=tags)
+        existing.refresh_from_db()
+        self.assertEqual(existing.tags, [TAGS[0]])
+        self.assertEqual(Entry.objects.count(), 1)
 
     def test_merge_entries_all_expenses(self):
         who = self.user1

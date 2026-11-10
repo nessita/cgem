@@ -160,18 +160,20 @@ ASSET_CATEGORIES = [
     ("stocks", "Stocks"),
     ("vehicle", "Vehicle"),
 ]
-ENTRY_TAGS = [
-    ("CL", "Clothing"),
-    ("CH", "Change"),
-    ("FD", "Food"),
-    ("HE", "Healthcare"),
-    ("HS", "Housing"),
-    ("IM", "Imported"),
-    ("TR", "Transportation"),
-    ("UT", "Utilities"),
-]
-ENTRY_DEFAULT_TAG = "IM"
-ENTRY_ACCOUNT_TRANSFER_TAG = "CH"
+ENTRY_TAGS = {
+    "choices": [
+        ("CL", "Clothing"),
+        ("CH", "Change"),
+        ("FD", "Food"),
+        ("HE", "Healthcare"),
+        ("HS", "Housing"),
+        ("IM", "Imported"),
+        ("TR", "Transportation"),
+        ("UT", "Utilities"),
+    ],
+    "default": "IM",
+    "transfer": "CH",
+}
 
 LOGGING = {
     "version": 1,

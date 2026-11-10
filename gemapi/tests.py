@@ -41,7 +41,7 @@ class EntriesViewTestCase(BaseTestCase):
             "account": account_slug,
             "what": "One Test",
             "amount": "555.56",
-            "tags": [settings.ENTRY_DEFAULT_TAG],
+            "tags": [settings.ENTRY_TAGS["default"]],
             "country": "US",
         }
         data.update(kwargs)
@@ -82,16 +82,20 @@ class EntriesViewTestCase(BaseTestCase):
         self.assertEqual(entry.tags, data["tags"])
         self.assertEqual(entry.country, data["country"])
 
-    def test_tags_default_value_if_tags_none(self):
-        user = self.factory.make_user()
-        auth = self.make_auth_header(user=user)
-        data = self.make_entry_data(tags=[])
-
-        response = self.client.post(self.url, data=data, **auth)
-        self.assertEqual(response.status_code, 201, response.content)
-
-        entry = Entry.objects.get()
-        self.assertEqual(entry.tags, [settings.ENTRY_DEFAULT_TAG])
+    def test_rejects_empty_or_multiple_tags(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        for tags in ([], TAGS[:2], [TAGS[0], TAGS[0]]):
+            with self.subTest(tags=tags):
+                response = self.client.post(
+                    self.url,
+                    data={**data, "tags": tags},
+                    content_type="application/json",
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertIn("tags", response.json())
+        self.assertEqual(Entry.objects.count(), 0)
 
     def test_tags_default_value_if_tags_missing(self):
         user = self.factory.make_user()
@@ -103,12 +107,12 @@ class EntriesViewTestCase(BaseTestCase):
         self.assertEqual(response.status_code, 201, response.content)
 
         entry = Entry.objects.get()
-        self.assertEqual(entry.tags, [settings.ENTRY_DEFAULT_TAG])
+        self.assertEqual(entry.tags, [settings.ENTRY_TAGS["default"]])
 
     def test_tags_by_code(self):
         user = self.factory.make_user()
         auth = self.make_auth_header(user=user)
-        tags = random.choices(TAGS, k=3)
+        tags = [random.choice(TAGS)]
         data = self.make_entry_data(tags=tags)
 
         response = self.client.post(self.url, data=data, **auth)
@@ -120,18 +124,20 @@ class EntriesViewTestCase(BaseTestCase):
     def test_tags_by_name(self):
         user = self.factory.make_user()
         auth = self.make_auth_header(user=user)
-        (t1, l1), (t2, l2), (t3, l3), (t4, l4) = random.choices(
-            ChoicesMixin.TAG_CHOICES, k=4
-        )
-        data = self.make_entry_data(
-            tags=[l1.lower(), l2.capitalize(), l3, l4.upper()]
-        )
-
-        response = self.client.post(self.url, data=data, **auth)
-        self.assertEqual(response.status_code, 201, response.content)
-
-        entry = Entry.objects.get()
-        self.assertCountEqual(entry.tags, [t1, t2, t3, t4])
+        tag, label = random.choice(ChoicesMixin.TAG_CHOICES)
+        data = self.make_entry_data()
+        for index, value in enumerate(
+            (label.lower(), label.capitalize(), label, label.upper())
+        ):
+            with self.subTest(value=value):
+                what = f"Tag case {index}"
+                response = self.client.post(
+                    self.url,
+                    data={**data, "tags": [value], "what": what},
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 201, response.content)
+                self.assertEqual(Entry.objects.get(what=what).tags, [tag])
 
     def test_book_access_for_get_and_post(self):
         auth = self.make_auth_header()
@@ -217,6 +223,12 @@ class EntriesViewTestCase(BaseTestCase):
         account = Account.objects.get(slug=data["account"])
         tag, label = ChoicesMixin.TAG_CHOICES[0]
         self.factory.make_tag_regex(regex="^Matched", tag=tag, account=account)
+        self.factory.make_tag_regex(
+            regex="^Ambiguous", tag=TAGS[0], account=account
+        )
+        self.factory.make_tag_regex(
+            regex="^Ambiguous", tag=TAGS[1], account=account
+        )
         response = self.client.post(
             self.book_url(book),
             data=[
@@ -224,6 +236,9 @@ class EntriesViewTestCase(BaseTestCase):
                 {**data, "what": "Tag by name", "tags": [label.upper()]},
                 {**data, "what": "Invalid tag", "tags": [0]},
                 {**data, "what": "Fallback tag"},
+                {**data, "what": "Ambiguous rules"},
+                {**data, "what": "Empty tags", "tags": []},
+                {**data, "what": "Multiple tags", "tags": TAGS[:2]},
             ],
             content_type="application/json",
             **auth,
@@ -232,10 +247,15 @@ class EntriesViewTestCase(BaseTestCase):
         result = response.json()
         self.assertEqual(
             [row["tags"] for row in result["entries"]],
-            [[tag], [tag], [settings.ENTRY_DEFAULT_TAG]],
+            [[tag], [tag], [settings.ENTRY_TAGS["default"]]],
         )
         self.assertEqual(result["errors"][0]["index"], 2)
         self.assertIn("tags", result["errors"][0]["errors"])
+        self.assertEqual(
+            [error["index"] for error in result["errors"]], [2, 4, 5, 6]
+        )
+        for error in result["errors"]:
+            self.assertIn("tags", error["errors"])
 
     def test_default_resolution_uses_only_accessible_books(self):
         auth = self.make_auth_header()
@@ -421,7 +441,7 @@ class EntriesViewTestCase(BaseTestCase):
             who=self.api_user,
             when=date(2026, 11, 1),
             country="US",
-            tags=[first_tag, second_tag],
+            tags=[first_tag],
             is_income=False,
         )
         first = self.factory.make_entry(**common)
@@ -434,7 +454,7 @@ class EntriesViewTestCase(BaseTestCase):
             ("account", other_account),
             ("who", other_user),
             ("country", "AR"),
-            ("tags", [first_tag]),
+            ("tags", [second_tag]),
             ("is_income", True),
             ("when", date(2026, 12, 1)),
         ):
@@ -448,7 +468,7 @@ class EntriesViewTestCase(BaseTestCase):
             "country": "US",
             "currency": "USD",
             "who": self.api_user.username,
-            "tag": [first_tag, second_tag],
+            "tag": [first_tag],
             "is_income": "false",
         }
         response = self.client.get(url, params, **auth)
@@ -457,6 +477,11 @@ class EntriesViewTestCase(BaseTestCase):
             [row["id"] for row in response.json()["results"]],
             [last.pk, first.pk],
         )
+        response = self.client.get(
+            url, {**params, "tag": [first_tag, second_tag]}, **auth
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"], [])
         for field, value, expected in (
             ("account", other_account.slug, different["account"]),
             ("currency", "EUR", different["account"]),

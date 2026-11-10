@@ -810,7 +810,7 @@ def account_transfer(request, book_slug):
             when = form.cleaned_data.get("when")
             what = form.cleaned_data.get("what")
             country = form.cleaned_data.get("country")
-            tags = [settings.ENTRY_ACCOUNT_TRANSFER_TAG]
+            tags = [settings.ENTRY_TAGS["transfer"]]
 
             entries = [
                 Entry(
