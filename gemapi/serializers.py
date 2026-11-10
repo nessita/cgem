@@ -2,14 +2,15 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
-from gemcore.constants import REVERSED_TAGS, ChoicesMixin
+from gemcore.constants import ChoicesMixin, get_tag_choices
 from gemcore.models import Account, Entry
 
 
 class BackwardCompatibleTagField(serializers.ChoiceField):
     def to_internal_value(self, data):
         if isinstance(data, str):
-            data = REVERSED_TAGS.get(data.lower(), data)
+            labels = {label.lower(): code for code, label in get_tag_choices()}
+            data = labels.get(data.lower(), data)
         return super().to_internal_value(data)
 
 
@@ -28,6 +29,11 @@ class EntrySerializer(serializers.ModelSerializer):
         slug_field="slug", queryset=Account.objects.none()
     )
     who = serializers.ReadOnlyField(source="who.username")
+
+    def get_fields(self):
+        fields = super().get_fields()
+        fields["tags"].child.choices = get_tag_choices()
+        return fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -49,7 +55,12 @@ class EntrySerializer(serializers.ModelSerializer):
         tags = data.get("tags")
         if tags is None:
             tags = list(data["account"].tags_for(data["what"]))
-        data["tags"] = tags or [settings.ENTRY_DEFAULT_TAG]
+        tags = tags or [settings.ENTRY_TAGS["default"]]
+        if len(tags) != 1:
+            raise serializers.ValidationError(
+                {"tags": "Choose exactly one tag."}
+            )
+        data["tags"] = tags
         return data
 
     def create(self, validated_data):
@@ -87,9 +98,10 @@ class EntrySerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             "tags": {
-                "child": BackwardCompatibleTagField(
-                    choices=ChoicesMixin.TAG_CHOICES
-                )
+                "allow_empty": False,
+                "min_length": 1,
+                "max_length": 1,
+                "child": BackwardCompatibleTagField(choices=()),
             }
         }
 
@@ -106,7 +118,7 @@ class EntryFilterSerializer(serializers.Serializer):
     )
     who = serializers.CharField(required=False)
     tag = serializers.ListField(
-        child=BackwardCompatibleTagField(choices=ChoicesMixin.TAG_CHOICES),
+        child=BackwardCompatibleTagField(choices=()),
         required=False,
     )
     is_income = serializers.BooleanField(required=False)
@@ -114,6 +126,11 @@ class EntryFilterSerializer(serializers.Serializer):
     page_size = serializers.IntegerField(
         required=False, min_value=1, max_value=100
     )
+
+    def get_fields(self):
+        fields = super().get_fields()
+        fields["tag"].child.choices = get_tag_choices()
+        return fields
 
     def to_internal_value(self, data):
         # Query parameters must not use HTML's missing-checkbox=False rule.

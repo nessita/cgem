@@ -7,7 +7,11 @@ from functools import reduce
 
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
-from django.core.validators import MinValueValidator
+from django.core.validators import (
+    MaxLengthValidator,
+    MinLengthValidator,
+    MinValueValidator,
+)
 from django.db import connection, models, transaction
 from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models.signals import pre_delete
@@ -15,7 +19,7 @@ from django.dispatch import receiver
 from django.utils.text import slugify
 from django.utils.timezone import now
 
-from gemcore.constants import ChoicesMixin
+from gemcore.constants import ChoicesMixin, get_tag_choices
 
 
 class DryRunError(Exception):
@@ -460,7 +464,7 @@ class TagRegex(models.Model):
         Asset, on_delete=models.CASCADE, null=True, blank=True
     )
     regex = models.TextField()
-    tag = models.CharField(max_length=256, choices=ChoicesMixin.TAG_CHOICES)
+    tag = models.CharField(max_length=256, choices=get_tag_choices)
     transfer = models.ForeignKey(
         Account,
         related_name="transfers",
@@ -489,10 +493,9 @@ class Entry(models.Model):
     )
     is_income = models.BooleanField(default=False, verbose_name="Income?")
     tags = ArrayField(
-        base_field=models.CharField(
-            choices=ChoicesMixin.TAG_CHOICES, max_length=256
-        ),
+        base_field=models.CharField(choices=get_tag_choices, max_length=256),
         default=list,
+        validators=[MinLengthValidator(1), MaxLengthValidator(1)],
     )
     country = models.CharField(
         max_length=2, choices=ChoicesMixin.COUNTRY_CHOICES
@@ -500,6 +503,12 @@ class Entry(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(tags__len=1),
+                name="entry_exactly_one_tag",
+            )
+        ]
         unique_together = (
             "book",
             "account",

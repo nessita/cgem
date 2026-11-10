@@ -35,8 +35,9 @@ class EntryFormTestCase(BaseTestCase):
             book=self.book,
             account=self.account,
             who=self.user,
-            tags=TAGS[:2],
+            tags=[TAGS[0]],
         )
+        entry.tags = TAGS[:2]
 
         with self.assertRaisesMessage(
             ValueError,

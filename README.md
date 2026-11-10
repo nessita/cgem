@@ -23,6 +23,36 @@ virtualenv with all the dependencies from requirement.txt installed, and just
 run the server either with the Django test server, or with the provided wsgi
 file.
 
+Entry categories (tags)
+-----------------------
+
+Each entry has exactly one category, such as Food, Salary, or Investments.
+These categories are called "tags" in the UI, API, and settings; they are not
+multiple free-form labels.
+
+Configure them in `gem/local_settings.py` using `ENTRY_TAGS`:
+
+```python
+ENTRY_TAGS = {
+    "choices": [
+        ("IMPD", "Imported"),
+        ("CHNG", "Change"),
+        ("FD", "Food"),
+        ("WORK", "Salary"),
+        ("RENT", "Rental"),
+        ("INVS", "Investments"),
+        # Include the rest of your categories here.
+    ],
+    "default": "IMPD",
+    "transfer": "CHNG",
+}
+```
+
+`choices` lists category codes and their display labels. `default` is the
+fallback for imported or API-created entries when account rules do not assign
+a category. `transfer` identifies currency-change movements. Both must reference
+codes in `choices`, and they must differ.
+
 Tailwind CSS (standalone CLI)
 ----------------------------
 
@@ -140,8 +170,10 @@ POST accepts either a single entry object or an array of entries. Each entry
 requires `account` (slug), `what`, `amount` (a decimal string), and `country`.
 Optional fields are `when`, `is_income`, `tags`, and `notes`. Omitted dates use
 the UTC calendar day, omitted `is_income` defaults to false, and omitted tags
-use account rules or the configured default tag. The authenticated user is
-always recorded as `who`. Accounts must be active and available to the book.
+use account rules or the configured default tag. Each entry must have exactly
+one tag; explicit empty lists, multiple tags, and account rules that resolve to
+multiple tags are rejected. The authenticated user is always recorded as `who`.
+Accounts must be active and available to the book.
 
 ```http
 POST /api/family/entries/
