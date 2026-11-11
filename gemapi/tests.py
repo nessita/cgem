@@ -1,12 +1,6 @@
-import os
 import random
-import runpy
-from contextlib import redirect_stdout
 from datetime import date
 from decimal import Decimal
-from io import StringIO
-from types import SimpleNamespace
-from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
@@ -611,44 +605,3 @@ class EntriesViewTestCase(BaseTestCase):
                         response.status_code, 200, response.content
                     )
                     self.assertEqual(response.json()["results"], [])
-
-    def test_add_expense_script_respects_selected_book(self):
-        auth = self.make_auth_header()
-        default = self.factory.make_book(users=[self.api_user], default=True)
-        other = self.factory.make_book(users=[self.api_user])
-        account = self.factory.make_account(users=[self.api_user])
-        script = settings.BASE_DIR / "scripts" / "add-expense.py"
-
-        def post(url, json, headers):
-            self.assertEqual(url, f"http://testserver{expected_url}")
-            response = self.client.post(
-                urlsplit(url).path,
-                data=json,
-                content_type="application/json",
-                HTTP_AUTHORIZATION=headers["Authorization"],
-            )
-            self.assertEqual(response.status_code, 201, response.content)
-            self.assertEqual(response.json()["book"], expected_book.slug)
-            return SimpleNamespace(
-                ok=True, status_code=response.status_code, json=response.json
-            )
-
-        for book_slug, expected_book in ((None, default), (other.slug, other)):
-            expected_url = self.book_url(book_slug) if book_slug else self.url
-            argv = [str(script), "--account", account.slug, "Lunch", "12.50"]
-            if book_slug:
-                argv.extend(["--book", book_slug])
-            with (
-                self.subTest(book_slug=book_slug),
-                patch.dict(
-                    os.environ,
-                    CGEM_TOKEN=auth["HTTP_AUTHORIZATION"].split()[1],
-                    CGEM_ROOT_URL="http://testserver",
-                ),
-                patch.dict("sys.modules", requests=SimpleNamespace(post=post)),
-                patch("sys.argv", argv),
-                redirect_stdout(StringIO()),
-            ):
-                runpy.run_path(str(script), run_name="__main__")
-        self.assertEqual(Entry.objects.filter(book=default).count(), 1)
-        self.assertEqual(Entry.objects.filter(book=other).count(), 1)

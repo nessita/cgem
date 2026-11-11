@@ -1,6 +1,5 @@
+**/__pycache__/
 gem/local_settings.py
-gem*/__pycache__/
-gem*/**/__pycache__/
 env/
 staticfiles/
 .coverage

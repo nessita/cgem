@@ -11,7 +11,7 @@ def add_expense(
     token = os.getenv("CGEM_TOKEN", "Invalid")
     base_url = os.getenv("CGEM_ROOT_URL", "http://localhost:8000")
     endpoint = f"/api/{book}/entries/" if book else "/api/entries/"
-    url = base_url + endpoint
+    url = base_url.rstrip("/") + endpoint
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Token {token}",
@@ -23,15 +23,17 @@ def add_expense(
         "country": country,
         "notes": notes,
     }
+    if tags is not None:
+        data["tags"] = tags
     if verbose:
         print("\n*** About to POST data to:", url)
-        print("*** with headers:", headers)
         pprint(data)
 
-    response = requests.post(url, json=data, headers=headers)
+    response = requests.post(url, json=data, headers=headers, timeout=30)
     if verbose:
         print("\n*** Result:", response.status_code)
-    assert response.ok, "%s: %s" % (response.status_code, response.text)
+    if not response.ok:
+        raise SystemExit(f"{response.status_code}: {response.text}")
     pprint(response.json())
 
 
@@ -49,7 +51,14 @@ def main():
         default="US",
         help="The country where the expense occurred",
     )
-    parser.add_argument("--tags", nargs="+", default=["imported"])
+    parser.add_argument(
+        "--tags",
+        nargs=1,
+        help=(
+            "One category code or name "
+            "(otherwise use account rules or the default)"
+        ),
+    )
     parser.add_argument(
         "--notes",
         default="Submitted via API",

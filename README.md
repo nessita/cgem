@@ -197,7 +197,7 @@ are reported without stopping the remaining rows. The response contains
 400 when all rows fail or the array is empty. Check bulk errors before retrying;
 already-created entries will be reported as duplicates.
 
-The `scripts/add-expense.py` client selects an explicit book with `--book`.
+The `scripts/add_expense.py` client selects an explicit book with `--book`.
 Omitting it uses the default or sole accessible book.
 
 Planning report
