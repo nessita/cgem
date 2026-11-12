@@ -3,11 +3,6 @@
 {% block content %}
 
 <h1 class="font-bold text-2xl">Balances for {{ book }}</h1>
-<div class="flex flex-row flex-wrap gap-2">
-    {% url 'entries' book.slug as entries_url %}
-    {% querystring account=account_slug|default:filters.account currency=currency|default:filters.currency as entries_query %}
-    {% include "components/button.html" with label="Entries" href=entries_url|add:entries_query variant="secondary" only %}
-</div>
 {% include "gemcore/_list_controls.html#active_filters" %}
 
 <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
@@ -17,7 +12,7 @@
         {% include "gemcore/_list_controls.html#paginator" with pagination_label="Balance pages" %}
         <section class="flex flex-col gap-4" aria-labelledby="balance-result-heading">
             <h2 id="balance-result-heading" class="font-semibold text-lg">
-                {% if balance %}From {{ balance.complete.start|date }} to {{ balance.complete.end|date }}{% else %}Current result{% endif %}
+                {% if balance %}From {{ balance.complete.start|date:"Y-m-d" }} to {{ balance.complete.end|date:"Y-m-d" }}{% else %}Current result{% endif %}
             </h2>
             {% if balance %}
                 {% include 'gemcore/_balance_result.html' with balance_months=page_obj %}

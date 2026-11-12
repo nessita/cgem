@@ -15,7 +15,7 @@
             {% for item in balance_months %}
             <tr class="bg-stone-50 even:bg-stone-100 hover:bg-sky-50">
                 <th scope="row" class="font-medium px-4 py-3 text-left whitespace-nowrap">
-                    <a class="hover:text-sky-700 text-sky-800" href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug|default:filters.account currency=currency|default:filters.currency %}">{{ item.start|date:"Y M" }}</a>
+                    <a class="hover:text-sky-700 text-sky-800" href="{% url 'entries' book.slug %}{% querystring year=item.start|date:'Y' month=item.start|date:'b' account=account_slug|default:filters.account currency=currency|default:filters.currency %}">{{ item.start|date:"Y-m" }}</a>
                 </th>
                 <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap">{{ item.income }}</td>
                 <td class="px-4 py-3 tabular-nums text-right text-red-600 whitespace-nowrap">-{{ item.expense }}</td>

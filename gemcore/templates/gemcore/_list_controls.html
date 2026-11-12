@@ -50,7 +50,7 @@
 
         {% if available.tags %}
         <details open aria-labelledby="tag-filter-heading">
-            <summary id="tag-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Tags</summary>
+            <summary id="tag-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Tags ({{ available.tags|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.tags %}
                 {% if k in filters.tags %}
@@ -67,7 +67,7 @@
 
         {% if available.months %}
         <details{% if filters.month %} open{% endif %} aria-labelledby="month-filter-heading">
-            <summary id="month-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Months</summary>
+            <summary id="month-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Months ({{ available.months|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.months %}
                 {% if k == filters.month %}
@@ -84,7 +84,7 @@
 
         {% if available.years %}
         <details{% if filters.year %} open{% endif %} aria-labelledby="year-filter-heading">
-            <summary id="year-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Years</summary>
+            <summary id="year-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Years ({{ available.years|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.years %}
                 {% if k == filters.year %}
@@ -101,7 +101,7 @@
 
         {% if available.countries %}
         <details{% if filters.country %} open{% endif %} aria-labelledby="country-filter-heading">
-            <summary id="country-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Countries</summary>
+            <summary id="country-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Countries ({{ available.countries|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.countries %}
                 {% if k == filters.country %}
@@ -118,7 +118,7 @@
 
         {% if available.users %}
         <details{% if filters.who %} open{% endif %} aria-labelledby="user-filter-heading">
-            <summary id="user-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">People</summary>
+            <summary id="user-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">People ({{ available.users|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.users %}
                 {% if k == filters.who %}
@@ -135,7 +135,7 @@
 
         {% if available.currencies %}
         <details{% if filters.currency %} open{% endif %} aria-labelledby="currency-filter-heading">
-            <summary id="currency-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Currencies</summary>
+            <summary id="currency-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Currencies ({{ available.currencies|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.currencies %}
                 {% if k == filters.currency %}
@@ -152,7 +152,7 @@
 
         {% if available.assets %}
         <details{% if filters.asset %} open{% endif %} aria-labelledby="asset-filter-heading">
-            <summary id="asset-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Assets</summary>
+            <summary id="asset-filter-heading" class="cursor-pointer font-medium rounded-md text-stone-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Assets ({{ available.assets|length }})</summary>
             <div class="flex flex-row flex-wrap gap-2 py-2">
             {% for k, i in available.assets %}
                 {% if k == filters.asset %}
@@ -172,10 +172,10 @@
             <div class="flex flex-col gap-1">
                 <label for="search-text" class="block font-medium text-stone-700 text-sm">Search text</label>
                 <div class="flex flex-row gap-2 items-center">
-                    <input type="text" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="q" autofocus
+                    <input type="text" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="q"
                            id="search-text" placeholder="Search" value="{{ filters.q|default_if_none:'' }}">
                     {% querystring q=None as clear_text_url %}
-                    {% include "components/button.html" with label="Clear text" id="clear-search-text" href=clear_text_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
+                    {% include "components/clear_filter.html" with label="Clear text" id="clear-search-text" href=clear_text_url|default:"." only %}
                 </div>
             </div>
             <div class="flex flex-col gap-1">
@@ -183,7 +183,7 @@
                 <div class="flex flex-row gap-2 items-center">
                     {{ search_form.when }}
                     {% querystring when=None as clear_date_url %}
-                    {% include "components/button.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
+                    {% include "components/clear_filter.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." only %}
                 </div>
             </div>
             <div class="flex">

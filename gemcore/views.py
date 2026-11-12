@@ -16,7 +16,6 @@ from django.http import (
 )
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.views.decorators.http import (
     require_GET,
     require_http_methods,
@@ -311,7 +310,7 @@ def list_filter_context(request, filters):
                 if filters[name] is not None:
                     display_value = "Yes" if filters[name] else "No"
             if name in {"when", "start", "end"} and filters[name]:
-                display_value = date_format(filters[name], "M j, y")
+                display_value = filters[name].isoformat()
             active_filters.append(
                 {
                     "name": name,

@@ -35,13 +35,6 @@
 
 {% block content %}
 <h1 class="font-bold text-2xl">Planning for {{ book }}</h1>
-<div class="flex flex-row flex-wrap gap-2">
-    {% querystring as query %}
-    {% url 'entries' book.slug as entries_url %}
-    {% include "components/button.html" with label="Entries" href=entries_url|add:query variant="secondary" only %}
-    {% url 'balance' book.slug as balance_url %}
-    {% include "components/button.html" with label="Balances" href=balance_url|add:query variant="secondary" only %}
-</div>
 {% include "gemcore/_list_controls.html#active_filters" %}
 
 {% if planning_error %}
@@ -55,11 +48,11 @@
     <section class="flex flex-col gap-6 min-w-0 flex-1" aria-label="Planning results">
         <div class="flex flex-row flex-wrap gap-2 text-sm text-stone-600" aria-label="Reporting period">
             <span>Reporting period:</span>
-            {% if filters.when %}<span>Date: {{ filters.when|date }}</span>{% endif %}
+            {% if filters.when %}<span>Date: {{ filters.when|date:"Y-m-d" }}</span>{% endif %}
             {% if filters.year %}<span>Year: {{ filters.year }}</span>{% endif %}
             {% if filters.month %}<span>Month: {{ filters.month|capfirst }}</span>{% endif %}
-            {% if filters.start %}<span>From: {{ filters.start|date }}</span>{% endif %}
-            {% if filters.end %}<span>Until: {{ filters.end|date }}</span>{% endif %}
+            {% if filters.start %}<span>From: {{ filters.start|date:"Y-m-d" }}</span>{% endif %}
+            {% if filters.end %}<span>Until: {{ filters.end|date:"Y-m-d" }}</span>{% endif %}
             {% if not filters.when and not filters.year and not filters.month and not filters.start and not filters.end %}<span>All recorded dates</span>{% endif %}
         </div>
         <aside class="bg-stone-100 border border-stone-300 flex flex-col gap-2 p-4 rounded-lg text-stone-700 text-sm" aria-label="Investment cash flow assumption">

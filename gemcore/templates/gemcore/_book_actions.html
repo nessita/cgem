@@ -1,17 +1,14 @@
 {% load gemcore_tags %}
-{% planning_enabled as show_planning %}
-        <div class="flex flex-row flex-wrap gap-2">
-            {% querystring as query %}
-            {% url 'add-entry' book.slug as add_url %}
-            {% include "components/button.html" with label="New entry" href=add_url|add:query only %}
-            {% url 'account-transfer' book.slug as transfer_url %}
-            {% include "components/button.html" with label="Account transfer" href=transfer_url|add:query variant="secondary" only %}
-            {% url 'balance' book.slug as balance_url %}
-            {% include "components/button.html" with label="Balances" href=balance_url variant="secondary" only %}
-            {% if show_planning %}
-                {% url 'planning' book.slug as planning_url %}
-                {% include "components/button.html" with label="Planning" href=planning_url|add:query variant="secondary" only %}
-            {% endif %}
-            {% url 'load-from-file' book.slug as load_url %}
-            {% include "components/button.html" with label="Load file" href=load_url variant="secondary" only %}
-        </div>
+{% book_navigation book as links %}
+<div class="flex flex-col gap-2">
+    <input id="book-menu-{{ book.pk }}" type="checkbox" class="peer sr-only md:hidden" aria-controls="book-navigation-{{ book.pk }}">
+    <label for="book-menu-{{ book.pk }}" class="cursor-pointer flex flex-row gap-2 items-center rounded-md self-start text-stone-700 md:hidden peer-focus-visible:ring-2 peer-focus-visible:ring-stone-400">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        Book menu
+    </label>
+    <nav id="book-navigation-{{ book.pk }}" aria-label="Navigation for {{ book }}" class="hidden flex-col gap-2 peer-checked:flex md:flex md:flex-row md:flex-wrap">
+        {% for link in links %}
+            {% include "components/button.html" with label=link.label href=link.href current=link.current variant="secondary" only %}
+        {% endfor %}
+    </nav>
+</div>

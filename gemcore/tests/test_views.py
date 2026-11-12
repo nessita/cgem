@@ -5,11 +5,10 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
-from django.utils.formats import date_format
 from django.utils.html import escape
 from django.utils.timezone import override
 from django_htmx.middleware import HtmxMiddleware
@@ -350,16 +349,28 @@ class AddEntryTestCase(BaseTestCase):
         fields = (
             BalanceForm.base_fields["start"],
             BalanceForm.base_fields["end"],
-            EntryForm.base_fields["when"],
+            EntryForm(book=self.book).fields["when"],
             EntryMergeForm.base_fields["when"],
             AccountTransferForm.base_fields["when"],
         )
         for field in fields:
             with self.subTest(field=field):
+                self.assertEqual(field.widget.input_type, "text")
+                self.assertEqual(
+                    field.widget.attrs["placeholder"], "YYYY-MM-DD"
+                )
                 self.assertEqual(
                     field.widget.format_value(date(2026, 11, 3)),
                     "2026-11-03",
                 )
+                self.assertEqual(field.clean("2026-11-03"), date(2026, 11, 3))
+            with (
+                self.subTest(field=field, value="11/03/2026"),
+                self.assertRaisesMessage(
+                    ValidationError, str(field.error_messages["invalid"])
+                ),
+            ):
+                field.clean("11/03/2026")
 
     def test_integrity_error_handled(self):
         assert self.client.login(
@@ -1101,6 +1112,14 @@ class BookPagesTestCase(BaseTestCase):
 
     def test_book_pages_and_forms_render(self):
         self.client.force_login(self.user)
+        navigation_pages = (
+            "entries",
+            "add-entry",
+            "account-transfer",
+            "balance",
+            "planning",
+            "load-from-file",
+        )
         for name, args in (
             ("books", []),
             ("add-book", []),
@@ -1115,6 +1134,94 @@ class BookPagesTestCase(BaseTestCase):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertEqual(response.status_code, 200)
+                if name not in navigation_pages:
+                    continue
+                html = response.content.decode()
+                navigation = html.split(
+                    f'<nav id="book-navigation-{self.book.pk}"', 1
+                )[1].split("</nav>", 1)[0]
+                links = [
+                    attrs
+                    for tag, attrs in ElementCollector(navigation).elements
+                    if tag == "a"
+                ]
+                self.assertEqual(
+                    [urlsplit(link["href"]).path for link in links],
+                    [
+                        reverse(page, args=[self.book.slug])
+                        for page in navigation_pages
+                    ],
+                )
+                self.assertEqual(
+                    [
+                        urlsplit(link["href"]).path
+                        for link in links
+                        if link.get("aria-current") == "page"
+                    ],
+                    [reverse(name, args=args)],
+                )
+
+    def test_sidebar_does_not_autofocus_and_counts_filter_options(self):
+        self.client.force_login(self.user)
+        asset = Asset.objects.create(name="Fund", since=date(2020, 1, 1))
+        asset.users.add(self.user)
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            asset=asset,
+            tags=[TAGS[0]],
+            when=date(2026, 11, 6),
+        )
+        for name in ("entries", "balance", "planning"):
+            with self.subTest(page=name):
+                response = self.client.get(
+                    reverse(name, args=[self.book.slug]), {"year": 2026}
+                )
+                self.assertEqual(response.status_code, 200)
+                elements = ElementCollector(response.content.decode()).elements
+                search = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("id") == "search-text"
+                )
+                self.assertNotIn("autofocus", search)
+                date_input = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("id") == "search-when"
+                )
+                self.assertEqual(date_input["type"], "text")
+                self.assertEqual(date_input["placeholder"], "YYYY-MM-DD")
+                for label in (
+                    "Tags",
+                    "Months",
+                    "Years",
+                    "Countries",
+                    "People",
+                    "Currencies",
+                    "Assets",
+                ):
+                    self.assertContains(response, f">{label} (1)</summary>")
+
+    def test_bottom_pagination_precedes_selection_actions(self):
+        self.client.force_login(self.user)
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+        )
+        response = self.client.get(reverse("entries", args=[self.book.slug]))
+        html = response.content.decode()
+        self.assertContains(response, 'aria-label="Entries pages"', count=2)
+        self.assertLess(
+            html.index('id="entries-scroll"'),
+            html.rindex('aria-label="Entries pages"'),
+        )
+        self.assertLess(
+            html.rindex('aria-label="Entries pages"'),
+            html.index('id="entry-selection-actions"'),
+        )
 
     def test_date_inputs_always_show_iso_dates(self):
         self.client.force_login(self.user)
@@ -1423,8 +1530,8 @@ class BookPagesTestCase(BaseTestCase):
         for text in (
             "Year: 2026",
             "Month: Nov",
-            "From: " + date_format(date(2026, 11, 10)),
-            "Until: " + date_format(date(2026, 12, 31)),
+            "From: " + "2026-11-10",
+            "Until: " + "2026-12-31",
         ):
             self.assertContains(response, f"<span>{text}</span>", html=True)
 
@@ -2143,7 +2250,9 @@ class BookPagesTestCase(BaseTestCase):
                 self.assertEqual(attrs["hx-boost"], "true")
                 self.assertEqual(attrs["hx-target"], "#content")
                 self.assertEqual(attrs["hx-select"], "#content")
-                self.assertEqual(attrs["hx-swap"], "outerHTML show:none")
+                self.assertEqual(
+                    attrs["hx-swap"], "outerHTML show:none focus-scroll:false"
+                )
                 self.assertEqual(attrs["hx-sync"], "#content:replace")
                 cleared = self.client.get(
                     url,
