@@ -18,6 +18,7 @@ from gemapi.serializers import EntryFilterSerializer, EntrySerializer
 from gemcore.checks import check_entry_tags
 from gemcore.constants import TAGS, ChoicesMixin
 from gemcore.forms import (
+    ISO_DATE_PATTERN,
     AccountTransferForm,
     BalanceForm,
     EntryForm,
@@ -1114,6 +1115,94 @@ class BookPagesTestCase(BaseTestCase):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertEqual(response.status_code, 200)
+
+    def test_date_inputs_always_show_iso_dates(self):
+        self.client.force_login(self.user)
+        entry = self.factory.make_entry(
+            book=self.book, account=self.account, who=self.user
+        )
+        for name, args, params, expected in (
+            ("entries", [self.book.slug], {"when": "2026-11-06"}, ["when"]),
+            ("planning", [self.book.slug], {"when": "2026-11-06"}, ["when"]),
+            ("add-entry", [self.book.slug], {}, ["when"]),
+            ("entry", [self.book.slug, entry.pk], {}, ["when"]),
+            ("account-transfer", [self.book.slug], {}, ["when"]),
+            (
+                "balance",
+                [self.book.slug],
+                {"when": "2026-11-06"},
+                ["when", "start", "end", "start", "end"],
+            ),
+        ):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name, args=args), params)
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                elements = ElementCollector(html).elements
+                inputs = [attrs for tag, attrs in elements if tag == "input"]
+                dates = [
+                    attrs
+                    for attrs in inputs
+                    if attrs.get("name") in {"when", "start", "end"}
+                    and attrs["type"] != "hidden"
+                ]
+                self.assertEqual([i["name"] for i in dates], expected)
+                for attrs in dates:
+                    self.assertEqual(attrs["type"], "text")
+                    self.assertEqual(attrs["placeholder"], "YYYY-MM-DD")
+                    self.assertEqual(attrs["pattern"], ISO_DATE_PATTERN)
+                    if "value" in attrs:
+                        self.assertRegex(attrs["value"], ISO_DATE_PATTERN)
+                # Native date inputs exist only as nameless calendar helpers,
+                # one per visible field.
+                pickers = [i for i in inputs if i["type"] == "date"]
+                self.assertEqual(len(pickers), len(dates))
+                for attrs in pickers:
+                    self.assertNotIn("name", attrs)
+                self.assertEqual(html.count("data-iso-date"), len(dates))
+                self.assertTrue(
+                    any(
+                        a.get("src", "").endswith("js/iso-date.js")
+                        for t, a in elements
+                        if t == "script"
+                    )
+                )
+                self.assertNotContains(response, "onclick=")
+                self.assertNotContains(response, "onchange=")
+
+    def test_search_date_field_keeps_submitted_date(self):
+        self.client.force_login(self.user)
+        url = reverse("entries", args=[self.book.slug])
+        for params, expected in (
+            ({}, None),
+            ({"when": "2026-11-06"}, "2026-11-06"),
+        ):
+            with self.subTest(params=params):
+                response = self.client.get(url, params)
+                elements = ElementCollector(response.content.decode()).elements
+                (field,) = [
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("name") == "when"
+                ]
+                self.assertEqual(field["id"], "search-when")
+                self.assertEqual(field.get("value"), expected)
+                self.assertNotIn("required", field)
+                labels = [
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "label" and attrs.get("for") == "search-when"
+                ]
+                self.assertEqual(len(labels), 1)
+                self.assertContains(response, ">Entry date</label>")
+
+    def test_search_date_rejects_other_formats(self):
+        self.client.force_login(self.user)
+        url = reverse("entries", args=[self.book.slug])
+        for value in ("11/06/2026", "06/11/2026", "2026-13-45"):
+            with self.subTest(value=value):
+                response = self.client.get(url, {"when": value})
+                self.assertEqual(response.status_code, 400)
 
     def test_planning_navigation_follows_configuration(self):
         self.client.force_login(self.user)

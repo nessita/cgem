@@ -7,6 +7,43 @@ from django_countries import countries
 from gemcore.constants import ChoicesMixin
 from gemcore.models import Account, Asset, Book, Entry, utc_today
 
+ISO_DATE_FORMAT = "%Y-%m-%d"
+ISO_DATE_PATTERN = r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])"
+
+
+class ISODateInput(forms.DateInput):
+    """Text input that always shows YYYY-MM-DD, with a native calendar.
+
+    A real ``<input type="date">`` displays dates in the browser's locale
+    (mm/dd/yyyy for en-US) and that can not be changed, so the visible field
+    is plain text. The template adds a hidden date input used only for its
+    calendar; ``static/js/iso-date.js`` connects both.
+    """
+
+    template_name = "forms/iso_date.html"
+
+    def __init__(self, attrs=None, format=None):
+        attrs = {
+            "autocomplete": "off",
+            "class": "min-w-0",
+            "pattern": ISO_DATE_PATTERN,
+            "placeholder": "YYYY-MM-DD",
+            "title": "Date as YYYY-MM-DD",
+            **(attrs or {}),
+        }
+        # The format is fixed: any other value would defeat the widget.
+        super().__init__(attrs=attrs, format=ISO_DATE_FORMAT)
+
+
+class ISODateField(forms.DateField):
+    """Date field that shows and accepts only YYYY-MM-DD."""
+
+    widget = ISODateInput
+
+    def __init__(self, **kwargs):
+        kwargs["input_formats"] = [ISO_DATE_FORMAT]
+        super().__init__(**kwargs)
+
 
 class ChooseForm(forms.Form):
     def __init__(
@@ -30,26 +67,8 @@ class ChooseForm(forms.Form):
 
 
 class BalanceForm(forms.Form):
-    start = forms.DateField(
-        widget=forms.DateInput(
-            format="%Y-%m-%d",
-            attrs={
-                "placeholder": "Start",
-                "type": "date",
-            },
-        ),
-        required=False,
-    )
-    end = forms.DateField(
-        widget=forms.DateInput(
-            format="%Y-%m-%d",
-            attrs={
-                "placeholder": "End",
-                "type": "date",
-            },
-        ),
-        required=False,
-    )
+    start = ISODateField(required=False)
+    end = ISODateField(required=False)
 
 
 class EntryFilterForm(forms.Form):
@@ -62,9 +81,9 @@ class EntryFilterForm(forms.Form):
         ("False", "No"),
     )
 
-    when = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
-    start = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
-    end = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    when = ISODateField(required=False, label="Entry date")
+    start = ISODateField(required=False)
+    end = ISODateField(required=False)
     year = forms.IntegerField(required=False, min_value=1, max_value=9999)
     month = forms.CharField(required=False)
     is_income = forms.TypedChoiceField(
@@ -202,11 +221,8 @@ class EntryForm(forms.ModelForm):
     class Meta:
         model = Entry
         exclude = ("book",)
+        field_classes = dict(when=ISODateField)
         widgets = dict(
-            when=forms.DateInput(
-                format="%Y-%m-%d",
-                attrs={"type": "date"},
-            ),
             who=forms.Select(attrs={"placeholder": "who"}),
             what=forms.TextInput(
                 attrs={
@@ -231,12 +247,7 @@ class EntryForm(forms.ModelForm):
 
 
 class EntryMergeForm(forms.Form):
-    when = forms.DateField(
-        widget=forms.DateInput(
-            format="%Y-%m-%d",
-            attrs={"type": "date"},
-        )
-    )
+    when = ISODateField()
 
 
 class CSVExpenseForm(forms.Form):
@@ -292,10 +303,7 @@ class AccountTransferForm(forms.Form):
         initial="Traspaso de fondos",
         widget=forms.TextInput(attrs={"placeholder": "what"}),
     )
-    when = forms.DateField(
-        initial=utc_today,
-        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-    )
+    when = ISODateField(initial=utc_today)
     country = forms.ChoiceField(
         choices=countries,
         initial="UY",
