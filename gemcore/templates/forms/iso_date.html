@@ -1,0 +1,10 @@
+{# Behavior lives in static/js/iso-date.js, keyed on data-iso-date. #}
+<div class="flex flex-row gap-2 items-center min-w-0 relative w-full" data-iso-date>
+    {% include "django/forms/widgets/input.html" %}
+    <input type="date" tabindex="-1" aria-hidden="true"
+           class="absolute bottom-0 left-0 opacity-0 pointer-events-none size-px">
+    <button type="button" aria-label="Choose date from calendar" title="Choose date from calendar"{% if widget.attrs.disabled or widget.attrs.readonly %} disabled{% endif %}
+            class="bg-stone-200 hover:bg-stone-300 inline-flex items-center justify-center p-2 rounded-md shrink-0 text-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+      {% include "icons/calendar.html" %}
+    </button>
+</div>

@@ -179,10 +179,9 @@
                 </div>
             </div>
             <div class="flex flex-col gap-1">
-                <label for="search-date" class="block font-medium text-stone-700 text-sm">Entry date</label>
+                {{ search_form.when.label_tag }}
                 <div class="flex flex-row gap-2 items-center">
-                    <input type="date" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="when"
-                           id="search-date" value="{{ filters.when|date:'Y-m-d' }}">
+                    {{ search_form.when }}
                     {% querystring when=None as clear_date_url %}
                     {% include "components/button.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." variant="secondary" hx_boost="true" hx_target="#content" hx_select="#content" hx_swap="outerHTML show:none" hx_sync="#content:replace" only %}
                 </div>

@@ -321,6 +321,9 @@ def list_filter_context(request, filters):
             )
     return {
         "active_filters": active_filters,
+        "search_form": EntryFilterForm(
+            initial={"when": when}, auto_id="search-%s", label_suffix=""
+        ),
         "search_filters": [
             (key, value)
             for key, values in request.GET.lists()
