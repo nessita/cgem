@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
-from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
@@ -16,13 +16,7 @@ from django_htmx.middleware import HtmxMiddleware
 from gemapi.serializers import EntryFilterSerializer, EntrySerializer
 from gemcore.checks import check_entry_tags
 from gemcore.constants import TAGS, ChoicesMixin
-from gemcore.forms import (
-    ISO_DATE_PATTERN,
-    AccountTransferForm,
-    BalanceForm,
-    EntryForm,
-    EntryMergeForm,
-)
+from gemcore.forms import ISO_DATE_PATTERN, AccountTransferForm
 from gemcore.middleware import HtmxRedirectMiddleware
 from gemcore.models import Asset, Entry, TagRegex
 from gemcore.planning import get_planning_tags
@@ -343,34 +337,6 @@ class AddEntryTestCase(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["HX-Redirect"], destination)
         self.assertEqual(self.client.session[SESSION_KEY], str(self.user.pk))
-
-    @override_settings(DATE_FORMAT="d/m/Y", LANGUAGE_CODE="fr")
-    def test_date_widgets_use_iso_format(self):
-        fields = (
-            BalanceForm.base_fields["start"],
-            BalanceForm.base_fields["end"],
-            EntryForm(book=self.book).fields["when"],
-            EntryMergeForm.base_fields["when"],
-            AccountTransferForm.base_fields["when"],
-        )
-        for field in fields:
-            with self.subTest(field=field):
-                self.assertEqual(field.widget.input_type, "text")
-                self.assertEqual(
-                    field.widget.attrs["placeholder"], "YYYY-MM-DD"
-                )
-                self.assertEqual(
-                    field.widget.format_value(date(2026, 11, 3)),
-                    "2026-11-03",
-                )
-                self.assertEqual(field.clean("2026-11-03"), date(2026, 11, 3))
-            with (
-                self.subTest(field=field, value="11/03/2026"),
-                self.assertRaisesMessage(
-                    ValidationError, str(field.error_messages["invalid"])
-                ),
-            ):
-                field.clean("11/03/2026")
 
     def test_integrity_error_handled(self):
         assert self.client.login(
@@ -1191,8 +1157,7 @@ class BookPagesTestCase(BaseTestCase):
                     for tag, attrs in elements
                     if tag == "input" and attrs.get("id") == "search-when"
                 )
-                self.assertEqual(date_input["type"], "text")
-                self.assertEqual(date_input["placeholder"], "YYYY-MM-DD")
+                self.assertNotIn("autofocus", date_input)
                 for label in (
                     "Tags",
                     "Months",
@@ -1223,6 +1188,7 @@ class BookPagesTestCase(BaseTestCase):
             html.index('id="entry-selection-actions"'),
         )
 
+    @override_settings(DATE_FORMAT="d/m/Y", LANGUAGE_CODE="fr")
     def test_date_inputs_always_show_iso_dates(self):
         self.client.force_login(self.user)
         entry = self.factory.make_entry(
@@ -1496,6 +1462,90 @@ class BookPagesTestCase(BaseTestCase):
                 )
                 self.assertEqual(response.status_code, 400)
 
+    def test_planning_loads_currency_reports_on_open_and_preserves_filters(
+        self,
+    ):
+        self.client.force_login(self.user)
+        euro_account = self.factory.make_account(
+            users=[self.user], currency="EUR"
+        )
+        for account in (self.account, euro_account):
+            self.factory.make_entry(
+                book=self.book,
+                account=account,
+                who=self.user,
+                when=date(2026, 11, 6),
+                country="US",
+                tags=["INVS"],
+                is_income=True,
+            )
+        url = reverse("planning", args=[self.book.slug])
+        for params in (
+            {},
+            {"year": 2026, "country": "US"},
+            {"currency": "USD"},
+        ):
+            with (
+                self.subTest(params=params),
+                patch("gemcore.views.build_planning_summary") as summarize,
+            ):
+                response = self.client.get(url, params)
+                self.assertEqual(response.status_code, 200)
+                summarize.assert_not_called()
+                self.assertEqual(response.context["planning"], {})
+                elements = ElementCollector(response.content.decode()).elements
+                currency_groups = [
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "details"
+                    and attrs.get("aria-label", "").startswith("Planning in ")
+                ]
+                self.assertEqual(
+                    len(currency_groups),
+                    len(response.context["available"]["currencies"]),
+                )
+                for group in currency_groups:
+                    self.assertNotIn("open", group)
+                    self.assertEqual(
+                        group["hx-trigger"], "toggle[target.open]"
+                    )
+                    self.assertEqual(
+                        group["hx-target"], "find .planning-currency-content"
+                    )
+                currency_link = next(
+                    group["hx-get"]
+                    for group in currency_groups
+                    if group["aria-label"] == "Planning in USD"
+                )
+                self.assertEqual(urlsplit(currency_link).path, url)
+            selected = self.client.get(
+                currency_link, headers={"HX-Request": "true"}
+            )
+            self.assertEqual(selected.status_code, 200)
+            self.assertEqual(list(selected.context["planning"]), ["USD"])
+            self.assertContains(selected, 'aria-label="Cash flow in USD"')
+            self.assertNotContains(selected, "<!DOCTYPE")
+            self.assertNotContains(
+                selected, 'aria-labelledby="filters-heading"'
+            )
+            self.assertNotContains(selected, "Cash flow in EUR")
+            self.assertIn("HX-Request", selected["Vary"])
+            self.assertEqual(
+                selected.context["filters"]["country"], params.get("country")
+            )
+            self.assertEqual(
+                selected.context["filters"]["year"], params.get("year")
+            )
+        with patch("gemcore.views.build_planning_summary") as summarize:
+            response = self.client.get(url, headers={"HX-Request": "true"})
+            self.assertEqual(response.status_code, 400)
+            boosted = self.client.get(
+                url,
+                headers={"HX-Request": "true", "HX-Boosted": "true"},
+            )
+            self.assertContains(boosted, "<!DOCTYPE")
+            summarize.assert_not_called()
+
     def test_planning_period_displays_all_date_restrictions(self):
         self.client.force_login(self.user)
         for when, amount in (
@@ -1516,24 +1566,30 @@ class BookPagesTestCase(BaseTestCase):
         response = self.client.get(
             reverse("planning", args=[self.book.slug]),
             {
+                "currency": "USD",
                 "year": 2026,
                 "month": "NOV",
                 "start": "2026-11-10",
                 "end": "2026-12-31",
             },
+            headers={"HX-Request": "true"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.context["planning"]["USD"]["investment_net"]["amount"],
             Decimal("20"),
         )
+        page = self.client.get(
+            reverse("planning", args=[self.book.slug]),
+            response.wsgi_request.GET,
+        )
         for text in (
             "Year: 2026",
             "Month: Nov",
-            "From: " + "2026-11-10",
-            "Until: " + "2026-12-31",
+            "From: 2026-11-10",
+            "Until: 2026-12-31",
         ):
-            self.assertContains(response, f"<span>{text}</span>", html=True)
+            self.assertContains(page, f"<span>{text}</span>", html=True)
 
     def test_planning_drilldown_accepts_category_named_untagged(self):
         self.client.force_login(self.user)
@@ -1577,7 +1633,11 @@ class BookPagesTestCase(BaseTestCase):
                 is_income=is_income,
                 country=country,
             )
-        response = self.client.get(url, {"year": 2026, "currency": "USD"})
+        response = self.client.get(
+            url,
+            {"year": 2026, "currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
         self.assertEqual(response.status_code, 200)
         self.assertIs(response.context["narrowed"], False)
         self.assertNotContains(response, "Showing a filtered selection")
@@ -1586,10 +1646,13 @@ class BookPagesTestCase(BaseTestCase):
             Decimal("-500"),
         )
         response = self.client.get(
-            url, {"tag": "RENT", "year": 2026, "currency": "USD"}
+            url,
+            {"tag": "RENT", "year": 2026, "currency": "USD"},
+            headers={"HX-Request": "true"},
         )
         self.assertIs(response.context["narrowed"], True)
-        self.assertContains(response, "Showing a filtered selection")
+        page = self.client.get(url, response.wsgi_request.GET)
+        self.assertContains(page, "Showing a filtered selection")
         self.assertContains(
             response, "No expense entries match these filters."
         )
@@ -1601,16 +1664,25 @@ class BookPagesTestCase(BaseTestCase):
             response.context["planning"]["USD"]["coverage_gap"]["amount"],
             Decimal("1500"),
         )
-        response = self.client.get(url, {"country": "BR"})
+        response = self.client.get(
+            url,
+            {"country": "BR", "currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
         self.assertEqual(
             response.context["planning"]["USD"]["expenses"]["amount"], 0
         )
         self.assertNotContains(
             response, "No expense entries match these filters."
         )
-        response = self.client.get(url, {"country": "CA"})
+        response = self.client.get(
+            url,
+            {"country": "CA", "currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
         self.assertContains(response, "No entries match these filters.")
-        self.assertContains(response, 'aria-label="Filtered report scope"')
+        page = self.client.get(url, response.wsgi_request.GET)
+        self.assertContains(page, 'aria-label="Filtered report scope"')
 
     def test_planning_year_redirects_to_query_filters(self):
         self.client.force_login(self.user)
@@ -1647,32 +1719,39 @@ class BookPagesTestCase(BaseTestCase):
             ("planning", [private.slug]),
             ("planning-year", [private.slug, 2026]),
         ):
-            with self.subTest(name=name):
-                response = self.client.get(reverse(name, args=args))
-                self.assertEqual(response.status_code, 404)
+            for headers in ({}, {"HX-Request": "true"}):
+                with self.subTest(name=name, headers=headers):
+                    response = self.client.get(
+                        reverse(name, args=args), headers=headers
+                    )
+                    self.assertEqual(response.status_code, 404)
         response = self.client.post(url)
         self.assertEqual(response.status_code, 405)
 
     def test_planning_shows_configuration_errors_without_totals(self):
         self.client.force_login(self.user)
         for mapping in (None, {"salary": "missing"}):
-            with (
-                self.subTest(mapping=mapping),
-                override_settings(
-                    ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
-                ),
-            ):
-                response = self.client.get(
-                    reverse("planning", args=[self.book.slug])
-                )
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(
-                    response, "Planning categories need configuration"
-                )
-                self.assertNotContains(
-                    response, 'aria-label="Planning results"'
-                )
-                self.assertNotIn("planning", response.context)
+            for headers in ({}, {"HX-Request": "true"}):
+                with (
+                    self.subTest(mapping=mapping, headers=headers),
+                    override_settings(
+                        ENTRY_TAGS={**settings.ENTRY_TAGS, "planning": mapping}
+                    ),
+                ):
+                    response = self.client.get(
+                        reverse("planning", args=[self.book.slug]),
+                        headers=headers,
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertContains(
+                        response, "Planning categories need configuration"
+                    )
+                    self.assertNotContains(
+                        response, 'aria-label="Planning results"'
+                    )
+                    self.assertNotIn("planning", response.context)
+                    if headers:
+                        self.assertNotContains(response, "<!DOCTYPE")
 
     @override_settings(ENTRY_TAGS=PLANNING_ENTRY_TAGS)
     def test_planning_uses_configured_categories_in_totals_and_drilldowns(
@@ -1696,7 +1775,11 @@ class BookPagesTestCase(BaseTestCase):
                 amount=Decimal(amount),
                 is_income=income,
             )
-        response = self.client.get(reverse("planning", args=[self.book.slug]))
+        response = self.client.get(
+            reverse("planning", args=[self.book.slug]),
+            {"currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
         self.assertEqual(response.status_code, 200)
         summary = response.context["planning"]["USD"]
         expected = {
@@ -1774,19 +1857,23 @@ class BookPagesTestCase(BaseTestCase):
             country="US",
         )
         for params in (
-            {"year": 2026, "country": "US"},
+            {"year": 2026, "country": "US", "currency": "USD"},
             {
                 "year": 2026,
                 "country": "US",
+                "currency": "USD",
                 "tag": ["FD"],
                 "page": 2,
                 "page_size": 1,
             },
         ):
             response = self.client.get(
-                reverse("planning", args=[self.book.slug]), params
+                reverse("planning", args=[self.book.slug]),
+                params,
+                headers={"HX-Request": "true"},
             )
             self.assertEqual(response.status_code, 200)
+            self.assertEqual(list(response.context["planning"]), ["USD"])
             summary = response.context["planning"]["USD"]
             if "tag" not in params:
                 self.assertEqual(
@@ -1869,7 +1956,11 @@ class BookPagesTestCase(BaseTestCase):
                 is_income=income,
             )
         url = reverse("planning", args=[self.book.slug])
-        response = self.client.get(url, {"year": 2026})
+        response = self.client.get(
+            url,
+            {"year": 2026, "currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
         self.assertEqual(response.status_code, 200)
         summary = response.context["planning"]["USD"]
         self.assertEqual(summary["investment_net"]["amount"], Decimal("390"))
@@ -1878,8 +1969,9 @@ class BookPagesTestCase(BaseTestCase):
         self.assertEqual(summary["coverage_gap"]["amount"], Decimal("490"))
         self.assertEqual(summary["net_result"]["amount"], Decimal("3490"))
         self.assertContains(response, "Net investment cash flow")
+        page = self.client.get(url, response.wsgi_request.GET)
         self.assertContains(
-            response,
+            page,
             "Approximates investment income when those movements balance "
             "within the selected period.",
         )
@@ -1889,7 +1981,11 @@ class BookPagesTestCase(BaseTestCase):
         )
         for month, expected in (("jan", "-10000"), ("feb", "10390")):
             with self.subTest(month=month):
-                response = self.client.get(url, {"year": 2026, "month": month})
+                response = self.client.get(
+                    url,
+                    {"year": 2026, "month": month, "currency": "USD"},
+                    headers={"HX-Request": "true"},
+                )
                 self.assertEqual(
                     response.context["planning"]["USD"]["investment_net"][
                         "amount"
@@ -2195,7 +2291,7 @@ class BookPagesTestCase(BaseTestCase):
         self.assertEqual(entry.tags, original_tags)
         self.assertEqual(self.book.entry_set.count(), 1)
 
-    def test_search_clear_links_and_fields_preserve_other_filters(self):
+    def test_search_clear_button_and_fields_preserve_other_filters(self):
         self.client.force_login(self.user)
         url = reverse("entries", args=[self.book.slug])
         response = self.client.get(
@@ -2238,39 +2334,31 @@ class BookPagesTestCase(BaseTestCase):
         )
         self.assertNotContains(response, "jquery")
         self.assertNotContains(response, "onclick=")
-        clear_links = {
-            attrs["id"]: attrs
+        clear_buttons = [
+            attrs
             for tag, attrs in elements
-            if tag == "a"
-            and attrs.get("id") in {"clear-search-text", "clear-search-date"}
+            if tag == "button" and attrs.get("id") == "clear-search-text"
+        ]
+        (clear_button,) = clear_buttons
+        self.assertEqual(clear_button["type"], "button")
+        self.assertEqual(clear_button["data-clear-input"], "q")
+        self.assertNotIn("href", clear_button)
+        self.assertFalse(any(name.startswith("hx-") for name in clear_button))
+        self.assertNotContains(response, 'id="clear-search-date"')
+        self.assertTrue(
+            any(
+                attrs.get("src", "").endswith("js/clear-input.js")
+                for tag, attrs in elements
+                if tag == "script"
+            )
+        )
+        fields = {
+            attrs["name"]: attrs
+            for tag, attrs in elements
+            if tag == "input" and attrs.get("name") in {"q", "when"}
         }
-        self.assertEqual(len(clear_links), 2)
-        for link_id, attrs in clear_links.items():
-            with self.subTest(link_id=link_id):
-                self.assertEqual(attrs["hx-boost"], "true")
-                self.assertEqual(attrs["hx-target"], "#content")
-                self.assertEqual(attrs["hx-select"], "#content")
-                self.assertEqual(
-                    attrs["hx-swap"], "outerHTML show:none focus-scroll:false"
-                )
-                self.assertEqual(attrs["hx-sync"], "#content:replace")
-                cleared = self.client.get(
-                    url,
-                    parse_qs(urlsplit(attrs["href"]).query),
-                    headers={"HX-Request": "true", "HX-Boosted": "true"},
-                )
-                self.assertContains(cleared, 'id="content"', count=1)
-                filters = cleared.context["filters"]
-                self.assertEqual(filters["tags"], [TAGS[0]])
-                self.assertEqual(filters["country"], "US")
-                self.assertEqual(parse_qs(filters["qs"])["page"], ["2"])
-                self.assertEqual(cleared.context["entries"].number, 1)
-                if link_id == "clear-search-text":
-                    self.assertIsNone(filters["q"])
-                    self.assertEqual(filters["when"], date(2026, 11, 6))
-                else:
-                    self.assertEqual(filters["q"], "Coffee")
-                    self.assertIsNone(filters["when"])
+        self.assertEqual(fields["q"]["value"], "Coffee")
+        self.assertEqual(fields["when"]["value"], "2026-11-06")
 
     def test_search_and_date_filters_combine_and_links_preserve_page(self):
         matching = [

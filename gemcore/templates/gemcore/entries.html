@@ -58,9 +58,9 @@
                             <td class="px-3 py-3 align-top tabular-nums text-right whitespace-nowrap {% if not entry.is_income %}text-red-600{% endif %}">{% if entry.is_income %}+{% else %}-{% endif %} {{ entry.amount }}</td>
                             <td class="max-w-48 break-words px-3 py-3 align-top"><a class="hover:text-sky-700 text-sky-800" href="{% querystring account=entry.account.slug %}">{{ entry.account }}</a></td>
                             <td class="px-3 py-3 align-top">
-                                <div class="flex flex-col gap-1">
+                                <div class="flex flex-row flex-wrap gap-1 items-center">
                                     <span>{{ entry.country }}</span>
-                                    {% for tag in entry.tags %}<span class="bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md self-start text-teal-900 text-xs">{{ tag }}</span>{% endfor %}
+                                    {% for tag in entry.tags %}<span class="bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md text-teal-900 text-xs">{{ tag }}</span>{% endfor %}
                                 </div>
                             </td>
                             <td class="px-3 py-3 align-top">{% if entry.asset %}<a class="hover:text-sky-700 text-sky-800" href="{% querystring asset=entry.asset.slug %}">{{ entry.asset.name }}</a>{% endif %}</td>

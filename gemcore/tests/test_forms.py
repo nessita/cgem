@@ -55,7 +55,7 @@ class ISODateInputTestCase(SimpleTestCase):
 
     def test_value_is_iso_whatever_the_active_locale(self):
         value = date(2026, 11, 6)
-        for language in ("en-us", "en-gb", "de", "es-ar"):
+        for language in ("en-us", "en-gb", "de", "es-ar", "fr"):
             with self.subTest(language=language), self.settings(
                 LANGUAGE_CODE=language, USE_I18N=True
             ):

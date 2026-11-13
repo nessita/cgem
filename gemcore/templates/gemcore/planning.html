@@ -31,6 +31,28 @@
 </section>
 {% endpartialdef %}
 
+{% partialdef configuration_error %}
+<section class="bg-amber-50 border border-amber-200 flex flex-col gap-2 p-4 rounded-lg text-amber-950" aria-label="Planning configuration">
+    <h2 class="font-semibold">Planning categories need configuration</h2>
+    <p>{{ planning_error }}</p>
+</section>
+{% endpartialdef %}
+
+{% partialdef currency_report %}
+{% for currency, summary in planning.items %}
+    {% with title="Income coverage" rows=summary.coverage_rows %}{% partial metrics %}{% endwith %}
+    {% with title="Cash flow" rows=summary.overview_rows %}{% partial metrics %}{% endwith %}
+    <div class="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2">
+        <p class="text-sm text-stone-600 2xl:col-span-2">Asset breakdowns exclude entries without an assigned asset.</p>
+        {% for breakdown in summary.breakdowns %}
+            {% with title=breakdown.title rows=breakdown.rows %}{% partial metrics %}{% endwith %}
+        {% endfor %}
+    </div>
+{% empty %}
+    <p class="text-stone-600">No entries match these filters.</p>
+{% endfor %}
+{% endpartialdef %}
+
 {% block html-title %}Planning for {{ book }}{% endblock html-title %}
 
 {% block content %}
@@ -38,10 +60,7 @@
 {% include "gemcore/_list_controls.html#active_filters" %}
 
 {% if planning_error %}
-<section class="bg-amber-50 border border-amber-200 flex flex-col gap-2 p-4 rounded-lg text-amber-950" aria-label="Planning configuration">
-    <h2 class="font-semibold">Planning categories need configuration</h2>
-    <p>{{ planning_error }}</p>
-</section>
+{% partial configuration_error %}
 {% else %}
 <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
     {% include "gemcore/_list_controls.html#filters" %}
@@ -67,20 +86,17 @@
             <a class="font-medium hover:underline underline" href="{{ period_url }}">Show full period</a>
         </aside>
         {% endif %}
-        {% for currency, summary in planning.items %}
-        <details{% if planning|length == 1 %} open{% endif %} aria-label="Planning in {{ currency }}">
+        {% url 'planning' book.slug as planning_url %}
+        {% for currency, count in available.currencies %}
+        <details aria-label="Planning in {{ currency }}"
+                 hx-get="{{ planning_url }}{% querystring currency=currency %}"
+                 hx-trigger="toggle[target.open]" hx-target="find .planning-currency-content"
+                 hx-swap="innerHTML show:none focus-scroll:false" hx-sync="this:drop">
             <summary class="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">
-                <h2 class="inline font-semibold text-xl">{{ currency }} <span class="font-normal text-sm text-stone-600">{{ summary.entries_count }} entr{{ summary.entries_count|pluralize:"y,ies" }} considered</span></h2>
+                <h2 class="inline font-semibold text-xl">{{ currency }} <span class="font-normal text-sm text-stone-600">{{ count }} entr{{ count|pluralize:"y,ies" }} considered</span></h2>
             </summary>
-            <div class="flex flex-col gap-6 pt-4">
-                {% with title="Income coverage" rows=summary.coverage_rows %}{% partial metrics %}{% endwith %}
-                {% with title="Cash flow" rows=summary.overview_rows %}{% partial metrics %}{% endwith %}
-                <div class="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2">
-                    <p class="text-sm text-stone-600 2xl:col-span-2">Asset breakdowns exclude entries without an assigned asset.</p>
-                    {% for breakdown in summary.breakdowns %}
-                        {% with title=breakdown.title rows=breakdown.rows %}{% partial metrics %}{% endwith %}
-                    {% endfor %}
-                </div>
+            <div class="planning-currency-content flex flex-col gap-6 pt-4" aria-live="polite">
+                <p class="text-stone-600">Loading report...</p>
             </div>
         </details>
         {% empty %}

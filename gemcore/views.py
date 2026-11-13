@@ -21,6 +21,7 @@ from django.views.decorators.http import (
     require_http_methods,
     require_POST,
 )
+from django.views.decorators.vary import vary_on_headers
 
 from gemcore.constants import ChoicesMixin
 from gemcore.forms import (
@@ -1011,6 +1012,7 @@ def balance(
 
 @require_GET
 @login_required
+@vary_on_headers("HX-Request", "HX-Boosted")
 def planning(request, book_slug, year=None):
     book = get_object_or_404(Book, slug=book_slug, users=request.user)
     entries_url = reverse("entries", args=[book.slug])
@@ -1027,13 +1029,22 @@ def planning(request, book_slug, year=None):
     except ImproperlyConfigured as error:
         return render(
             request,
-            "gemcore/planning.html",
+            (
+                "gemcore/planning.html#configuration_error"
+                if request.htmx and not request.htmx.boosted
+                else "gemcore/planning.html"
+            ),
             {"book": book, "planning_error": str(error)},
         )
 
     entries, filters, available = parse_request(request, book)
-    planning = build_planning_summary(entries)
     controls = list_filter_context(request, filters)
+    context = {
+        "available": available,
+        "book": book,
+        "filters": filters,
+        **controls,
+    }
     scope_names = {
         "q",
         "account",
@@ -1059,6 +1070,16 @@ def planning(request, book_slug, year=None):
     period_url = planning_url
     if period_params:
         period_url += "?" + period_params.urlencode()
+
+    context.update(narrowed=narrowed, period_url=period_url, planning={})
+    if not request.htmx or request.htmx.boosted:
+        return render(request, "gemcore/planning.html", context)
+    if not filters["currency"]:
+        return HttpResponseBadRequest(
+            "Choose a currency for the planning report."
+        )
+
+    planning = build_planning_summary(entries)
 
     def entry_link(currency, group, **extra):
         params = request.GET.copy()
@@ -1150,13 +1171,5 @@ def planning(request, book_slug, year=None):
                 {"title": label + " by asset", "rows": rows}
             )
 
-    context = {
-        "available": available,
-        "book": book,
-        "filters": filters,
-        "planning": planning,
-        "narrowed": narrowed,
-        "period_url": period_url,
-        **controls,
-    }
-    return render(request, "gemcore/planning.html", context)
+    context["planning"] = planning
+    return render(request, "gemcore/planning.html#currency_report", context)

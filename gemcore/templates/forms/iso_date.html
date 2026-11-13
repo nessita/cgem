@@ -3,8 +3,5 @@
     {% include "django/forms/widgets/input.html" %}
     <input type="date" tabindex="-1" aria-hidden="true"
            class="absolute bottom-0 left-0 opacity-0 pointer-events-none size-px">
-    <button type="button" aria-label="Choose date from calendar" title="Choose date from calendar"{% if widget.attrs.disabled or widget.attrs.readonly %} disabled{% endif %}
-            class="bg-stone-200 hover:bg-stone-300 inline-flex items-center justify-center p-2 rounded-md shrink-0 text-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-      {% include "icons/calendar.html" %}
-    </button>
+    {% include "components/icon_button.html" with label="Choose date from calendar" icon_file="icons/calendar.html" disabled=widget.attrs.disabled readonly=widget.attrs.readonly only %}
 </div>

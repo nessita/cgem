@@ -174,17 +174,12 @@
                 <div class="flex flex-row gap-2 items-center">
                     <input type="text" class="bg-white block border border-stone-300 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-0 px-3 py-2 rounded-md text-sm w-full" name="q"
                            id="search-text" placeholder="Search" value="{{ filters.q|default_if_none:'' }}">
-                    {% querystring q=None as clear_text_url %}
-                    {% include "components/clear_filter.html" with label="Clear text" id="clear-search-text" href=clear_text_url|default:"." only %}
+                    {% include "components/icon_button.html" with label="Clear text" id="clear-search-text" icon_file="icons/close.html" clear_input="q" only %}
                 </div>
             </div>
             <div class="flex flex-col gap-1">
                 {{ search_form.when.label_tag }}
-                <div class="flex flex-row gap-2 items-center">
-                    {{ search_form.when }}
-                    {% querystring when=None as clear_date_url %}
-                    {% include "components/clear_filter.html" with label="Clear date" id="clear-search-date" href=clear_date_url|default:"." only %}
-                </div>
+                {{ search_form.when }}
             </div>
             <div class="flex">
                 {% include "components/button.html" with label="Search" only %}
