@@ -50,9 +50,9 @@ ENTRY_TAGS = {
 ```
 
 `choices` lists category codes and their display labels. `default` is the
-fallback for imported or API-created entries when account rules do not assign
-a category. `transfer` identifies currency-change movements. Both must reference
-codes in `choices`, and they must differ.
+fallback for imported or API-created entries when account tag regexes do not
+assign a category. `transfer` identifies currency-change movements. Both must
+reference codes in `choices`, and they must differ.
 
 `planning` configures the optional [planning report](#planning-report).
 
@@ -171,12 +171,25 @@ Text search is not supported.
 
 POST accepts either a single entry object or an array of entries. Each entry
 requires `account` (slug), `what`, `amount` (a decimal string), and `country`.
-Optional fields are `when`, `is_income`, `tags`, and `notes`. Omitted dates use
-the UTC calendar day, omitted `is_income` defaults to false, and omitted tags
-use account rules or the configured default tag. Each entry must have exactly
-one tag; explicit empty lists, multiple tags, and account rules that resolve to
-multiple tags are rejected. The authenticated user is always recorded as `who`.
+Optional fields are `when`, `is_income`, `tags`, `asset`, and `notes`. Omitted
+dates use the UTC calendar day, omitted `is_income` defaults to false, and
+omitted tags use account tag regexes or the configured default tag. Each entry
+must have exactly one tag; explicit empty lists, multiple tags, and tag regexes
+that infer multiple tags are rejected. The authenticated user is always
+recorded as `who`.
 Accounts must be active and available to the book.
+
+Account tag regexes apply to both API posts and file imports. Explicit tags and
+assets take precedence over inferred values. `asset` accepts a slug or `null`;
+omitting it infers the asset from matching tag regexes, while `null` leaves it
+unset. Assets must be available to the selected book. Conflicting inferred
+tags, assets, or transfer destinations reject the row.
+
+A matching transfer tag regex also creates an entry in its destination account,
+with the same amount and the opposite income/expense direction. Both entries
+are saved together; an invalid or duplicate counterpart rejects the source
+entry too. The destination must be a different active account available to the
+book. The response includes only the source entry; GET lists both entries.
 
 ```http
 POST /api/family/entries/

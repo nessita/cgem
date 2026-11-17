@@ -5,8 +5,10 @@ from datetime import date, timedelta
 from decimal import Decimal
 from functools import reduce
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.core.validators import (
     MaxLengthValidator,
     MinLengthValidator,
@@ -20,6 +22,14 @@ from django.utils.text import slugify
 from django.utils.timezone import now
 
 from gemcore.constants import ChoicesMixin, get_tag_choices
+
+
+def _tagregexes_prefetch():
+    return models.Prefetch(
+        "tagregex_set",
+        queryset=TagRegex.objects.select_related("asset", "transfer"),
+        to_attr="prefetched_tagregexes",
+    )
 
 
 class DryRunError(Exception):
@@ -366,9 +376,12 @@ class Book(models.Model):
         return result
 
 
-class AccountManager(models.Manager):
+class AccountQuerySet(models.QuerySet):
     def by_book(self, book, **kwargs):
         return self.filter(users__book=book, active=True, **kwargs).distinct()
+
+    def prefetch_tagregexes(self):
+        return self.prefetch_related(_tagregexes_prefetch())
 
 
 class Account(models.Model):
@@ -383,7 +396,7 @@ class Account(models.Model):
     )
     active = models.BooleanField(default=True)
 
-    objects = AccountManager()
+    objects = AccountQuerySet.as_manager()
 
     class Meta:
         ordering = ("currency", "name")
@@ -401,11 +414,64 @@ class Account(models.Model):
 
     def tags_for(self, value):
         tags = {}
-        for tagregex in self.tagregex_set.all():
-            pattern = re.compile(tagregex.regex)
-            if pattern.match(value):
-                tags[tagregex.tag] = (tagregex.transfer, tagregex.asset)
+        for tagregex in self.matching_tag_regexes(value):
+            tags[tagregex.tag] = (tagregex.transfer, tagregex.asset)
         return tags
+
+    def matching_tag_regexes(self, value):
+        tagregexes = getattr(self, "prefetched_tagregexes", None)
+        if tagregexes is None:
+            tagregexes = self.tagregex_set.select_related("transfer", "asset")
+        for tagregex in tagregexes:
+            if re.match(tagregex.regex, value):
+                yield tagregex
+
+    def prefetch_tagregexes(self):
+        models.prefetch_related_objects([self], _tagregexes_prefetch())
+        return self
+
+    def resolve_entry_tagregexes(self, data):
+        """Require prefetching to avoi extra queries in entry processing."""
+        if not hasattr(self, "prefetched_tagregexes"):
+            raise ValueError(
+                "Call prefetch_tagregexes() before resolving tag regexes."
+            )
+        tagregexes = list(self.matching_tag_regexes(data["what"]))
+        values = data.copy()
+        if "tags" not in values:
+            values["tags"] = list(
+                dict.fromkeys(tagregex.tag for tagregex in tagregexes)
+            ) or [settings.ENTRY_TAGS["default"]]
+        if len(values["tags"]) != 1:
+            raise ValidationError({"tags": "Choose exactly one tag."})
+
+        if "asset" not in values:
+            assets = {
+                tagregex.asset_id: tagregex.asset
+                for tagregex in tagregexes
+                if tagregex.asset_id
+            }
+            if len(assets) > 1:
+                msg = "Matched tag regexes specify multiple assets."
+                raise ValidationError({"asset": msg})
+
+            values["asset"] = next(iter(assets.values()), None)
+
+        transfers = {
+            tagregex.transfer_id: tagregex.transfer
+            for tagregex in tagregexes
+            if tagregex.transfer_id
+        }
+        if len(transfers) > 1:
+            msg = "Matched tag regexes specify multiple transfer accounts."
+            raise ValidationError({"account": msg})
+
+        transfer = next(iter(transfers.values()), None)
+        if transfer == self:
+            msg = "A transfer must use a different account."
+            raise ValidationError({"account": msg})
+
+        return values, transfer
 
 
 class AssetManager(models.Manager):

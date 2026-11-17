@@ -7,6 +7,8 @@ from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
+from django.template import engines
+from django.template.response import TemplateResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import reverse
 from django.utils.formats import date_format
@@ -43,6 +45,63 @@ PLANNING_ENTRY_TAGS = {
     "transfer": "FX",
     "planning": {"salary": "PAY", "rental": "LEASE", "investment": "YIELD"},
 }
+
+
+class QueryCountAssertionTestCase(BaseTestCase):
+    def test_fixture_queries_are_excluded_and_execute_runs_twice(self):
+        calls = []
+
+        def execute():
+            calls.append("execute")
+            return len(calls)
+
+        def make_more():
+            calls.append("make_more")
+            self.factory.make_entry()
+
+        with self.assertQueryCountUnchanged(execute, make_more) as comparison:
+            self.assertEqual(calls, ["execute", "make_more", "execute"])
+            self.assertEqual(comparison.before, 1)
+            self.assertEqual(comparison.after, 3)
+            self.assertEqual(comparison.before_queries, [])
+            self.assertEqual(comparison.after_queries, [])
+
+    def test_template_rendering_is_included_in_capture(self):
+        self.factory.make_entry()
+        template = engines["django"].from_string("{{ entries|length }}")
+
+        with self.assertQueryCountUnchanged(
+            execute=lambda: TemplateResponse(
+                None, template, {"entries": Entry.objects.all()}
+            ),
+            make_more=self.factory.make_entry,
+        ) as comparison:
+            self.assertEqual(comparison.before.content, b"1")
+            self.assertEqual(comparison.after.content, b"2")
+            self.assertEqual(comparison.before_count, 1)
+
+    def test_per_item_queries_fail_with_counts_and_sql(self):
+        self.factory.make_entry()
+        with self.assertRaisesMessage(
+            AssertionError, "Query count changed from 2 to 3."
+        ) as error, self.assertQueryCountUnchanged(
+            execute=lambda: [entry.book.name for entry in Entry.objects.all()],
+            make_more=self.factory.make_entry,
+        ):
+            pass
+        self.assertIn("Before queries:", str(error.exception))
+        self.assertIn("After queries:", str(error.exception))
+        self.assertIn('"gemcore_book"', str(error.exception))
+
+    def test_caller_failure_is_not_replaced_by_query_count_failure(self):
+        self.factory.make_entry()
+        with self.assertRaisesMessage(
+            AssertionError, "Caller assertion failed."
+        ), self.assertQueryCountUnchanged(
+            execute=lambda: [entry.book.name for entry in Entry.objects.all()],
+            make_more=self.factory.make_entry,
+        ):
+            self.fail("Caller assertion failed.")
 
 
 @override_settings(

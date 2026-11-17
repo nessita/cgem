@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django_countries import countries
 
@@ -9,6 +10,56 @@ from gemcore.models import Account, Asset, Book, Entry, utc_today
 
 ISO_DATE_FORMAT = "%Y-%m-%d"
 ISO_DATE_PATTERN = r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])"
+
+
+def _save_entry(book, data, dry_run):
+    form = EntryForm(book=book, data=data)
+    if not form.is_valid():
+        raise ValidationError(form.errors.as_data())
+    entry = form.save(commit=False)
+    lookup = {
+        field: getattr(entry, field)
+        for field in Entry._meta.unique_together[0]
+    }
+    if dry_run:
+        if Entry.objects.filter(**lookup).exists():
+            raise ValidationError("There is already an entry for this data.")
+        return data
+    try:
+        with transaction.atomic():
+            entry.save()
+    except IntegrityError:
+        if Entry.objects.filter(**lookup).exists():
+            raise ValidationError(
+                "There is already an entry for this data."
+            ) from None
+        raise
+    return entry
+
+
+@transaction.atomic
+def create_entry(*, account, book, dry_run=False, **data):
+    values, transfer = account.resolve_entry_tagregexes(data)
+    values["account"] = account.pk
+    values.setdefault("when", utc_today())
+    values.setdefault("is_income", False)
+    for field in ("who", "asset"):
+        value = values.get(field)
+        if value is not None:
+            values[field] = getattr(value, "pk", value)
+
+    entry = _save_entry(book, values, dry_run)
+    if transfer is not None:
+        _save_entry(
+            book,
+            {
+                **values,
+                "account": transfer.pk,
+                "is_income": not values["is_income"],
+            },
+            dry_run,
+        )
+    return entry
 
 
 class ISODateInput(forms.DateInput):
@@ -208,11 +259,13 @@ class EntryForm(forms.ModelForm):
 
         raise forms.ValidationError("Invalid tag value.")
 
-    @transaction.atomic
-    def save(self, *args, **kwargs):
+    def save(self, commit=True):
         self.instance.book = self.book
+        if not commit:
+            return super().save(commit=False)
         try:
-            self.instance = super(EntryForm, self).save(*args, **kwargs)
+            with transaction.atomic():
+                self.instance = super().save()
         except IntegrityError:
             self.instance = None
             self.add_error(None, "There is already an entry for this data.")
@@ -268,7 +321,7 @@ class CSVExpenseForm(forms.Form):
         accounts = Account.objects.by_book(book).exclude(parser_config=None)
         self.fields["account"].queryset = accounts.select_related(
             "parser_config"
-        ).prefetch_related("tagregex_set")
+        ).prefetch_tagregexes()
 
     def clean(self):
         data = super(CSVExpenseForm, self).clean()

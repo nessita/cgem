@@ -1,6 +1,7 @@
 import random
 from datetime import date
 from decimal import Decimal
+from io import StringIO
 from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
@@ -8,7 +9,8 @@ from django.test import override_settings
 from django.urls import reverse
 
 from gemcore.constants import TAGS, ChoicesMixin
-from gemcore.models import Account, Entry
+from gemcore.models import Account, Asset, Entry
+from gemcore.parser import CSVParser
 from gemcore.tests.helpers import BaseTestCase
 
 
@@ -40,6 +42,142 @@ class EntriesViewTestCase(BaseTestCase):
         }
         data.update(kwargs)
         return data
+
+    def test_bulk_lookup_queries_do_not_grow_with_entry_count(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data(when="2026-11-01")
+        book = data.pop("book")
+        data.pop("tags")
+        account = Account.objects.get(slug=data["account"])
+        target = self.factory.make_account(users=[self.api_user])
+        asset = Asset.objects.create(name="Bulk asset", since=date(2020, 1, 1))
+        asset.users.add(self.api_user)
+        tagregex = account.tagregex_set.create(
+            regex=".*", tag=TAGS[0], asset=asset, transfer=target
+        )
+        items = [0]
+        fragments = (
+            'FROM "gemcore_tagregex"',
+            '"gemcore_account"."slug" =',
+            '"gemcore_asset"."slug" =',
+        )
+
+        def execute():
+            rows = [
+                {
+                    **data,
+                    "what": f"Bulk {len(items)} {i}",
+                    "asset": asset.slug,
+                }
+                for i in items
+            ]
+            return self.client.post(
+                self.book_url(book),
+                data=rows,
+                content_type="application/json",
+                **auth,
+            )
+
+        def make_more():
+            items.extend(range(1, 8))
+            tagregex.tag = TAGS[1]
+            tagregex.save(update_fields=["tag"])
+
+        with self.assertQueryCountUnchanged(
+            execute=execute,
+            make_more=make_more,
+            query_filter=lambda query: any(
+                fragment in query["sql"] for fragment in fragments
+            ),
+        ) as comparison:
+            for response, queries, count, tag in (
+                (comparison.before, comparison.before_queries, 1, TAGS[0]),
+                (comparison.after, comparison.after_queries, 8, TAGS[1]),
+            ):
+                self.assertEqual(response.status_code, 201, response.content)
+                entries = response.json()["entries"]
+                self.assertEqual(len(entries), count)
+                self.assertEqual(
+                    [entry["tags"] for entry in entries], [[tag]] * count
+                )
+                sql = [query["sql"] for query in queries]
+                self.assertEqual(
+                    [
+                        sum(fragment in query for query in sql)
+                        for fragment in fragments
+                    ],
+                    [1, 1, 1],
+                )
+                self.assertEqual(
+                    sum(
+                        'INSERT INTO "gemcore_entry"' in query for query in sql
+                    ),
+                    2 * count,
+                )
+        account.active = False
+        account.save(update_fields=["active"])
+        response = self.client.post(
+            self.book_url(book),
+            data=[{**data, "what": "Inactive account"}],
+            content_type="application/json",
+            **auth,
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("account", response.json()["errors"][0]["errors"])
+
+    def test_listing_query_count_does_not_grow_with_entry_count(self):
+        auth = self.make_auth_header()
+        account = self.factory.make_account(users=[self.api_user])
+        asset = Asset.objects.create(
+            name="Listed asset", since=date(2020, 1, 1)
+        )
+        asset.users.add(self.api_user)
+        for filtered in (False, True):
+            with self.subTest(filtered=filtered):
+                book = self.factory.make_book(users=[self.api_user])
+
+                def make_entries(count):
+                    for _ in range(count):
+                        self.factory.make_entry(
+                            book=book,
+                            account=account,
+                            asset=asset,
+                            who=self.api_user,
+                            when=date(2026, 11, 1),
+                            country="US",
+                            tags=[TAGS[0]],
+                            is_income=True,
+                        )
+
+                make_entries(1)
+                params = {}
+                if filtered:
+                    params = {
+                        "account": account.slug,
+                        "currency": account.currency,
+                        "who": self.api_user.username,
+                        "country": "US",
+                        "tag": TAGS[0],
+                        "is_income": "true",
+                        "start": "2026-11-01",
+                        "end": "2026-11-01",
+                    }
+                with self.assertQueryCountUnchanged(
+                    execute=lambda: self.client.get(
+                        self.book_url(book.slug), data=params, **auth
+                    ),
+                    make_more=lambda: make_entries(7),
+                ) as comparison:
+                    for response, count in (
+                        (comparison.before, 1),
+                        (comparison.after, 8),
+                    ):
+                        self.assertEqual(
+                            response.status_code, 200, response.content
+                        )
+                        self.assertEqual(
+                            len(response.json()["results"]), count
+                        )
 
     def test_authentication_required(self):
         for url in (self.url, self.book_url("any-book")):
@@ -102,6 +240,259 @@ class EntriesViewTestCase(BaseTestCase):
 
         entry = Entry.objects.get()
         self.assertEqual(entry.tags, [settings.ENTRY_TAGS["default"]])
+
+    def test_tagregexes_infer_tags_and_asset_but_allow_explicit_values(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        data.pop("tags")
+        account = Account.objects.get(slug=data["account"])
+        assets = [
+            Asset.objects.create(name=name, since=date(2020, 1, 1))
+            for name in ("Inferred asset", "Explicit asset")
+        ]
+        for asset in assets:
+            asset.users.add(self.api_user)
+        account.tagregex_set.create(regex=".*", tag=TAGS[0], asset=assets[0])
+        for index, (overrides, expected_tag, expected_asset) in enumerate(
+            (
+                ({}, TAGS[0], assets[0]),
+                (
+                    {"tags": [TAGS[1]], "asset": assets[1].slug},
+                    TAGS[1],
+                    assets[1],
+                ),
+                ({"asset": None}, TAGS[0], None),
+            )
+        ):
+            with self.subTest(overrides=overrides):
+                response = self.client.post(
+                    self.url,
+                    data={**data, "what": f"Entry {index}", **overrides},
+                    content_type="application/json",
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 201, response.content)
+                entry = Entry.objects.get(pk=response.json()["id"])
+                self.assertEqual(entry.tags, [expected_tag])
+                self.assertEqual(entry.asset, expected_asset)
+                self.assertEqual(
+                    response.json()["asset"],
+                    expected_asset.slug if expected_asset else None,
+                )
+
+    def test_conflicting_assets_require_an_explicit_choice(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        account = Account.objects.get(slug=data["account"])
+        for index, regex in enumerate((".*", "^One")):
+            asset = Asset.objects.create(
+                name=f"Asset {index}", since=date(2020, 1, 1)
+            )
+            asset.users.add(self.api_user)
+            account.tagregex_set.create(regex=regex, tag=TAGS[0], asset=asset)
+        response = self.client.post(
+            self.url, data=data, content_type="application/json", **auth
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("asset", response.json())
+        self.assertEqual(Entry.objects.count(), 0)
+        response = self.client.post(
+            self.url,
+            data={**data, "asset": None},
+            content_type="application/json",
+            **auth,
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertIsNone(Entry.objects.get().asset)
+
+    def test_unavailable_assets_are_rejected_when_explicit_or_inferred(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        account = Account.objects.get(slug=data["account"])
+        asset = Asset.objects.create(
+            name="Private asset", since=date(2020, 1, 1)
+        )
+        account.tagregex_set.create(regex=".*", tag=TAGS[0], asset=asset)
+        for overrides in ({}, {"asset": asset.slug}):
+            with self.subTest(overrides=overrides):
+                response = self.client.post(
+                    self.url,
+                    data={**data, **overrides},
+                    content_type="application/json",
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertIn("asset", response.json())
+        self.assertEqual(Entry.objects.count(), 0)
+
+    def test_transfer_tagregexes_create_one_counterpart_per_entry(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data(when="2026-11-01")
+        data.pop("tags")
+        account = Account.objects.get(slug=data["account"])
+        target = self.factory.make_account(users=[self.api_user])
+        for regex in (".*", "^One"):
+            account.tagregex_set.create(
+                regex=regex, tag=TAGS[0], transfer=target
+            )
+        response = self.client.post(
+            self.url, data=data, content_type="application/json", **auth
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Entry.objects.count(), 2)
+        source = Entry.objects.get(pk=response.json()["id"])
+        counterpart = Entry.objects.get(account=target)
+        self.assertIs(source.is_income, False)
+        self.assertIs(counterpart.is_income, True)
+        for field in (
+            "book",
+            "who",
+            "when",
+            "what",
+            "amount",
+            "country",
+            "tags",
+            "notes",
+        ):
+            self.assertEqual(
+                getattr(source, field), getattr(counterpart, field)
+            )
+
+    def test_bulk_transfer_failure_rolls_back_source_and_keeps_other_rows(
+        self,
+    ):
+        auth = self.make_auth_header()
+        data = self.make_entry_data(when="2026-11-01")
+        account = Account.objects.get(slug=data["account"])
+        target = self.factory.make_account(users=[self.api_user])
+        account.tagregex_set.create(regex="^One", tag=TAGS[0], transfer=target)
+        self.factory.make_entry(
+            book=self.api_user.book_set.get(),
+            account=target,
+            who=self.api_user,
+            when=date(2026, 11, 1),
+            what=data["what"],
+            amount=Decimal(data["amount"]),
+            is_income=True,
+        )
+        response = self.client.post(
+            self.url,
+            data=[data, {**data, "what": "Unrelated entry"}],
+            content_type="application/json",
+            **auth,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        result = response.json()
+        self.assertEqual([error["index"] for error in result["errors"]], [0])
+        self.assertIn("non_field_errors", result["errors"][0]["errors"])
+        self.assertEqual(
+            [row["what"] for row in result["entries"]], ["Unrelated entry"]
+        )
+        self.assertEqual(Entry.objects.count(), 2)
+        self.assertIs(
+            Entry.objects.filter(account=account, what=data["what"]).exists(),
+            False,
+        )
+
+    def test_invalid_transfer_destinations_leave_no_source_entry(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        account = Account.objects.get(slug=data["account"])
+        private = self.factory.make_account()
+        inactive = self.factory.make_account(
+            users=[self.api_user], active=False
+        )
+        for target in (account, private, inactive):
+            with self.subTest(target=target.slug):
+                tagregex = account.tagregex_set.create(
+                    regex=".*", tag=TAGS[0], transfer=target
+                )
+                response = self.client.post(
+                    self.url,
+                    data=data,
+                    content_type="application/json",
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertIn("account", response.json())
+                self.assertEqual(Entry.objects.count(), 0)
+                tagregex.transfer = None
+                tagregex.regex = f"^Unused {target.pk}$"
+                tagregex.save()
+
+    def test_conflicting_transfer_destinations_reject_the_entry(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        account = Account.objects.get(slug=data["account"])
+        for regex in (".*", "^One"):
+            target = self.factory.make_account(users=[self.api_user])
+            account.tagregex_set.create(
+                regex=regex, tag=TAGS[0], transfer=target
+            )
+        response = self.client.post(
+            self.url, data=data, content_type="application/json", **auth
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("account", response.json())
+        self.assertEqual(Entry.objects.count(), 0)
+
+    def test_api_and_file_import_apply_the_same_tagregexes(self):
+        auth = self.make_auth_header()
+        books = [
+            self.factory.make_book(users=[self.api_user]) for _ in range(2)
+        ]
+        config = self.factory.make_parser_config(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        account = self.factory.make_account(
+            users=[self.api_user], parser_config=config
+        )
+        target = self.factory.make_account(users=[self.api_user])
+        asset = Asset.objects.create(
+            name="Shared asset", since=date(2020, 1, 1)
+        )
+        asset.users.add(self.api_user)
+        account.tagregex_set.create(
+            regex=".*", tag=TAGS[0], asset=asset, transfer=target
+        )
+        result = CSVParser(account).parse(
+            StringIO("2026-11-01,Transfer,12.50\n"), books[0], self.api_user
+        )
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(len(result["entries"]), 1)
+        response = self.client.post(
+            self.book_url(books[1].slug),
+            data={
+                "account": account.slug,
+                "when": "2026-11-01",
+                "what": "Transfer",
+                "amount": "12.50",
+                "is_income": True,
+                "country": "US",
+                "notes": "source: 'stream with no name'",
+            },
+            content_type="application/json",
+            **auth,
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        fields = (
+            "account",
+            "asset",
+            "who",
+            "when",
+            "what",
+            "amount",
+            "is_income",
+            "tags",
+            "country",
+            "notes",
+        )
+        for book in books:
+            self.assertEqual(book.entry_set.count(), 2)
+        self.assertEqual(
+            list(books[0].entry_set.order_by("account_id").values(*fields)),
+            list(books[1].entry_set.order_by("account_id").values(*fields)),
+        )
 
     def test_tags_by_code(self):
         user = self.factory.make_user()
@@ -209,7 +600,7 @@ class EntriesViewTestCase(BaseTestCase):
         response = self.client.get(self.book_url(book.slug), **auth)
         self.assertEqual(response.status_code, 200, response.content)
 
-    def test_bulk_uses_tag_rules_and_reports_invalid_tags(self):
+    def test_bulk_uses_tagregexes_and_reports_invalid_tags(self):
         auth = self.make_auth_header()
         data = self.make_entry_data()
         book = data.pop("book")
@@ -226,11 +617,11 @@ class EntriesViewTestCase(BaseTestCase):
         response = self.client.post(
             self.book_url(book),
             data=[
-                {**data, "what": "Matched rule"},
+                {**data, "what": "Matched tag regex"},
                 {**data, "what": "Tag by name", "tags": [label.upper()]},
                 {**data, "what": "Invalid tag", "tags": [0]},
                 {**data, "what": "Fallback tag"},
-                {**data, "what": "Ambiguous rules"},
+                {**data, "what": "Ambiguous tag regexes"},
                 {**data, "what": "Empty tags", "tags": []},
                 {**data, "what": "Multiple tags", "tags": TAGS[:2]},
             ],
