@@ -5,7 +5,8 @@ from io import StringIO
 
 from django.conf import settings
 
-from gemcore.models import Entry
+from gemcore.constants import TAGS
+from gemcore.models import Account, Entry
 from gemcore.parser import CSVParser
 from gemcore.tests.helpers import BaseTestCase
 
@@ -100,7 +101,7 @@ class CSVParserTestCase(BaseTestCase):
         }
         self.assertEqual(result["errors"], [error])
 
-    def test_conflicting_tag_rules_reject_only_the_affected_row(self):
+    def test_conflicting_tagregexes_reject_only_the_affected_row(self):
         account = self.make_account_with_parser(
             when=[0], what=[1], amount=[2], country="US"
         )
@@ -119,6 +120,169 @@ class CSVParserTestCase(BaseTestCase):
         self.assertEqual(
             Entry.objects.get().tags, [settings.ENTRY_TAGS["default"]]
         )
+
+    def test_deferred_fee_merges_without_resolving_its_tagregexes(self):
+        account = self.make_account_with_parser(
+            when=[0],
+            what=[1],
+            amount=[2],
+            country="US",
+            defer_processing=["Bank fee"],
+        )
+        for tag in TAGS[:2]:
+            self.factory.make_tag_regex(
+                regex="^Bank fee$", tag=tag, account=account
+            )
+        self.factory.make_tag_regex(
+            regex="^Purchase$", tag=TAGS[2], account=account
+        )
+        result, _ = self.do_parse(
+            account,
+            StringIO("2026-11-01,Bank fee,-2\n2026-11-01,Purchase,-10\n"),
+        )
+        self.assert_result(result, errors=0, entries=1)
+        entry = result["entries"][0]
+        self.assertEqual(entry.what, "Purchase")
+        self.assertEqual(entry.amount, Decimal("12"))
+        self.assertIs(entry.is_income, False)
+        self.assertEqual(entry.tags, [TAGS[2]])
+        self.assertIn("Bank fee", entry.notes)
+
+    def test_transfer_dry_run_does_not_save_or_mutate_source_data(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+        target = self.factory.make_account(users=[user])
+        account.tagregex_set.create(
+            regex=".*", tag=settings.ENTRY_TAGS["transfer"], transfer=target
+        )
+        parser = CSVParser(account)
+        stream = StringIO("2026-11-01,Transfer,-12.50\n")
+        result = parser.parse(stream, book=book, user=user, dry_run=True)
+        self.assert_result(result, errors=0, entries=1, all_entries=0)
+        data = result["entries"][0]
+        self.assertEqual(data["account"], account.pk)
+        self.assertIs(data["is_income"], False)
+        self.assertEqual(data["amount"], Decimal("12.50"))
+        self.factory.make_entry(
+            book=book,
+            account=target,
+            who=user,
+            when=data["when"],
+            what=data["what"],
+            amount=data["amount"],
+            is_income=True,
+        )
+        stream.seek(0)
+        result = parser.parse(stream, book=book, user=user, dry_run=True)
+        self.assert_result(result, errors=1, entries=0, all_entries=1)
+        self.assertIn("already an entry", result["errors"][0]["message"])
+        self.assertEqual(result["errors"][0]["data"]["account"], account.pk)
+
+    def test_duplicate_transfer_rolls_back_source_and_continues_import(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+        target = self.factory.make_account(users=[user])
+        account.tagregex_set.create(
+            regex="^Transfer",
+            tag=settings.ENTRY_TAGS["transfer"],
+            transfer=target,
+        )
+        self.factory.make_entry(
+            book=book,
+            account=target,
+            who=user,
+            when=date(2026, 11, 1),
+            what="Transfer",
+            amount=Decimal("12.50"),
+            is_income=True,
+        )
+        result, _ = self.do_parse(
+            account,
+            StringIO(
+                "2026-11-01,Transfer,-12.50\n2026-11-02,Another entry,20\n"
+            ),
+            book,
+        )
+        self.assert_result(result, errors=1, entries=1, all_entries=2)
+        self.assertIn("already an entry", result["errors"][0]["message"])
+        self.assertEqual(
+            list(account.entry_set.values_list("what", flat=True)),
+            ["Another entry"],
+        )
+
+    def test_tagregex_queries_do_not_grow_with_import_size(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+        target = self.factory.make_account(users=[user])
+        account.tagregex_set.create(
+            regex=".*", tag=settings.ENTRY_TAGS["transfer"], transfer=target
+        )
+        for prefetched in (False, True):
+            with self.subTest(prefetched=prefetched):
+                source = account
+                if prefetched:
+                    source = Account.objects.prefetch_tagregexes().get(
+                        pk=account.pk
+                    )
+                parser = CSVParser(source)
+                items = [0]
+
+                def execute():
+                    prefix = f"2026-11-01,Transfer {prefetched}"
+                    stream = StringIO(
+                        "".join(
+                            f"{prefix} {len(items)} {i},-12.50\n"
+                            for i in items
+                        )
+                    )
+                    return parser.parse(stream, book=book, user=user)
+
+                with self.assertQueryCountUnchanged(
+                    execute=execute,
+                    make_more=lambda: items.extend(range(1, 8)),
+                    query_filter=lambda query: (
+                        'FROM "gemcore_tagregex"' in query["sql"]
+                    ),
+                ) as comparison:
+                    for result, count in (
+                        (comparison.before, 1),
+                        (comparison.after, 8),
+                    ):
+                        self.assertEqual(result["errors"], [])
+                        self.assertEqual(len(result["entries"]), count)
+                    self.assertEqual(
+                        comparison.before_count, 0 if prefetched else 1
+                    )
+
+    def test_tagregex_edits_are_seen_on_the_next_import(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+        tags = [code for code, _ in settings.ENTRY_TAGS["choices"]][:2]
+        tagregex = account.tagregex_set.create(regex=".*", tag=tags[0])
+        parser = CSVParser(account)
+        for tag in tags:
+            tagregex.tag = tag
+            tagregex.save(update_fields=["tag"])
+            result = parser.parse(
+                StringIO(f"2026-11-01,Entry {tag},12.50\n"),
+                book=book,
+                user=user,
+            )
+            self.assertEqual(result["errors"], [])
+            self.assertEqual(result["entries"][0].tags, [tag])
+            self.assertIs(hasattr(account, "prefetched_tagregexes"), False)
 
     def test_what_concatenates_columns(self):
         account = self.make_account_with_parser(

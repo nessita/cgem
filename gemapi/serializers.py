@@ -1,9 +1,27 @@
-from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.core import exceptions
 from rest_framework import serializers
 
 from gemcore.constants import ChoicesMixin, get_tag_choices
-from gemcore.models import Account, Entry
+from gemcore.forms import create_entry
+from gemcore.models import Account, Asset, Entry
+
+
+def entry_validation_error(error):
+    errors = (
+        error.message_dict
+        if hasattr(error, "message_dict")
+        else {exceptions.NON_FIELD_ERRORS: error.messages}
+    )
+    return serializers.ValidationError(
+        {
+            (
+                "non_field_errors"
+                if field == exceptions.NON_FIELD_ERRORS
+                else field
+            ): messages
+            for field, messages in errors.items()
+        }
+    )
 
 
 class BackwardCompatibleTagField(serializers.ChoiceField):
@@ -21,12 +39,31 @@ class SelectedBookDefault:
         return serializer_field.context["book"]
 
 
+class CachedSlugRelatedField(serializers.SlugRelatedField):
+    """Bulk entries often share the same accounts and assets."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            return super().to_internal_value(data)
+        cache = self.context.setdefault("entry_related_objects", {})
+        key = (self.field_name, data)
+        if key not in cache:
+            cache[key] = super().to_internal_value(data)
+        return cache[key]
+
+
 class EntrySerializer(serializers.ModelSerializer):
     book = serializers.SlugRelatedField(
         slug_field="slug", read_only=True, default=SelectedBookDefault()
     )
-    account = serializers.SlugRelatedField(
+    account = CachedSlugRelatedField(
         slug_field="slug", queryset=Account.objects.none()
+    )
+    asset = CachedSlugRelatedField(
+        slug_field="slug",
+        queryset=Asset.objects.none(),
+        required=False,
+        allow_null=True,
     )
     who = serializers.ReadOnlyField(source="who.username")
 
@@ -39,7 +76,10 @@ class EntrySerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         book = self.context.get("book")
         if book is not None:
-            self.fields["account"].queryset = Account.objects.by_book(book)
+            self.fields["account"].queryset = Account.objects.by_book(
+                book
+            ).prefetch_tagregexes()
+            self.fields["asset"].queryset = Asset.objects.by_book(book)
 
     def validate(self, data):
         book = self.context["book"]
@@ -52,34 +92,17 @@ class EntrySerializer(serializers.ModelSerializer):
                 {"book": "The entry book must match the selected book."}
             )
         data["book"] = book
-        tags = data.get("tags")
-        if tags is None:
-            tags = list(data["account"].tags_for(data["what"]))
-        tags = tags or [settings.ENTRY_TAGS["default"]]
-        if len(tags) != 1:
-            raise serializers.ValidationError(
-                {"tags": "Choose exactly one tag."}
-            )
-        data["tags"] = tags
-        return data
+        try:
+            values, _ = data["account"].resolve_entry_tagregexes(data)
+        except exceptions.ValidationError as error:
+            raise entry_validation_error(error) from error
+        return values
 
     def create(self, validated_data):
         try:
-            with transaction.atomic():
-                return super().create(validated_data)
-        except IntegrityError:
-            # A concurrent request can insert a duplicate after validation.
-            unique_fields = Entry._meta.unique_together[0]
-            lookup = {name: validated_data[name] for name in unique_fields}
-            if Entry.objects.filter(**lookup).exists():
-                raise serializers.ValidationError(
-                    {
-                        "non_field_errors": [
-                            "There is already an entry for this data."
-                        ]
-                    }
-                ) from None
-            raise
+            return create_entry(**validated_data)
+        except exceptions.ValidationError as error:
+            raise entry_validation_error(error) from error
 
     class Meta:
         model = Entry
@@ -87,6 +110,7 @@ class EntrySerializer(serializers.ModelSerializer):
             "id",
             "book",
             "account",
+            "asset",
             "who",
             "when",
             "what",

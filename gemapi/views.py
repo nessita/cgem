@@ -77,7 +77,9 @@ class EntriesView(
         return filters.validated_data
 
     def get_queryset(self):
-        entries = self.book.entry_set.select_related("book", "account", "who")
+        entries = self.book.entry_set.select_related(
+            "book", "account", "asset", "who"
+        )
         lookups = {
             "account": "account__slug",
             "start": "when__gte",

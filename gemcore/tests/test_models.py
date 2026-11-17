@@ -9,7 +9,7 @@ from django.test import SimpleTestCase
 from django.utils.timezone import now, override
 
 from gemcore.constants import TAGS
-from gemcore.models import Entry, utc_today
+from gemcore.models import Account, Asset, Entry, utc_today
 from gemcore.tests.helpers import BaseTestCase
 
 MAX_ENTRIES = 50 if os.getenv("GITHUB_ACTIONS") == "true" else 10
@@ -619,6 +619,114 @@ class BookTestCase(BaseTestCase):
 
 
 class AccountTestCase(BaseTestCase):
+    def test_instance_prefetch_loads_once_without_reloading_the_account(self):
+        asset = Asset.objects.create(
+            name="Tag regex asset", since=date(2020, 1, 1)
+        )
+        target = self.factory.make_account()
+        for populated in (False, True):
+            account = self.factory.make_account()
+            if populated:
+                account.tagregex_set.create(
+                    regex="^Matched", tag=TAGS[0], asset=asset, transfer=target
+                )
+            with self.subTest(populated=populated), self.assertNumQueries(1):
+                self.assertIs(account.prefetch_tagregexes(), account)
+            with self.subTest(populated=populated), self.assertNumQueries(0):
+                self.assertIs(account.prefetch_tagregexes(), account)
+                values, transfer = account.resolve_entry_tagregexes(
+                    {"what": "Matched entry"}
+                )
+                self.assertEqual(values["asset"], asset if populated else None)
+                self.assertEqual(transfer, target if populated else None)
+                self.assertEqual(
+                    len(account.prefetched_tagregexes), int(populated)
+                )
+
+    def test_tagregex_resolution_requires_prefetching_without_queries(self):
+        account = self.factory.make_account()
+        with self.assertNumQueries(0), self.assertRaisesMessage(
+            ValueError,
+            "Call prefetch_tagregexes() before resolving tag regexes.",
+        ):
+            account.resolve_entry_tagregexes({"what": "Entry"})
+
+    def test_tagregex_resolution_uses_prefetched_account_without_queries(self):
+        account = self.factory.make_account()
+        target = self.factory.make_account()
+        asset = Asset.objects.create(
+            name="Tag regex asset", since=date(2020, 1, 1)
+        )
+        account.tagregex_set.create(
+            regex="^Matched", tag=TAGS[0], asset=asset, transfer=target
+        )
+        account = Account.objects.prefetch_tagregexes().get(pk=account.pk)
+        data = {"what": "Matched entry"}
+
+        def make_more():
+            nonlocal account
+            for index in range(1, 8):
+                account.tagregex_set.create(
+                    regex="^Matched" + ".*" * index,
+                    tag=TAGS[0],
+                    asset=asset,
+                    transfer=target,
+                )
+            account = Account.objects.prefetch_tagregexes().get(pk=account.pk)
+
+        with self.assertQueryCountUnchanged(
+            execute=lambda: account.resolve_entry_tagregexes(data),
+            make_more=make_more,
+        ) as comparison:
+            self.assertEqual(comparison.before_count, 0)
+            self.assertEqual(comparison.after_count, 0)
+            for values, transfer in (comparison.before, comparison.after):
+                self.assertEqual(values["tags"], [TAGS[0]])
+                self.assertEqual(values["asset"], asset)
+                self.assertEqual(transfer, target)
+            self.assertEqual(data, {"what": "Matched entry"})
+
+    def test_prefetch_tagregexes_query_count_does_not_grow_with_accounts(self):
+        user = self.factory.make_user()
+        book = self.factory.make_book(users=[user])
+        target = self.factory.make_account(users=[user])
+        asset = Asset.objects.create(
+            name="Tag regex asset", since=date(2020, 1, 1)
+        )
+
+        def make_account():
+            account = self.factory.make_account(users=[user])
+            account.tagregex_set.create(
+                regex=".*", tag=TAGS[0], asset=asset, transfer=target
+            )
+
+        def make_more():
+            for _ in range(7):
+                make_account()
+
+        def execute():
+            accounts = (
+                Account.objects.by_book(book)
+                .exclude(pk=target.pk)
+                .prefetch_tagregexes()
+            )
+            return [
+                [
+                    (tagregex.asset.name, tagregex.transfer.slug)
+                    for tagregex in account.prefetched_tagregexes
+                ]
+                for account in accounts
+            ]
+
+        make_account()
+        with self.assertQueryCountUnchanged(execute, make_more) as comparison:
+            self.assertEqual(comparison.before_count, 2)
+            for result, count in (
+                (comparison.before, 1),
+                (comparison.after, 8),
+            ):
+                self.assertEqual(result, [[(asset.name, target.slug)]] * count)
+
     def test_tags_for(self):
         account = self.factory.make_account()
         tag1, tag2, tag3, tag4 = TAGS[:4]

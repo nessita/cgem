@@ -5,13 +5,13 @@ import codecs
 import csv
 import logging
 import re
+from copy import copy
 from datetime import datetime
 from decimal import Decimal
 
-from django.conf import settings
-from django.db import transaction
+from django.core.exceptions import ValidationError
 
-from gemcore.forms import EntryForm
+from gemcore.forms import create_entry
 
 logger = logging.getLogger(__name__)
 
@@ -99,26 +99,22 @@ class CSVParser(object):
         amount = self.find_amount(row)
         what = self.find_what(row)
 
-        tags_dict = self.account.tags_for(what)
-        tags = list(tags_dict.keys()) or [settings.ENTRY_TAGS["default"]]
-        assets = {t[1] for t in tags_dict.values() if t[1] is not None}
-        assert len(assets) < 2, f"{tags_dict=} produce confusing asset list."
-
         data = dict(
             account=self.account.id,
             amount=abs(amount),
             country=self.config.country,
             is_income=amount > 0,
             notes=self.find_notes(row),
-            tags=tags,
             what=what,
             when=self.find_when(row),
             who=user.id,
-            asset=None if not assets else assets.pop(),
         )
-
         if what in self.config.defer_processing:
             raise DataToBeProcessedError(data)
+
+        data, _ = self._entry_account.resolve_entry_tagregexes(data)
+        if data["asset"] is not None:
+            data["asset"] = data["asset"].pk
 
         if unprocessed:
             assert unprocessed["is_income"] == data["is_income"]
@@ -133,42 +129,21 @@ class CSVParser(object):
 
         return data
 
-    def _validate_and_save_entry(self, data, book, dry_run=False):
-        form = EntryForm(book=book, data=data)
-        if form.is_valid():
-            if dry_run:
-                entry = data
-            else:
-                entry = form.save()
-        logger.debug(
-            "CSVParser._validate_and_save_entry dry_run: %r data: %r "
-            "form is valid: %r form.errors: %r",
-            dry_run,
-            data,
-            form.is_valid(),
-            form.errors,
-        )
-        if form.errors:
-            msg = " | ".join(
-                "%s: %s" % (k, ", ".join(v)) for k, v in form.errors.items()
-            )
-            raise ValueError(msg)
-        return entry
-
-    @transaction.atomic
     def make_entry(self, data, book, dry_run=False):
-        tags = self.account.tags_for(data["what"])
-
-        entry = self._validate_and_save_entry(data, book, dry_run=dry_run)
-
-        # Needs a transfer?
-        tags = self.account.tags_for(data["what"])
-        for transfer in [t[0] for t in tags.values() if t[0] is not None]:
-            data["is_income"] = not data["is_income"]
-            data["account"] = transfer.id
-            self._validate_and_save_entry(data, book, dry_run=dry_run)
-
-        return entry
+        entry_data = {**data, "account": self._entry_account, "book": book}
+        try:
+            return create_entry(dry_run=dry_run, **entry_data)
+        except ValidationError as error:
+            errors = (
+                error.message_dict
+                if hasattr(error, "message_dict")
+                else {"__all__": error.messages}
+            )
+            message = " | ".join(
+                f"{field}: {', '.join(messages)}"
+                for field, messages in errors.items()
+            )
+            raise ValueError(message) from error
 
     def add_error(self, result, error, data):
         error = {
@@ -179,6 +154,8 @@ class CSVParser(object):
         result["errors"].append(error)
 
     def parse(self, fileobj, book, user, dry_run=False):
+        # A later import must see tag regex edits on an unprefetched account.
+        self._entry_account = copy(self.account).prefetch_tagregexes()
         self.name = getattr(fileobj, "name", "stream with no name")
         result = dict(entries=[], errors=[])
 
