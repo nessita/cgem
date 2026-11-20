@@ -52,6 +52,7 @@ class BaseTestCase(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         for name, level in (
+            ("gemcore.models", logging.ERROR),
             ("gemcore.parser", logging.WARNING),
             ("django.request", logging.ERROR),
         ):

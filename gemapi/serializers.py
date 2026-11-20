@@ -7,6 +7,11 @@ from gemcore.models import Account, Asset, Entry
 
 
 def entry_validation_error(error):
+    if getattr(error, "code", None) == "invalid_regex":
+        return serializers.ValidationError(
+            {"account": "The selected account has an invalid tag regex."},
+            code="invalid_regex",
+        )
     errors = (
         error.message_dict
         if hasattr(error, "message_dict")

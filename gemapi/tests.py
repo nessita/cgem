@@ -43,6 +43,91 @@ class EntriesViewTestCase(BaseTestCase):
         data.update(kwargs)
         return data
 
+    def test_malformed_stored_tagregex_returns_a_single_entry_error(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data()
+        account = Account.objects.get(slug=data["account"])
+        account.tagregex_set.create(regex="(?P=CONFIG_SECRET)", tag=TAGS[0])
+        for url in (self.url, self.book_url(data["book"])):
+            for explicit_tags in (False, True):
+                payload = {**data, "asset": None}
+                if not explicit_tags:
+                    payload.pop("tags")
+                with self.subTest(url=url, explicit_tags=explicit_tags):
+                    response = self.client.post(
+                        url,
+                        data=payload,
+                        content_type="application/json",
+                        **auth,
+                    )
+                    self.assertEqual(
+                        response.status_code, 400, response.content
+                    )
+                    message = "The selected account has an invalid tag regex."
+                    self.assertEqual(response.json(), {"account": [message]})
+        self.assertEqual(Entry.objects.count(), 0)
+
+    def test_malformed_tagregex_does_not_abort_other_bulk_rows(self):
+        auth = self.make_auth_header()
+        data = self.make_entry_data(when="2026-11-01")
+        book = data.pop("book")
+        broken = self.factory.make_account(users=[self.api_user])
+        target = self.factory.make_account(users=[self.api_user])
+        broken.tagregex_set.create(regex=".*", tag=TAGS[0], transfer=target)
+        tagregex = broken.tagregex_set.create(
+            regex="(?P=CONFIG_SECRET)", tag=TAGS[0]
+        )
+        expected = set()
+        for explicit_tags in (False, True):
+            first = {**data, "what": f"Before {explicit_tags}"}
+            last = {**data, "what": f"After {explicit_tags}"}
+            invalid = {
+                **data,
+                "account": broken.slug,
+                "what": "Invalid tag regex",
+                "asset": None,
+            }
+            if not explicit_tags:
+                invalid.pop("tags")
+            with self.subTest(explicit_tags=explicit_tags):
+                response = self.client.post(
+                    self.book_url(book),
+                    data=[first, invalid, last],
+                    content_type="application/json",
+                    **auth,
+                )
+                self.assertEqual(response.status_code, 200, response.content)
+                result = response.json()
+                self.assertEqual(
+                    [entry["what"] for entry in result["entries"]],
+                    [first["what"], last["what"]],
+                )
+                self.assertEqual(len(result["errors"]), 1)
+                self.assertEqual(result["errors"][0]["index"], 1)
+                message = result["errors"][0]["errors"]["account"][0]
+                self.assertEqual(
+                    message,
+                    "The selected account has an invalid tag regex.",
+                )
+                expected.update((first["what"], last["what"]))
+                self.assertEqual(
+                    set(Entry.objects.values_list("what", flat=True)), expected
+                )
+                self.assertEqual(
+                    Entry.objects.filter(account=target).count(), 0
+                )
+        tagregex.regex = "^Never matches$"
+        tagregex.save(update_fields=["regex"])
+        response = self.client.post(
+            self.book_url(book),
+            data=[{**data, "account": broken.slug}],
+            content_type="application/json",
+            **auth,
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Entry.objects.filter(account=broken).count(), 1)
+        self.assertEqual(Entry.objects.filter(account=target).count(), 1)
+
     def test_bulk_lookup_queries_do_not_grow_with_entry_count(self):
         auth = self.make_auth_header()
         data = self.make_entry_data(when="2026-11-01")
