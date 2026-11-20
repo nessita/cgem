@@ -1,9 +1,10 @@
+import logging
 import operator
 import re
 from collections import OrderedDict, defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
-from functools import reduce
+from functools import partial, reduce
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -18,10 +19,30 @@ from django.db import connection, models, transaction
 from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
+from django.utils.log import log_message
 from django.utils.text import slugify
 from django.utils.timezone import now
 
 from gemcore.constants import ChoicesMixin, get_tag_choices
+
+logger = logging.getLogger(__name__)
+
+
+def validate_tagregex(func, *args, **kwargs):
+    try:
+        return func(*args, **kwargs)
+    except (re.error, OverflowError, RecursionError) as error:
+        log_message(
+            logger,
+            "Invalid tag regex: %s",
+            str(error),
+            level="warning",
+        )
+        raise ValidationError(
+            "Invalid tag regex at position %(position)r.",
+            code="invalid_regex",
+            params={"position": getattr(error, "pos", None)},
+        ) from None
 
 
 def _tagregexes_prefetch():
@@ -423,7 +444,8 @@ class Account(models.Model):
         if tagregexes is None:
             tagregexes = self.tagregex_set.select_related("transfer", "asset")
         for tagregex in tagregexes:
-            if re.match(tagregex.regex, value):
+            match = validate_tagregex(re.match, tagregex.regex, value)
+            if match:
                 yield tagregex
 
     def prefetch_tagregexes(self):
@@ -529,7 +551,9 @@ class TagRegex(models.Model):
     asset = models.ForeignKey(
         Asset, on_delete=models.CASCADE, null=True, blank=True
     )
-    regex = models.TextField()
+    regex = models.TextField(
+        validators=[partial(validate_tagregex, re.compile)]
+    )
     tag = models.CharField(max_length=256, choices=get_tag_choices)
     transfer = models.ForeignKey(
         Account,

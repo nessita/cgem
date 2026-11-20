@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
@@ -9,7 +10,14 @@ from django.test import SimpleTestCase
 from django.utils.timezone import now, override
 
 from gemcore.constants import TAGS
-from gemcore.models import Account, Asset, Entry, utc_today
+from gemcore.models import (
+    Account,
+    Asset,
+    Entry,
+    TagRegex,
+    utc_today,
+    validate_tagregex,
+)
 from gemcore.tests.helpers import BaseTestCase
 
 MAX_ENTRIES = 50 if os.getenv("GITHUB_ACTIONS") == "true" else 10
@@ -619,6 +627,40 @@ class BookTestCase(BaseTestCase):
 
 
 class AccountTestCase(BaseTestCase):
+    def test_malformed_stored_tagregexes_raise_safe_validation_errors(self):
+        for pattern, position in (("[", 0), ("a{4294967296}", None)):
+            account = self.factory.make_account()
+            account.tagregex_set.create(regex=pattern, tag=TAGS[0])
+            prefetched = Account.objects.prefetch_tagregexes().get(
+                pk=account.pk
+            )
+            operations = (
+                (lambda: list(account.matching_tag_regexes("Entry")), 1),
+                (lambda: account.tags_for("Entry"), 1),
+                (
+                    lambda: prefetched.resolve_entry_tagregexes(
+                        {"what": "Entry"}
+                    ),
+                    0,
+                ),
+            )
+            for execute, count in operations:
+                with (
+                    self.assertNumQueries(count),
+                    self.assertRaisesMessage(
+                        ValidationError, "Invalid tag regex"
+                    ) as error,
+                ):
+                    execute()
+                self.assertEqual(error.exception.code, "invalid_regex")
+                self.assertEqual(
+                    error.exception.messages,
+                    [f"Invalid tag regex at position {position!r}."],
+                )
+                self.assertEqual(
+                    error.exception.params, {"position": position}
+                )
+
     def test_instance_prefetch_loads_once_without_reloading_the_account(self):
         asset = Asset.objects.create(
             name="Tag regex asset", since=date(2020, 1, 1)
@@ -645,9 +687,12 @@ class AccountTestCase(BaseTestCase):
 
     def test_tagregex_resolution_requires_prefetching_without_queries(self):
         account = self.factory.make_account()
-        with self.assertNumQueries(0), self.assertRaisesMessage(
-            ValueError,
-            "Call prefetch_tagregexes() before resolving tag regexes.",
+        with (
+            self.assertNumQueries(0),
+            self.assertRaisesMessage(
+                ValueError,
+                "Call prefetch_tagregexes() before resolving tag regexes.",
+            ),
         ):
             account.resolve_entry_tagregexes({"what": "Entry"})
 
@@ -754,3 +799,59 @@ class AccountTestCase(BaseTestCase):
         self.assertCountEqual(account.tags_for("foo"), ["food"])
         self.assertCountEqual(account.tags_for("12x"), ["fun", "house"])
         self.assertCountEqual(account.tags_for("y12x"), [])
+
+
+class TagRegexTestCase(BaseTestCase):
+    def test_diagnostics_are_escaped_only_in_logs(self):
+        patterns = (
+            "[\r-\x00]",
+            "[\n-\x00]",
+            "[\x1b-\x00]",
+            "(?P<CONFIG_SECRET_" + "\U0001f600" * 1000 + "_TRAILER_SECRET>a)",
+        )
+        for pattern in patterns:
+            with (
+                self.assertLogs("gemcore.models", level="WARNING") as logs,
+                self.assertRaisesMessage(
+                    ValidationError, "Invalid tag regex"
+                ) as error,
+            ):
+                validate_tagregex(re.compile, pattern)
+            self.assertEqual(len(logs.records), 1)
+            record = logs.records[0]
+            diagnostic = record.getMessage()
+            self.assertIs(diagnostic.isascii(), True)
+            self.assertNotRegex(diagnostic, r"[\x00-\x1f\x7f]")
+            self.assertIsNone(record.exc_info)
+            self.assertRegex(
+                error.exception.messages[0],
+                r"^Invalid tag regex at position \d+\.$",
+            )
+            self.assertNotIn("CONFIG_SECRET", error.exception.messages[0])
+            self.assertIsNone(error.exception.__cause__)
+            self.assertIs(error.exception.__suppress_context__, True)
+
+    def test_model_validation_rejects_malformed_regexes(self):
+        account = self.factory.make_account()
+        for pattern in ("[", "(", "a{4294967296}"):
+            tagregex = TagRegex(account=account, regex=pattern, tag=TAGS[0])
+            with (
+                self.assertRaisesMessage(
+                    ValidationError, "Invalid tag regex"
+                ) as error,
+            ):
+                tagregex.full_clean()
+            self.assertEqual(set(error.exception.message_dict), {"regex"})
+            self.assertEqual(
+                error.exception.error_dict["regex"][0].code, "invalid_regex"
+            )
+
+    def test_model_validation_accepts_valid_regexes(self):
+        account = self.factory.make_account()
+        for pattern in (r"^Interest(?: payment)?$", r"(?i)^transfer\s+\d+$"):
+            with self.subTest(pattern=pattern):
+                tagregex = TagRegex(
+                    account=account, regex=pattern, tag=TAGS[0]
+                )
+                tagregex.full_clean()
+                self.assertEqual(tagregex.regex, pattern)
