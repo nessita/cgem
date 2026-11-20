@@ -185,6 +185,9 @@ omitting it infers the asset from matching tag regexes, while `null` leaves it
 unset. Assets must be available to the selected book. Conflicting inferred
 tags, assets, or transfer destinations reject the row.
 
+Malformed stored tag regexes produce an account validation error for affected
+entries. Other entries in a bulk request continue to be processed.
+
 A matching transfer tag regex also creates an entry in its destination account,
 with the same amount and the opposite income/expense direction. Both entries
 are saved together; an invalid or duplicate counterpart rejects the source

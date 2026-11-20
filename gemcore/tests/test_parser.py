@@ -121,6 +121,39 @@ class CSVParserTestCase(BaseTestCase):
             Entry.objects.get().tags, [settings.ENTRY_TAGS["default"]]
         )
 
+    def test_malformed_stored_tagregex_is_reported_for_each_csv_row(self):
+        account = self.make_account_with_parser(
+            when=[0], what=[1], amount=[2], country="US"
+        )
+        user = account.users.get()
+        book = self.factory.make_book(users=[user])
+        target = self.factory.make_account(users=[user])
+        account.tagregex_set.create(regex=".*", tag=TAGS[0], transfer=target)
+        tagregex = account.tagregex_set.create(
+            regex="(?P=CONFIG_SECRET)", tag=TAGS[0]
+        )
+        parser = CSVParser(account)
+        stream = StringIO(
+            "2026-11-01,First entry,-10\n2026-11-02,Next entry,20\n"
+        )
+        result = parser.parse(stream, book=book, user=user)
+        self.assert_result(result, errors=2, entries=0)
+        self.assertEqual(
+            [error["data"][1] for error in result["errors"]],
+            ["First entry", "Next entry"],
+        )
+        for error in result["errors"]:
+            self.assertEqual(error["exception"], "ValidationError")
+            self.assertRegex(
+                error["message"], r"Invalid tag regex at position \d+\."
+            )
+            self.assertNotIn("CONFIG_SECRET", error["message"])
+        tagregex.regex = "^Never matches$"
+        tagregex.save(update_fields=["regex"])
+        stream.seek(0)
+        result = parser.parse(stream, book=book, user=user)
+        self.assert_result(result, errors=0, entries=2, all_entries=4)
+
     def test_deferred_fee_merges_without_resolving_its_tagregexes(self):
         account = self.make_account_with_parser(
             when=[0],
