@@ -2181,7 +2181,7 @@ class BookPagesTestCase(BaseTestCase):
         self.assertEqual(entry.tags, original_tags)
         self.assertEqual(self.book.entry_set.count(), 1)
 
-    def test_search_clear_links_and_fields_preserve_other_filters(self):
+    def test_search_clear_button_and_fields_preserve_other_filters(self):
         self.client.force_login(self.user)
         url = reverse("entries", args=[self.book.slug])
         response = self.client.get(
@@ -2224,37 +2224,31 @@ class BookPagesTestCase(BaseTestCase):
         )
         self.assertNotContains(response, "jquery")
         self.assertNotContains(response, "onclick=")
-        clear_links = {
-            attrs["id"]: attrs
+        clear_buttons = [
+            attrs
             for tag, attrs in elements
-            if tag == "a"
-            and attrs.get("id") in {"clear-search-text", "clear-search-date"}
+            if tag == "button" and attrs.get("id") == "clear-search-text"
+        ]
+        (clear_button,) = clear_buttons
+        self.assertEqual(clear_button["type"], "button")
+        self.assertEqual(clear_button["data-clear-input"], "q")
+        self.assertNotIn("href", clear_button)
+        self.assertFalse(any(name.startswith("hx-") for name in clear_button))
+        self.assertNotContains(response, 'id="clear-search-date"')
+        self.assertTrue(
+            any(
+                attrs.get("src", "").endswith("js/clear-input.js")
+                for tag, attrs in elements
+                if tag == "script"
+            )
+        )
+        fields = {
+            attrs["name"]: attrs
+            for tag, attrs in elements
+            if tag == "input" and attrs.get("name") in {"q", "when"}
         }
-        self.assertEqual(len(clear_links), 2)
-        for link_id, attrs in clear_links.items():
-            with self.subTest(link_id=link_id):
-                self.assertEqual(attrs["hx-boost"], "true")
-                self.assertEqual(attrs["hx-target"], "#content")
-                self.assertEqual(attrs["hx-select"], "#content")
-                self.assertEqual(attrs["hx-swap"], "outerHTML show:none")
-                self.assertEqual(attrs["hx-sync"], "#content:replace")
-                cleared = self.client.get(
-                    url,
-                    parse_qs(urlsplit(attrs["href"]).query),
-                    headers={"HX-Request": "true", "HX-Boosted": "true"},
-                )
-                self.assertContains(cleared, 'id="content"', count=1)
-                filters = cleared.context["filters"]
-                self.assertEqual(filters["tags"], [TAGS[0]])
-                self.assertEqual(filters["country"], "US")
-                self.assertEqual(parse_qs(filters["qs"])["page"], ["2"])
-                self.assertEqual(cleared.context["entries"].number, 1)
-                if link_id == "clear-search-text":
-                    self.assertIsNone(filters["q"])
-                    self.assertEqual(filters["when"], date(2026, 11, 6))
-                else:
-                    self.assertEqual(filters["q"], "Coffee")
-                    self.assertIsNone(filters["when"])
+        self.assertEqual(fields["q"]["value"], "Coffee")
+        self.assertEqual(fields["when"]["value"], "2026-11-06")
 
     def test_search_and_date_filters_combine_and_links_preserve_page(self):
         matching = [

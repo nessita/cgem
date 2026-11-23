@@ -1,0 +1,6 @@
+<button type="button"{% if id %} id="{{ id }}"{% endif %}
+        aria-label="{{ label }}" title="{{ label }}"{% if disabled or readonly %} disabled{% endif %}
+        {% if clear_input %}data-clear-input="{{ clear_input }}"{% endif %}
+        class="bg-stone-200 cursor-pointer h-9 hover:bg-stone-300 inline-flex items-center justify-center p-2 rounded-md shrink-0 text-stone-800 w-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+    {% include icon_file %}
+</button>
