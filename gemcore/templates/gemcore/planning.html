@@ -35,13 +35,6 @@
 
 {% block content %}
 <h1 class="font-bold text-2xl">Planning for {{ book }}</h1>
-<div class="flex flex-row flex-wrap gap-2">
-    {% querystring as query %}
-    {% url 'entries' book.slug as entries_url %}
-    {% include "components/button.html" with label="Entries" href=entries_url|add:query variant="secondary" only %}
-    {% url 'balance' book.slug as balance_url %}
-    {% include "components/button.html" with label="Balances" href=balance_url|add:query variant="secondary" only %}
-</div>
 {% include "gemcore/_list_controls.html#active_filters" %}
 
 {% if planning_error %}

@@ -1160,6 +1160,14 @@ class BookPagesTestCase(BaseTestCase):
 
     def test_book_pages_and_forms_render(self):
         self.client.force_login(self.user)
+        navigation_pages = (
+            "entries",
+            "add-entry",
+            "account-transfer",
+            "balance",
+            "planning",
+            "load-from-file",
+        )
         for name, args in (
             ("books", []),
             ("add-book", []),
@@ -1174,6 +1182,32 @@ class BookPagesTestCase(BaseTestCase):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertEqual(response.status_code, 200)
+                if name not in navigation_pages:
+                    continue
+                html = response.content.decode()
+                navigation = html.split(
+                    f'<nav id="book-navigation-{self.book.pk}"', 1
+                )[1].split("</nav>", 1)[0]
+                links = [
+                    attrs
+                    for tag, attrs in ElementCollector(navigation).elements
+                    if tag == "a"
+                ]
+                self.assertEqual(
+                    [urlsplit(link["href"]).path for link in links],
+                    [
+                        reverse(page, args=[self.book.slug])
+                        for page in navigation_pages
+                    ],
+                )
+                self.assertEqual(
+                    [
+                        urlsplit(link["href"]).path
+                        for link in links
+                        if link.get("aria-current") == "page"
+                    ],
+                    [reverse(name, args=args)],
+                )
 
     def test_date_inputs_always_show_iso_dates(self):
         self.client.force_login(self.user)

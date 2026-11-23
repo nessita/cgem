@@ -47,6 +47,7 @@
     </header>
 
     <main id="content" class="flex flex-col gap-4 max-w-7xl mx-auto p-4">
+        {% if book %}{% include "gemcore/_book_actions.html" %}{% endif %}
         {% include '_messages.html' %}
 
         {% block content %}

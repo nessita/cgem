@@ -7,6 +7,7 @@
         {% if hx_trigger %}hx-trigger="{{ hx_trigger }}"{% endif %}
 {% endif %}
         {% if id %}id="{{ id }}"{% endif %}
+        {% if current %}aria-current="page"{% endif %}
         {% if hx_boost %}hx-boost="{{ hx_boost }}"{% endif %}
         {% if hx_select %}hx-select="{{ hx_select }}"{% endif %}
         {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
@@ -16,7 +17,8 @@
         {% if hx_vals %}hx-vals="{{ hx_vals }}"{% endif %}
         {% if hx_disabled_elt %}hx-disabled-elt="{{ hx_disabled_elt }}"{% endif %}
         class="font-medium gap-1.5 inline-flex items-center justify-center max-w-full px-4 py-2 rounded-md shrink-0 text-center text-sm whitespace-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50
-               {% if variant == 'secondary' %}bg-stone-200 hover:bg-stone-300 text-stone-800
+               {% if current %}bg-sky-100 ring-1 ring-inset ring-sky-300 text-sky-900
+               {% elif variant == 'secondary' %}bg-stone-200 hover:bg-stone-300 text-stone-800
                {% elif variant == 'danger' %}bg-red-100 hover:bg-red-200 text-red-900
                {% else %}bg-sky-700 hover:bg-sky-800 text-white{% endif %}">
   {% if icon_file %}{% include icon_file %}{% endif %}
