@@ -88,15 +88,16 @@
         {% endif %}
         {% url 'planning' book.slug as planning_url %}
         {% for currency, count in available.currencies %}
-        <details aria-label="Planning in {{ currency }}"
+        <details class="group/request" aria-label="Planning in {{ currency }}"
                  hx-get="{{ planning_url }}{% querystring currency=currency %}"
                  hx-trigger="toggle[target.open]" hx-target="find .planning-currency-content"
                  hx-swap="innerHTML show:none focus-scroll:false" hx-sync="this:drop">
             <summary class="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">
                 <h2 class="inline font-semibold text-xl">{{ currency }} <span class="font-normal text-sm text-stone-600">{{ count }} entr{{ count|pluralize:"y,ies" }} considered</span></h2>
             </summary>
+            {% include "components/request_status.html" with loading="Loading report..." only %}
             <div class="planning-currency-content flex flex-col gap-6 pt-4" aria-live="polite">
-                <p class="text-stone-600">Loading report...</p>
+                {% include "components/request_status.html" with fallback="Report not loaded. Close and reopen to retry." only %}
             </div>
         </details>
         {% empty %}

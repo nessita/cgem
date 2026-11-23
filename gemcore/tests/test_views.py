@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
+from json import loads
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -544,6 +545,11 @@ class AddEntryTestCase(BaseTestCase):
                 )
                 self.assertNotContains(response, "<html")
                 self.assertContains(response, 'id="entry-country"', count=1)
+                self.assertContains(response, "Suggesting country...")
+                self.assertContains(
+                    response,
+                    "No suggestion? Choose manually.",
+                )
                 options = ElementCollector(response.content.decode()).elements
                 self.assertEqual(
                     [
@@ -1169,6 +1175,16 @@ class BookPagesTestCase(BaseTestCase):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name, args=args))
                 self.assertEqual(response.status_code, 200)
+                elements = ElementCollector(response.content.decode()).elements
+                body = next(attrs for tag, attrs in elements if tag == "body")
+                self.assertEqual(loads(body["hx-request"]), {"timeout": 5000})
+                if name == "add-entry":
+                    account = next(
+                        attrs
+                        for tag, attrs in elements
+                        if attrs.get("id") == "entry-account"
+                    )
+                    self.assertEqual(account["hx-indicator"], "#entry-country")
                 if name not in navigation_pages:
                     continue
                 html = response.content.decode()
@@ -1247,6 +1263,21 @@ class BookPagesTestCase(BaseTestCase):
         )
         response = self.client.get(reverse("entries", args=[self.book.slug]))
         html = response.content.decode()
+        selection = next(
+            attrs
+            for tag, attrs in ElementCollector(html).elements
+            if tag == "form" and attrs.get("id") == "entry-selection"
+        )
+        self.assertEqual(selection["hx-indicator"], "#entry-selection")
+        self.assertIn("group/request", selection["class"].split())
+        self.assertContains(
+            response, "Updating selection or calculating balance..."
+        )
+        self.assertContains(
+            response,
+            "If the selection controls or balance do not update, "
+            "reload this page before continuing.",
+        )
         self.assertContains(response, 'aria-label="Entries pages"', count=2)
         self.assertLess(
             html.index('id="entries-scroll"'),
@@ -1575,6 +1606,7 @@ class BookPagesTestCase(BaseTestCase):
                 )
                 for group in currency_groups:
                     self.assertNotIn("open", group)
+                    self.assertIn("group/request", group["class"].split())
                     self.assertEqual(
                         group["hx-trigger"], "toggle[target.open]"
                     )
@@ -1598,6 +1630,8 @@ class BookPagesTestCase(BaseTestCase):
                 selected, 'aria-labelledby="filters-heading"'
             )
             self.assertNotContains(selected, "Cash flow in EUR")
+            self.assertNotContains(selected, "Loading report...")
+            self.assertNotContains(selected, "Report not loaded.")
             self.assertIn("HX-Request", selected["Vary"])
             self.assertEqual(
                 selected.context["filters"]["country"], params.get("country")
