@@ -24,9 +24,13 @@
         {% include "gemcore/_list_controls.html#paginator" with pagination_label="Entries pages" %}
         {% if entries %}
         {% partialdef entry_selection inline %}
-        <form id="entry-selection" action="" method="POST" class="flex flex-col gap-4"
+        <form id="entry-selection" action="" method="POST" class="flex flex-col gap-4 group/request"
+              hx-indicator="#entry-selection"
               hx-select-oob="#entry-selection-toolbar,#select-page,#entries-list-body,#entries-balance-inline,#entry-selection-actions">
             {% csrf_token %}
+            <div>
+                {% include "components/request_status.html" with loading="Updating selection or calculating balance..." fallback="If the selection controls or balance do not update, reload this page before continuing." only %}
+            </div>
             <div id="entry-selection-toolbar" class="flex flex-row flex-wrap gap-3 items-center justify-between">
                 <p class="font-medium text-sm" role="status">{{ selected_count }} entr{{ selected_count|pluralize:"y,ies" }} selected on this page</p>
                 <div class="flex flex-row flex-wrap gap-2">

@@ -1,0 +1,6 @@
+{% if loading %}
+<p class="hidden text-sm text-stone-600 group-[.htmx-request]/request:block" role="status">{{ loading }}</p>
+{% endif %}
+{% if fallback %}
+<p class="text-sm text-stone-600 group-[.htmx-request]/request:hidden" role="status">{{ fallback }}</p>
+{% endif %}
