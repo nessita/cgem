@@ -3,11 +3,6 @@
 {% block content %}
 
 <h1 class="font-bold text-2xl">Balances for {{ book }}</h1>
-<div class="flex flex-row flex-wrap gap-2">
-    {% url 'entries' book.slug as entries_url %}
-    {% querystring account=account_slug|default:filters.account currency=currency|default:filters.currency as entries_query %}
-    {% include "components/button.html" with label="Entries" href=entries_url|add:entries_query variant="secondary" only %}
-</div>
 {% include "gemcore/_list_controls.html#active_filters" %}
 
 <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
