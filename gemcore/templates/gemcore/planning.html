@@ -31,6 +31,110 @@
 </section>
 {% endpartialdef %}
 
+{% partialdef coverage_summary %}
+<section class="flex flex-col gap-3" aria-label="Expense coverage in {{ currency }}">
+    <h3 class="font-semibold text-lg">Expense coverage</h3>
+    <div class="flex flex-col gap-3 sm:grid sm:grid-cols-3">
+        <div class="bg-stone-50 border border-stone-300 flex flex-col gap-2 p-4 rounded-lg">
+            <h4 class="font-medium text-sm text-stone-600">Non-salary cash flow</h4>
+            <a class="font-semibold text-2xl tabular-nums break-words {% if summary.non_salary_net.amount < 0 %}text-red-700 hover:text-red-800{% else %}text-sky-800 hover:text-sky-700{% endif %}" href="{{ summary.headline.income_url }}">{{ summary.non_salary_net.amount|money:"" }}</a>
+            <p class="text-sm text-stone-600">Rental and other income, plus net investment cash flow.</p>
+        </div>
+        <div class="bg-stone-50 border border-stone-300 flex flex-col gap-2 p-4 rounded-lg">
+            <h4 class="font-medium text-sm text-stone-600">Expenses</h4>
+            <a class="font-semibold text-2xl text-sky-800 hover:text-sky-700 tabular-nums break-words" href="{{ summary.headline.expenses_url }}">{{ summary.expenses.amount|money:"" }}</a>
+            <p class="text-sm text-stone-600">Excludes transfers and investment outflows already deducted above.</p>
+        </div>
+        <div class="bg-stone-50 border border-stone-300 flex flex-col gap-2 p-4 rounded-lg">
+            {% if summary.coverage_percent != None %}
+            <h4 class="font-medium text-sm text-stone-600">{{ summary.headline.gap_label }}</h4>
+            <p class="font-semibold text-2xl tabular-nums break-words {% if summary.coverage_gap.amount < 0 %}text-red-700{% endif %}">{{ summary.headline.gap_amount|money:"" }}</p>
+            <p class="text-sm text-stone-600">Expense coverage: <strong>{{ summary.coverage_percent|floatformat:1 }}%</strong></p>
+            {% else %}
+            <h4 class="font-medium text-sm text-stone-600">Comparison unavailable</h4>
+            <p class="text-sm text-stone-600">No positive expenses are recorded in this selection.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% if summary.coverage_percent != None %}
+    <p class="font-medium {% if summary.coverage_gap.amount < 0 %}text-red-800{% else %}text-stone-700{% endif %}">
+        {% if summary.coverage_gap.amount < 0 %}Recorded non-salary cash flow fell short of expenses in this selection.{% else %}Recorded non-salary cash flow covered expenses in this selection.{% endif %}
+    </p>
+    {% endif %}
+    <p class="text-sm text-stone-600">Recurring income is not identified by these tags. Totals can include one-off receipts, refunds and movements into and out of savings.</p>
+</section>
+{% endpartialdef %}
+
+{% partialdef monthly_cash_flow %}
+<section class="flex flex-col gap-3 min-w-0" aria-label="Monthly cash flow in {{ currency }}">
+    <h3 class="font-semibold text-lg">Monthly cash flow</h3>
+    <p class="text-sm text-stone-600">Only matching entries are included. Months without matching entries are omitted; gaps do not establish zero activity. The running balance adds each monthly surplus or shortfall from zero for this selection.</p>
+    {% if summary.trend %}
+    <div class="flex flex-row flex-wrap gap-4 text-sm" aria-label="Chart legend">
+        {% for series in summary.trend.series %}
+        <span class="font-medium inline-flex items-center gap-2 {{ series.color }}">
+            <svg viewBox="0 0 24 12" class="h-3 w-6" aria-hidden="true"><line x1="0" x2="24" y1="6" y2="6" class="stroke-current stroke-2" stroke-dasharray="{{ series.dash|default:'none' }}" /></svg>
+            {{ series.label }}
+        </span>
+        {% endfor %}
+    </div>
+    <div class="bg-stone-50 border border-stone-300 overflow-x-auto p-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400" tabindex="0" role="region" aria-label="Monthly cash flow chart in {{ currency }}">
+        <svg viewBox="0 0 720 260" class="h-auto min-w-160 w-full" role="img" aria-labelledby="planning-trend-title-{{ currency }} planning-trend-description-{{ currency }}">
+            <title id="planning-trend-title-{{ currency }}">Monthly cash flow in {{ currency }}</title>
+            <desc id="planning-trend-description-{{ currency }}">Recorded non-salary cash flow and expenses. Lines break across missing months. Exact amounts follow in the table.</desc>
+            {% for tick in summary.trend.ticks %}
+            <line x1="120" x2="704" y1="{{ tick.y }}" y2="{{ tick.y }}" class="stroke-stone-200" />
+            <text x="112" y="{{ tick.y }}" text-anchor="end" dominant-baseline="middle" class="fill-stone-600 text-xs">{{ tick.amount|money:"" }}</text>
+            {% endfor %}
+            <line x1="120" x2="704" y1="{{ summary.trend.zero }}" y2="{{ summary.trend.zero }}" class="stroke-stone-400" />
+            {% for series in summary.trend.series %}
+            <g class="{{ series.color }}">
+                {% for segment in series.segments %}
+                <polyline points="{{ segment }}" class="fill-none stroke-current stroke-2" stroke-dasharray="{{ series.dash|default:'none' }}" />
+                {% endfor %}
+                {% for point in series.points %}
+                <circle cx="{{ point.x }}" cy="{{ point.y }}" r="3" class="fill-current">
+                    <title>{{ series.label }}, {{ point.when|date:"Y-m" }}: {{ point.amount|money:"" }}</title>
+                </circle>
+                {% endfor %}
+            </g>
+            {% endfor %}
+            {% for label in summary.trend.labels %}
+            <text x="{{ label.x }}" y="248" text-anchor="middle" class="fill-stone-600 text-xs">{{ label.when|date:"Y-m" }}</text>
+            {% endfor %}
+        </svg>
+    </div>
+    {% else %}
+    <p class="text-sm text-stone-600">Recorded non-salary cash flow and expenses are both zero.</p>
+    {% endif %}
+    <div class="bg-stone-50 border border-stone-300 overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400" tabindex="0" role="region" aria-label="Monthly cash flow table in {{ currency }}">
+        <table class="divide-stone-200 divide-y min-w-full text-sm">
+            <caption class="sr-only">Monthly cash flow in {{ currency }}</caption>
+            <thead class="bg-stone-100 font-semibold text-stone-600 text-xs tracking-wide uppercase">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left">Month</th>
+                    <th scope="col" class="px-4 py-3 text-right">Non-salary cash flow</th>
+                    <th scope="col" class="px-4 py-3 text-right">Expenses</th>
+                    <th scope="col" class="px-4 py-3 text-right">Surplus / shortfall</th>
+                    <th scope="col" class="px-4 py-3 text-right">Running balance</th>
+                </tr>
+            </thead>
+            <tbody class="divide-stone-200 divide-y">
+                {% for month in summary.months.values %}
+                <tr class="bg-stone-50 even:bg-stone-100 hover:bg-sky-50">
+                    <th scope="row" class="font-medium px-4 py-3 text-left whitespace-nowrap"><a class="text-sky-800 hover:text-sky-700" href="{{ month.url }}">{{ month.when|date:"Y-m" }}</a></th>
+                    <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap"><a class="{% if month.non_salary_net.amount < 0 %}text-red-700 hover:text-red-800{% else %}text-sky-800 hover:text-sky-700{% endif %}" href="{{ month.income_url }}">{{ month.non_salary_net.amount|money:"" }}</a></td>
+                    <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap"><a class="text-sky-800 hover:text-sky-700" href="{{ month.expenses_url }}">{{ month.expenses.amount|money:"" }}</a></td>
+                    <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap {% if month.coverage_gap.amount < 0 %}text-red-700{% endif %}">{{ month.coverage_gap.amount|money:"" }}</td>
+                    <td class="px-4 py-3 tabular-nums text-right whitespace-nowrap {% if month.cumulative_gap < 0 %}text-red-700{% endif %}">{{ month.cumulative_gap|money:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endpartialdef %}
+
 {% partialdef configuration_error %}
 <section class="bg-amber-50 border border-amber-200 flex flex-col gap-2 p-4 rounded-lg text-amber-950" aria-label="Planning configuration">
     <h2 class="font-semibold">Planning categories need configuration</h2>
@@ -40,14 +144,21 @@
 
 {% partialdef currency_report %}
 {% for currency, summary in planning.items %}
-    {% with title="Income coverage" rows=summary.coverage_rows %}{% partial metrics %}{% endwith %}
-    {% with title="Cash flow" rows=summary.overview_rows %}{% partial metrics %}{% endwith %}
-    <div class="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2">
-        <p class="text-sm text-stone-600 2xl:col-span-2">Asset breakdowns exclude entries without an assigned asset.</p>
-        {% for breakdown in summary.breakdowns %}
-            {% with title=breakdown.title rows=breakdown.rows %}{% partial metrics %}{% endwith %}
-        {% endfor %}
-    </div>
+    {% partial coverage_summary %}
+    {% partial monthly_cash_flow %}
+    <details>
+        <summary class="cursor-pointer font-semibold rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400">Income and expense details</summary>
+        <div class="flex flex-col gap-6 pt-4">
+            {% with title="Income coverage" rows=summary.coverage_rows %}{% partial metrics %}{% endwith %}
+            {% with title="Cash flow" rows=summary.overview_rows %}{% partial metrics %}{% endwith %}
+            <div class="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2">
+                <p class="text-sm text-stone-600 2xl:col-span-2">Asset breakdowns exclude entries without an assigned asset.</p>
+                {% for breakdown in summary.breakdowns %}
+                    {% with title=breakdown.title rows=breakdown.rows %}{% partial metrics %}{% endwith %}
+                {% endfor %}
+            </div>
+        </div>
+    </details>
 {% empty %}
     <p class="text-stone-600">No entries match these filters.</p>
 {% endfor %}

@@ -82,7 +82,7 @@ def _is_investment_outflow(entry, tags):
     return not entry.is_income and entry.tags[0] == tags["investment"]
 
 
-def _empty_currency_summary():
+def _empty_cash_flow():
     return {
         "expenses": {"amount": Decimal("0")},
         "investment_outflows": {"amount": Decimal("0")},
@@ -93,6 +93,13 @@ def _empty_currency_summary():
         "income_other": {"amount": Decimal("0")},
         "ignored_change": {"amount": Decimal("0")},
         "entries_count": 0,
+    }
+
+
+def _empty_currency_summary():
+    return {
+        **_empty_cash_flow(),
+        "months": OrderedDict(),
         "expenses_by_tag": OrderedDict(),
         "income_by_tag": OrderedDict(),
         "investment_outflows_by_tag": OrderedDict(),
@@ -123,6 +130,32 @@ def _add_asset_breakdown(summary, key, entry):
     )
 
 
+def _finish_cash_flow(summary):
+    income = summary["income_total"]["amount"]
+    salary = summary["income_salary"]["amount"]
+    investment_outflows = summary["investment_outflows"]["amount"]
+    expenses = summary["expenses"]["amount"]
+    summary["investment_net"] = {
+        "amount": (
+            summary["income_other_investment"]["amount"] - investment_outflows
+        ),
+    }
+    summary["non_salary_net"] = {
+        "amount": income - salary - investment_outflows,
+    }
+    summary["net_result"] = {
+        "amount": income - investment_outflows - expenses,
+    }
+    summary["coverage_gap"] = {
+        "amount": summary["non_salary_net"]["amount"] - expenses,
+    }
+    summary["coverage_percent"] = (
+        summary["non_salary_net"]["amount"] / expenses * 100
+        if expenses > 0
+        else None
+    )
+
+
 def build_planning_summary(entries):
     tags = get_planning_tags()
     result = OrderedDict()
@@ -131,16 +164,36 @@ def build_planning_summary(entries):
         "account__currency", "when", "id"
     ):
         currency = entry.account.currency
-        summary = result.setdefault(currency, _empty_currency_summary())
-        summary["entries_count"] += 1
-
+        if currency not in result:
+            result[currency] = _empty_currency_summary()
+        summary = result[currency]
+        month_start = entry.when.replace(day=1)
+        if month_start not in summary["months"]:
+            summary["months"][month_start] = {
+                "when": month_start,
+                **_empty_cash_flow(),
+            }
+        month = summary["months"][month_start]
         if entry.tags[0] == settings.ENTRY_TAGS["transfer"]:
-            _add_metric(summary["ignored_change"], entry)
+            group = "ignored_change"
+        elif _is_investment_outflow(entry, tags):
+            group = "investment_outflows"
+        elif entry.is_income:
+            group = "income_" + _classify_income(entry, tags)
+        else:
+            group = "expenses"
+
+        for totals in (summary, month):
+            totals["entries_count"] += 1
+            _add_metric(totals[group], entry)
+            if entry.is_income and group != "ignored_change":
+                _add_metric(totals["income_total"], entry)
+
+        if group == "ignored_change":
             _add_tag_breakdown(summary, "ignored_change_by_tag", entry)
             continue
 
-        if _is_investment_outflow(entry, tags):
-            _add_metric(summary["investment_outflows"], entry)
+        if group == "investment_outflows":
             _add_tag_breakdown(summary, "investment_outflows_by_tag", entry)
             _add_asset_breakdown(
                 summary, "investment_outflows_by_asset", entry
@@ -148,52 +201,23 @@ def build_planning_summary(entries):
             continue
 
         if entry.is_income:
-            _add_metric(summary["income_total"], entry)
             _add_tag_breakdown(summary, "income_by_tag", entry)
-            classification = _classify_income(entry, tags)
-            if classification == "salary":
-                _add_metric(summary["income_salary"], entry)
-            elif classification == "rental":
-                _add_metric(summary["income_rental"], entry)
+            if group == "income_rental":
                 _add_asset_breakdown(summary, "rental_income_by_asset", entry)
-            elif classification == "other_investment":
-                _add_metric(summary["income_other_investment"], entry)
+            elif group == "income_other_investment":
                 _add_asset_breakdown(
                     summary, "other_investment_income_by_asset", entry
                 )
-            else:
-                _add_metric(summary["income_other"], entry)
         else:
-            _add_metric(summary["expenses"], entry)
             _add_tag_breakdown(summary, "expenses_by_tag", entry)
 
     for summary in result.values():
-        summary["investment_net"] = {
-            "amount": (
-                summary["income_other_investment"]["amount"]
-                - summary["investment_outflows"]["amount"]
-            ),
-        }
-        summary["non_salary_net"] = {
-            "amount": (
-                summary["income_total"]["amount"]
-                - summary["income_salary"]["amount"]
-                - summary["investment_outflows"]["amount"]
-            ),
-        }
-        summary["net_result"] = {
-            "amount": (
-                summary["income_total"]["amount"]
-                - summary["investment_outflows"]["amount"]
-                - summary["expenses"]["amount"]
-            ),
-        }
-        summary["coverage_gap"] = {
-            "amount": (
-                summary["non_salary_net"]["amount"]
-                - summary["expenses"]["amount"]
-            ),
-        }
+        _finish_cash_flow(summary)
+        cumulative_gap = Decimal("0")
+        for month in summary["months"].values():
+            _finish_cash_flow(month)
+            cumulative_gap += month["coverage_gap"]["amount"]
+            month["cumulative_gap"] = cumulative_gap
 
         for key in (
             "expenses_by_tag",

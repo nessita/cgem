@@ -245,6 +245,13 @@ and date bounds combine to restrict the reporting period. Invalid dates,
 out-of-range years, reversed date bounds, and invalid boolean filter values
 return 400.
 
+Each currency report leads with recorded non-salary cash flow, expenses,
+expense coverage, and the resulting surplus or shortfall. A monthly table
+and chart show the trajectory, with detailed breakdowns available below.
+Tags do not establish whether income will recur. Investment cash flow includes
+money moved into and out of savings, so the selected period matters. Months
+without matching entries are omitted rather than treated as zero activity.
+
 Contributing
 ------------
 
