@@ -59,6 +59,75 @@ COUNTRY_BY_CURRENCY = {
 }
 
 
+def _planning_trend(months):
+    series = [
+        {
+            "label": "Non-salary cash flow",
+            "key": "non_salary_net",
+            "color": "text-sky-700",
+        },
+        {
+            "label": "Expenses",
+            "key": "expenses",
+            "color": "text-amber-700",
+            "dash": "6 4",
+        },
+    ]
+    values = [
+        month[item["key"]]["amount"] for month in months for item in series
+    ]
+    low, high = min([0, *values]), max([0, *values])
+    if low == high:
+        return None
+
+    first = months[0]["when"].year * 12 + months[0]["when"].month
+    last = months[-1]["when"].year * 12 + months[-1]["when"].month
+
+    def x(month):
+        if last == first:
+            return "412.00"
+        index = month["when"].year * 12 + month["when"].month
+        return f"{120 + 584 * (index - first) / (last - first):.2f}"
+
+    def y(amount):
+        return f"{16 + 208 * float(high - amount) / float(high - low):.2f}"
+
+    for item in series:
+        item["points"] = []
+        item["segments"] = []
+        segment = []
+        previous = None
+        for month in months:
+            index = month["when"].year * 12 + month["when"].month
+            if previous is not None and index != previous + 1:
+                item["segments"].append(" ".join(segment))
+                segment = []
+            amount = month[item["key"]]["amount"]
+            point = {"x": x(month), "y": y(amount)}
+            segment.append(f"{point['x']},{point['y']}")
+            item["points"].append(
+                {**point, "when": month["when"], "amount": amount}
+            )
+            previous = index
+        item["segments"].append(" ".join(segment))
+
+    return {
+        "series": series,
+        "zero": y(0),
+        "ticks": [
+            {
+                "amount": low + (high - low) * step / 4,
+                "y": y(low + (high - low) * step / 4),
+            }
+            for step in range(5)
+        ],
+        "labels": [
+            {"when": months[index]["when"], "x": x(months[index])}
+            for index in sorted({0, len(months) // 2, len(months) - 1})
+        ],
+    }
+
+
 @require_GET
 @login_required
 def home(request):
@@ -1087,13 +1156,35 @@ def planning(request, book_slug, year=None):
         params.pop("page_size", None)
         params["currency"] = currency
         groups = params.getlist("planning_group")
-        if group not in groups:
+        if group is not None and group not in groups:
             params.setlist("planning_group", [*groups, group])
         for name, value in extra.items():
             params[name] = value
         return entries_url + "?" + params.urlencode()
 
     for currency, summary in planning.items():
+        summary["headline"] = {
+            "income_url": entry_link(currency, "non_salary_net"),
+            "expenses_url": entry_link(currency, "expenses"),
+            "gap_amount": abs(summary["coverage_gap"]["amount"]),
+            "gap_label": (
+                "Shortfall"
+                if summary["coverage_gap"]["amount"] < 0
+                else "Surplus"
+            ),
+        }
+        months = list(summary["months"].values())
+        for month in months:
+            period = {
+                "year": month["when"].year,
+                "month": month["when"].strftime("%b").lower(),
+            }
+            month["url"] = entry_link(currency, None, **period)
+            month["income_url"] = entry_link(
+                currency, "non_salary_net", **period
+            )
+            month["expenses_url"] = entry_link(currency, "expenses", **period)
+        summary["trend"] = _planning_trend(months)
         summary["overview_rows"] = [
             {
                 "label": label,

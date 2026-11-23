@@ -1767,6 +1767,10 @@ class BookPagesTestCase(BaseTestCase):
             response.context["planning"]["USD"]["coverage_gap"]["amount"],
             Decimal("1500"),
         )
+        self.assertIsNone(
+            response.context["planning"]["USD"]["coverage_percent"]
+        )
+        self.assertContains(response, "Comparison unavailable")
         response = self.client.get(
             url,
             {"country": "BR", "currency": "USD"},
@@ -1775,6 +1779,11 @@ class BookPagesTestCase(BaseTestCase):
         self.assertEqual(
             response.context["planning"]["USD"]["expenses"]["amount"], 0
         )
+        self.assertIsNone(
+            response.context["planning"]["USD"]["coverage_percent"]
+        )
+        self.assertIsNone(response.context["planning"]["USD"]["trend"])
+        self.assertContains(response, "Comparison unavailable")
         self.assertNotContains(
             response, "No expense entries match these filters."
         )
@@ -2071,6 +2080,35 @@ class BookPagesTestCase(BaseTestCase):
         self.assertEqual(summary["expenses"]["amount"], Decimal("1000"))
         self.assertEqual(summary["coverage_gap"]["amount"], Decimal("490"))
         self.assertEqual(summary["net_result"]["amount"], Decimal("3490"))
+        self.assertEqual(summary["coverage_percent"], Decimal("149"))
+        months = summary["months"]
+        self.assertEqual(list(months), [date(2026, 1, 1), date(2026, 2, 1)])
+        january, february = months.values()
+        self.assertEqual(
+            january["non_salary_net"]["amount"], Decimal("-10000")
+        )
+        self.assertEqual(
+            february["non_salary_net"]["amount"], Decimal("11490")
+        )
+        self.assertEqual(january["cumulative_gap"], Decimal("-10000"))
+        self.assertEqual(february["cumulative_gap"], Decimal("490"))
+        for metric in (
+            "non_salary_net",
+            "expenses",
+            "investment_net",
+            "coverage_gap",
+        ):
+            self.assertEqual(
+                sum(month[metric]["amount"] for month in months.values()),
+                summary[metric]["amount"],
+            )
+        self.assertContains(response, 'aria-label="Expense coverage in USD"')
+        self.assertContains(
+            response, 'aria-label="Monthly cash flow table in USD"'
+        )
+        self.assertContains(
+            response, "Recurring income is not identified by these tags."
+        )
         self.assertContains(response, "Net investment cash flow")
         page = self.client.get(url, response.wsgi_request.GET)
         self.assertContains(
@@ -2094,6 +2132,126 @@ class BookPagesTestCase(BaseTestCase):
                         "amount"
                     ],
                     Decimal(expected),
+                )
+
+    def test_planning_chart_preserves_missing_months_and_negative_cash_flow(
+        self,
+    ):
+        self.client.force_login(self.user)
+        for month, amount, income in ((1, "100", False), (3, "250", True)):
+            self.factory.make_entry(
+                book=self.book,
+                account=self.account,
+                who=self.user,
+                when=date(2026, month, 1),
+                tags=["INVS"],
+                amount=Decimal(amount),
+                is_income=income,
+            )
+        response = self.client.get(
+            reverse("planning", args=[self.book.slug]),
+            {"year": 2026, "currency": "USD"},
+            headers={"HX-Request": "true"},
+        )
+        summary = response.context["planning"]["USD"]
+        self.assertEqual(
+            list(summary["months"]), [date(2026, 1, 1), date(2026, 3, 1)]
+        )
+        income = summary["trend"]["series"][0]
+        self.assertEqual(len(income["segments"]), 2)
+        self.assertGreater(
+            float(income["points"][0]["y"]), float(summary["trend"]["zero"])
+        )
+        self.assertLess(
+            float(income["points"][1]["y"]), float(summary["trend"]["zero"])
+        )
+        self.assertContains(response, "Lines break across missing months.")
+        self.assertContains(response, "Comparison unavailable")
+        self.assertEqual(summary["coverage_gap"]["amount"], Decimal("150"))
+
+    def test_planning_monthly_drilldowns_preserve_scope_without_extra_queries(
+        self,
+    ):
+        self.client.force_login(self.user)
+        data = {
+            "book": self.book,
+            "account": self.account,
+            "who": self.user,
+            "when": date(2026, 1, 12),
+            "tags": ["RENT"],
+            "country": "US",
+            "amount": Decimal("1.25"),
+            "is_income": True,
+        }
+        self.factory.make_entry(**data)
+        for overrides in (
+            {"when": date(2026, 1, 9)},
+            {"when": date(2026, 11, 16)},
+            {"tags": ["WORK"]},
+            {"country": "CA"},
+            {
+                "account": self.factory.make_account(
+                    users=[self.user], currency="EUR"
+                )
+            },
+        ):
+            self.factory.make_entry(**{**data, **overrides})
+        params = {
+            "currency": "USD",
+            "year": 2026,
+            "start": "2026-01-10",
+            "end": "2026-11-15",
+            "country": "US",
+            "tag": "RENT",
+            "page": 2,
+            "page_size": 1,
+        }
+        with self.assertQueryCountUnchanged(
+            execute=lambda: self.client.get(
+                reverse("planning", args=[self.book.slug]),
+                params,
+                headers={"HX-Request": "true"},
+            ),
+            make_more=lambda: [
+                self.factory.make_entry(
+                    **{**data, "when": date(2026, month, 12)}
+                )
+                for month in range(2, 9)
+            ],
+        ) as comparison:
+            before = comparison.before.context["planning"]["USD"]
+            after = comparison.after.context["planning"]["USD"]
+            self.assertEqual(
+                before["non_salary_net"]["amount"], Decimal("1.25")
+            )
+            self.assertEqual(after["non_salary_net"]["amount"], Decimal("10"))
+        self.assertEqual(
+            list(after["months"]),
+            [date(2026, month, 1) for month in range(1, 9)],
+        )
+        month = after["months"][date(2026, 3, 1)]
+        expected_query = {
+            name: [str(value)]
+            for name, value in params.items()
+            if name not in {"page", "page_size"}
+        }
+        expected_query["month"] = ["mar"]
+        for key, group in (
+            ("url", None),
+            ("income_url", "non_salary_net"),
+            ("expenses_url", "expenses"),
+        ):
+            with self.subTest(link=key):
+                query = parse_qs(urlsplit(month[key]).query)
+                expected = expected_query.copy()
+                if group:
+                    expected["planning_group"] = [group]
+                self.assertEqual(query, expected)
+                detail = self.client.get(month[key])
+                self.assertEqual(detail.status_code, 200)
+                self.assertEqual(
+                    detail.context["entries"].paginator.count,
+                    0 if key == "expenses_url" else 1,
                 )
 
     def test_pagination_preserves_filters_and_bulk_selection(self):
