@@ -1209,6 +1209,67 @@ class BookPagesTestCase(BaseTestCase):
                     [reverse(name, args=args)],
                 )
 
+    def test_sidebar_does_not_autofocus_and_counts_filter_options(self):
+        self.client.force_login(self.user)
+        asset = Asset.objects.create(name="Fund", since=date(2020, 1, 1))
+        asset.users.add(self.user)
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+            asset=asset,
+            tags=[TAGS[0]],
+            when=date(2026, 11, 6),
+        )
+        for name in ("entries", "balance", "planning"):
+            with self.subTest(page=name):
+                response = self.client.get(
+                    reverse(name, args=[self.book.slug]), {"year": 2026}
+                )
+                self.assertEqual(response.status_code, 200)
+                elements = ElementCollector(response.content.decode()).elements
+                search = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("id") == "search-text"
+                )
+                self.assertNotIn("autofocus", search)
+                date_input = next(
+                    attrs
+                    for tag, attrs in elements
+                    if tag == "input" and attrs.get("id") == "search-when"
+                )
+                self.assertNotIn("autofocus", date_input)
+                for label in (
+                    "Tags",
+                    "Months",
+                    "Years",
+                    "Countries",
+                    "People",
+                    "Currencies",
+                    "Assets",
+                ):
+                    self.assertContains(response, f">{label} (1)</summary>")
+
+    def test_bottom_pagination_precedes_selection_actions(self):
+        self.client.force_login(self.user)
+        self.factory.make_entry(
+            book=self.book,
+            account=self.account,
+            who=self.user,
+        )
+        response = self.client.get(reverse("entries", args=[self.book.slug]))
+        html = response.content.decode()
+        self.assertContains(response, 'aria-label="Entries pages"', count=2)
+        self.assertLess(
+            html.index('id="entries-scroll"'),
+            html.rindex('aria-label="Entries pages"'),
+        )
+        self.assertLess(
+            html.rindex('aria-label="Entries pages"'),
+            html.index('id="entry-selection-actions"'),
+        )
+
     def test_date_inputs_always_show_iso_dates(self):
         self.client.force_login(self.user)
         entry = self.factory.make_entry(
