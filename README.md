@@ -252,6 +252,13 @@ Tags do not establish whether income will recur. Investment cash flow includes
 money moved into and out of savings, so the selected period matters. Months
 without matching entries are omitted rather than treated as zero activity.
 
+Historical exchange rates
+-------------------------
+
+CGEM can store daily historical exchange rates by currency pair, source, and
+series, separately from entries. The conversion rate is the published reference
+when available, otherwise the average of buying and selling quotes.
+
 Contributing
 ------------
 

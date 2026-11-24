@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_countries",
     "django_htmx",
+    "gemrates",
     "gemcore",
     "health_check",
     "rest_framework",
