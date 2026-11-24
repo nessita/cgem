@@ -2,11 +2,11 @@ import subprocess
 
 from django.test import TestCase
 
-PACKAGES = ["gem", "gemcore"]
+PACKAGES = ["gem", "gemcore", "gemrates"]
 
 
 class Flake8ConformanceTestCase(TestCase):
-    excludes = ["gemcore/migrations"]
+    excludes = ["gemcore/migrations", "gemrates/migrations"]
 
     def test_lint(self):
         excludes = ",".join(self.excludes)

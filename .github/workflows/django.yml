@@ -49,7 +49,7 @@ jobs:
     - name: Check linting
       run: |
         pip install flake8 isort
-        flake8 --exclude=gemcore/migrations .
+        flake8 --exclude=gemcore/migrations,gemrates/migrations .
         isort --check .
     - name: Collect static files
       run: |
