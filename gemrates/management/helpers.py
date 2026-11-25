@@ -12,19 +12,25 @@ def cache_path(directory, provider, series, start, end, target="USD"):
     return Path(directory) / f"{key}_{start}_{end}.{provider.EXTENSION}"
 
 
-def load_response(provider, series, start, end, target, cache_dir=None):
-    if cache_dir is None:
+def load_response(
+    provider, series, start, end, target, cache_dir=None, *, input_file=None
+):
+    if cache_dir is not None and input_file is not None:
+        raise CommandError("Choose either --cache-dir or --input-file.")
+    if cache_dir is None and input_file is None:
         return provider.fetch(start, end, series, target)
-    path = cache_path(cache_dir, provider, series, start, end, target)
+    path = (
+        Path(input_file)
+        if input_file is not None
+        else cache_path(cache_dir, provider, series, start, end, target)
+    )
     try:
         with path.open("rb") as response:
             payload = response.read(provider.MAX_RESPONSE_BYTES + 1)
     except OSError as error:
-        raise CommandError(
-            f"Could not read cached response: {path}"
-        ) from error
+        raise CommandError(f"Could not read quotation file: {path}") from error
     if len(payload) > provider.MAX_RESPONSE_BYTES:
-        raise CommandError(f"Cached response exceeds the size limit: {path}")
+        raise CommandError(f"Quotation file exceeds the size limit: {path}")
     return payload
 
 

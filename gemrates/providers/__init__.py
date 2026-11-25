@@ -1,3 +1,3 @@
-from gemrates.providers import bcu
+from gemrates.providers import bcu, ine
 
-PROVIDERS = {"bcu": bcu}
+PROVIDERS = {"bcu": bcu, "ine": ine}

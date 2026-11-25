@@ -29,10 +29,16 @@ class Command(BaseCommand):
             "--series", nargs="+", default=[], metavar="CURRENCY=CODE"
         )
         parser.add_argument("--replace", action="store_true")
-        parser.add_argument(
+        input_group = parser.add_mutually_exclusive_group()
+        input_group.add_argument(
             "--cache-dir",
             type=Path,
             help="Read audited files without contacting the provider.",
+        )
+        input_group.add_argument(
+            "--input-file",
+            type=Path,
+            help="Read a downloaded provider file without network access.",
         )
 
     def handle(self, *args, **options):
@@ -48,7 +54,13 @@ class Command(BaseCommand):
         # Read every batch before writing so missing input saves nothing.
         for since, until in provider.date_ranges(start, end):
             payload = load_response(
-                provider, series, since, until, target, options["cache_dir"]
+                provider,
+                series,
+                since,
+                until,
+                target,
+                options["cache_dir"],
+                input_file=options["input_file"],
             )
             batch, rejected = parse_response(
                 provider, payload, series, since, until, target

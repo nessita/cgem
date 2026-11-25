@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from urllib.error import URLError
 from xml.etree import ElementTree
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from django.contrib.admin import AdminSite
 from django.contrib.auth import get_user_model
@@ -22,7 +23,7 @@ from django.urls import reverse
 from gemrates.admin import ExchangeRateAdmin
 from gemrates.management.helpers import cache_path, parse_response
 from gemrates.models import ExchangeRate
-from gemrates.providers import PROVIDERS, bcu
+from gemrates.providers import PROVIDERS, bcu, ine
 from gemrates.providers.bcu import MAX_RESPONSE_BYTES
 
 
@@ -70,6 +71,102 @@ def sample_provider():
             0,
         ),
     )
+
+
+def ine_workbook(
+    *rows,
+    sheet="Fuente BROU",
+    headers=(
+        "Fecha",
+        "Hora.de.publicación",
+        "Dólar.USA.Compra",
+        "Dólar.USA.Venta",
+        "Dólar.eBROU.Compra",
+        "Dólar.eBROU.Venta",
+    ),
+):
+    # Reader tests must not require a second spreadsheet dependency to write.
+    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    worksheet = ElementTree.Element("worksheet", xmlns=namespace)
+    data = ElementTree.SubElement(worksheet, "sheetData")
+    for number, values in enumerate((headers, *rows), 1):
+        row = ElementTree.SubElement(data, "row", r=str(number))
+        for column, value in enumerate(values):
+            if value is None:
+                continue
+            cell = ElementTree.SubElement(
+                row, "c", r=f"{chr(65 + column)}{number}"
+            )
+            if isinstance(value, date):
+                cell.set("s", "1")
+                value = (value - date(1899, 12, 30)).days
+            if isinstance(value, (int, float)):
+                ElementTree.SubElement(cell, "v").text = str(value)
+            else:
+                cell.set("t", "inlineStr")
+                text = ElementTree.SubElement(cell, "is")
+                ElementTree.SubElement(text, "t").text = str(value)
+    workbook = ElementTree.Element(
+        "workbook",
+        xmlns=namespace,
+        **{
+            "xmlns:r": (
+                "http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships"
+            )
+        },
+    )
+    sheets = ElementTree.SubElement(workbook, "sheets")
+    ElementTree.SubElement(
+        sheets, "sheet", name=sheet, sheetId="1", **{"r:id": "rId1"}
+    )
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+            'content-types"><Default Extension="rels" '
+            'ContentType="application/'
+            'vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/'
+            'vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.'
+            'spreadsheetml.worksheet+xml"/>'
+            '<Override PartName="/xl/styles.xml" ContentType="application/'
+            'vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            "</Types>",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/'
+            '2006/relationships"><Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+            'relationships/officeDocument" Target="xl/workbook.xml"/>'
+            "</Relationships>",
+        )
+        archive.writestr("xl/workbook.xml", ElementTree.tostring(workbook))
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/'
+            '2006/relationships"><Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+            'relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            '<Relationship Id="rId2" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+            'relationships/styles" Target="styles.xml"/>'
+            "</Relationships>",
+        )
+        archive.writestr(
+            "xl/styles.xml",
+            f'<styleSheet xmlns="{namespace}"><cellXfs count="2">'
+            '<xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>',
+        )
+        archive.writestr(
+            "xl/worksheets/sheet1.xml", ElementTree.tostring(worksheet)
+        )
+    return output.getvalue()
 
 
 class ExchangeRateAdminTestCase(SimpleTestCase):
@@ -128,6 +225,83 @@ class ExchangeRateAdminViewTestCase(TestCase):
 
 
 class ProviderWorkflowTestCase(TestCase):
+    def test_ine_file_is_audited_cached_and_imported_without_network(self):
+        row = ("07-09-2026", "09:00", 39, 41.5, 39.5, 41)
+        payload = ine_workbook(row, row)
+        options = {
+            "provider": "ine",
+            "start": date(2026, 9, 7),
+            "end": date(2026, 9, 7),
+            "currencies": ["UYU"],
+            "series": ["UYU=ebrou"],
+        }
+        with (
+            TemporaryDirectory() as directory,
+            patch("gemrates.providers.ine.urlopen") as fetch,
+        ):
+            directory = Path(directory)
+            source = directory / "original.xlsx"
+            source.write_bytes(payload)
+            output = StringIO()
+            call_command(
+                "audit_exchange_rates",
+                **options,
+                input_file=source,
+                output=directory,
+                stdout=output,
+            )
+            self.assertEqual(ExchangeRate.objects.count(), 0)
+            self.assertIn(
+                "0 fetched; 0 cached; 1 loaded from file", output.getvalue()
+            )
+            report_path = next(directory.glob("*_report.json"))
+            report = json.loads(report_path.read_text())
+            self.assertEqual(report["currencies"]["UYU"]["observations"], 1)
+            for extra in ({"input_file": source}, {"cache_dir": directory}):
+                call_command(
+                    "fetch_exchange_rates",
+                    **options,
+                    **extra,
+                    stdout=StringIO(),
+                )
+            quote = ExchangeRate.objects.get()
+            self.assertEqual(quote.source, "ine")
+            self.assertEqual(quote.series, "ebrou")
+            self.assertEqual(quote.sell, Decimal("0.025316455696"))
+            call_command(
+                "fetch_exchange_rates",
+                **{**options, "series": ["UYU=regular"]},
+                input_file=source,
+                stdout=StringIO(),
+            )
+            self.assertEqual(ExchangeRate.objects.count(), 2)
+            self.assertEqual(source.read_bytes(), payload)
+            fetch.assert_not_called()
+
+    def test_ine_rejects_bad_rows_but_imports_other_dates(self):
+        with TemporaryDirectory() as directory:
+            source = Path(directory) / "quotations.xlsx"
+            source.write_bytes(
+                ine_workbook(
+                    ("07-09-2026", "09:00", 42, 41, 42, 41),
+                    ("08-09-2026", "09:00", 39, 41, 39.5, 41),
+                )
+            )
+            self.assertRaisesMessage(
+                CommandError,
+                "Other valid quotations were imported",
+                call_command,
+                "fetch_exchange_rates",
+                provider="ine",
+                start=date(2026, 9, 7),
+                end=date(2026, 9, 8),
+                currencies=["UYU"],
+                series=["UYU=ebrou"],
+                input_file=source,
+                stdout=StringIO(),
+            )
+        self.assertEqual(ExchangeRate.objects.get().date, date(2026, 9, 8))
+
     def test_registered_provider_uses_shared_audit_cache_and_import(self):
         provider = sample_provider()
         self.assertNotIn(provider.CODE, PROVIDERS)
@@ -647,7 +821,7 @@ class ExchangeRateTestCase(TestCase):
 
     def test_missing_or_unusable_cached_batches_save_nothing(self):
         for payload, message in (
-            (None, "Could not read cached response"),
+            (None, "Could not read quotation file"),
             (b"not XML", "invalid XML"),
             (b" " * (MAX_RESPONSE_BYTES + 1), "exceeds the size limit"),
         ):
@@ -939,3 +1113,106 @@ class ExchangeRateTestCase(TestCase):
                 stdout=StringIO(),
             )
         self.assertEqual(ExchangeRate.objects.count(), 3)
+
+
+class INEProviderTestCase(SimpleTestCase):
+    def test_brou_series_preserve_dates_and_invert_the_spread(self):
+        payload = ine_workbook(
+            ("07-09-2026", "09:00", 39, 41.5, 39.5, 41),
+            ("08-09-2026", "09:00", 0, 0, 0, 0),
+        )
+        for code, buy, sell in (
+            ("regular", "0.024096385542", "0.025641025641"),
+            ("ebrou", "0.024390243902", "0.025316455696"),
+        ):
+            with self.subTest(series=code):
+                quotes, invalid = parse_response(
+                    ine,
+                    payload,
+                    {"UYU": code},
+                    date(2026, 9, 7),
+                    date(2026, 9, 7),
+                    "USD",
+                )
+                self.assertEqual(invalid, 0)
+                self.assertEqual(len(quotes), 1)
+                quote = quotes[0]
+                self.assertEqual(quote.date, date(2026, 9, 7))
+                self.assertEqual(quote.source, "ine")
+                self.assertEqual(quote.series, code)
+                self.assertEqual(quote.from_currency, "UYU")
+                self.assertEqual(quote.to_currency, "USD")
+                self.assertEqual(quote.buy, Decimal(buy))
+                self.assertEqual(quote.sell, Decimal(sell))
+                self.assertIsNone(quote.reference)
+
+    def test_missing_series_and_invalid_rows_are_distinguished(self):
+        payload = ine_workbook(
+            ("07-09-2026", "09:00", 39, 41, "..", ".."),
+            ("07-09-2026", "09:00", 39, 41, "…", "…"),
+            ("07-09-2026", "09:00", 39, 41, 39.5, ".."),
+            ("07-09-2026", "09:00", 39, 41, 39.5, "…"),
+            ("07-09-2026", "09:00", 39, 41, 42, 41),
+            ("07-09-2026", "09:00", 39, 41, 0, 41),
+            ("07-09-2026", "09:00", 39, 41, "NaN", 41),
+            ("not a date", "09:00", 39, 41, 39.5, 41),
+            (None, None, None, None, None, None),
+            (date(2026, 9, 7), "09:00", 39, 41, 39.55, 40.95),
+            (None, None, None, None, None, None),
+        )
+        quotes, invalid = parse_response(
+            ine,
+            payload,
+            {"UYU": "ebrou"},
+            date(2026, 9, 7),
+            date(2026, 9, 7),
+            "USD",
+        )
+        self.assertEqual(invalid, 6)
+        self.assertEqual(len(quotes), 1)
+        self.assertEqual(quotes[0].sell, Decimal("0.025284450063"))
+
+    def test_unexpected_workbooks_fail_explicitly(self):
+        for payload, message in (
+            (b"not XLSX", "Could not read the INE workbook"),
+            (ine_workbook(sheet="Other"), "no Fuente BROU sheet"),
+            (ine_workbook(headers=("Date",)), "unexpected quotation columns"),
+        ):
+            with self.subTest(message=message):
+                self.assertRaisesMessage(
+                    CommandError,
+                    message,
+                    ine.parse,
+                    payload,
+                    {"UYU": "ebrou"},
+                    date(2026, 9, 7),
+                    date(2026, 9, 7),
+                    "USD",
+                )
+
+    def test_ine_options_require_an_explicit_supported_series(self):
+        for currencies, target, values, message in (
+            (["ARS"], "USD", ["ARS=regular"], "UYU to USD only"),
+            (["UYU"], "EUR", ["UYU=ebrou"], "UYU to USD only"),
+            (["UYU"], "USD", [], "UYU=regular or UYU=ebrou"),
+            (["UYU"], "USD", ["UYU=other"], "UYU=regular or UYU=ebrou"),
+            (
+                ["UYU"],
+                "USD",
+                ["UYU=regular", "UYU=ebrou"],
+                "UYU=regular or UYU=ebrou",
+            ),
+        ):
+            with self.subTest(currencies=currencies, values=values):
+                self.assertRaisesMessage(
+                    CommandError,
+                    message,
+                    ine.validate_options,
+                    currencies,
+                    target,
+                    values,
+                )
+        self.assertEqual(
+            ine.validate_options(["UYU"], "USD", ["UYU=ebrou"]),
+            {"UYU": "ebrou"},
+        )
