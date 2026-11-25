@@ -7,4 +7,5 @@ django-htmx
 djangorestframework
 gunicorn
 psycopg[binary]
+python-calamine
 whitenoise
