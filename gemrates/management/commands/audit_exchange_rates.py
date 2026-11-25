@@ -41,6 +41,11 @@ class Command(BaseCommand):
             "--series", nargs="+", default=[], metavar="CURRENCY=CODE"
         )
         parser.add_argument("--output", required=True, type=Path)
+        parser.add_argument(
+            "--input-file",
+            type=Path,
+            help="Read a downloaded provider file instead of fetching it.",
+        )
         parser.add_argument("--delay", type=float, default=0.5)
         parser.add_argument(
             "--keep-going",
@@ -64,7 +69,7 @@ class Command(BaseCommand):
         directory.mkdir(parents=True, exist_ok=True)
         prefix = provider.cache_key(series, target)
         present, rejected_batches = set(), []
-        fetched, cached = 0, 0
+        fetched, cached, loaded = 0, 0, 0
         ranges = list(provider.date_ranges(start, end))
         for index, (since, until) in enumerate(ranges, 1):
             path = cache_path(
@@ -79,6 +84,9 @@ class Command(BaseCommand):
                     until,
                     target,
                     directory if from_cache else None,
+                    input_file=(
+                        options["input_file"] if not from_cache else None
+                    ),
                 )
                 quotations, invalid = parse_response(
                     provider, payload, series, since, until, target
@@ -90,7 +98,10 @@ class Command(BaseCommand):
                     partial = path.with_suffix(path.suffix + ".part")
                     partial.write_bytes(payload)
                     partial.rename(path)
-                    fetched += 1
+                    if options["input_file"] is not None:
+                        loaded += 1
+                    else:
+                        fetched += 1
                 quotations, conflicts = audit_quotations(
                     quotations, invalid, keep_going=options["keep_going"]
                 )
@@ -121,7 +132,12 @@ class Command(BaseCommand):
                     f"{since} to {until}: {invalid} invalid rows; "
                     f"{len(conflicts)} conflicting dates. See {path}"
                 )
-            origin = "cached" if from_cache else "fetched"
+            if from_cache:
+                origin = "cached"
+            elif options["input_file"] is not None:
+                origin = "file"
+            else:
+                origin = "fetched"
             self.stdout.write(
                 f"[{index}/{len(ranges)}] {since} to {until}: "
                 f"{len(quotations)} observations ({origin})"
@@ -170,7 +186,10 @@ class Command(BaseCommand):
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
         partial.replace(report_path)
-        self.stdout.write(f"Requests: {fetched} fetched; {cached} cached.")
+        self.stdout.write(
+            f"Requests: {fetched} fetched; {cached} cached; "
+            f"{loaded} loaded from file."
+        )
         self.stdout.write(f"Report: {report_path}")
         self.stdout.write(
             "Weekday gaps can include holidays and days without trading; "
